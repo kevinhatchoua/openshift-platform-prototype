@@ -1,4 +1,5 @@
 import { createBrowserRouter } from "react-router";
+import { collectStubPaths } from "./navigation/consoleNav";
 import RootLayout from "./components/RootLayout";
 import Layout from "./components/Layout";
 import HomePage from "./pages/HomePage";
@@ -46,6 +47,12 @@ import OperatorInstallingPage from "./pages/ecosystem/OperatorInstallingPage";
 import OperatorInstalledPage from "./pages/ecosystem/OperatorInstalledPage";
 
 import NodeDetailPage from "./pages/compute/NodeDetailPage";
+import ConsoleStubPage from "./pages/ConsoleStubPage";
+
+const consoleStubRoutes = collectStubPaths().map((fullPath) => ({
+  path: fullPath.replace(/^\//, ""),
+  Component: ConsoleStubPage,
+}));
 
 export const router = createBrowserRouter([
   {
@@ -109,6 +116,7 @@ export const router = createBrowserRouter([
           { path: "alerts", Component: AlertsPage },
           { path: "activity/:id", Component: ActivityDetailsPage },
           { path: "inventory", Component: ClusterInventoryPage },
+          ...consoleStubRoutes,
         ],
       },
     ],

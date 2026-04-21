@@ -18,7 +18,8 @@ import {
   X,
 } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import { catalogItemLogoSrc, type LogoCatalogType } from "./catalogLogos";
+import { CatalogBrandLogo } from "./CatalogBrandLogo";
+import type { LogoCatalogType } from "./catalogLogos";
 
 /** Facet / tile type for Software Catalog entries (operators + other catalog resources). */
 type CatalogItemKind =
@@ -873,45 +874,23 @@ export default function SoftwareCatalogPage() {
           </p>
         </Content>
 
-        {((availableUpdates > 0 && !dismissedAlerts.includes("updates")) || !dismissedAlerts.includes("olmv1")) && (
+        {availableUpdates > 0 && !dismissedAlerts.includes("updates") && (
           <AlertGroup className="mb-4">
-            {availableUpdates > 0 && !dismissedAlerts.includes("updates") && (
-              <Alert
-                variant="info"
-                isInline
-                title={`${availableUpdates} Software versions available`}
-                actionClose={
-                  <AlertActionCloseButton onClose={() => setDismissedAlerts((prev) => [...prev, "updates"])} />
-                }
-                actionLinks={
-                  <AlertActionLink component={Link} to="/ecosystem/installed-operators">
-                    Manage updates
-                  </AlertActionLink>
-                }
-              >
-                Review and approve pending software updates to keep your cluster secure and up-to-date.
-              </Alert>
-            )}
-            {!dismissedAlerts.includes("olmv1") && (
-              <Alert
-                variant="info"
-                isInline
-                title="Operator Lifecycle Management version 1"
-                actionClose={
-                  <AlertActionCloseButton onClose={() => setDismissedAlerts((prev) => [...prev, "olmv1"])} />
-                }
-              >
-                {`With OLMv1, you'll get a much simpler API that's easier to work with and understand. Plus, you have more direct control over upgrade. You can define update ranges, and decide exactly how updates are rolled out. `}
-                <a
-                  href="https://docs.openshift.com/container-platform/latest/operators/understanding/olm-understanding-operatorhub.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Learn more
-                </a>
-                {` about OLMv1.`}
-              </Alert>
-            )}
+            <Alert
+              variant="info"
+              isInline
+              title={`${availableUpdates} Software versions available`}
+              actionClose={
+                <AlertActionCloseButton onClose={() => setDismissedAlerts((prev) => [...prev, "updates"])} />
+              }
+              actionLinks={
+                <AlertActionLink component={Link} to="/ecosystem/installed-operators">
+                  Manage updates
+                </AlertActionLink>
+              }
+            >
+              Review and approve pending software updates to keep your cluster secure and up-to-date.
+            </Alert>
           </AlertGroup>
         )}
 
@@ -1193,38 +1172,32 @@ export default function SoftwareCatalogPage() {
             </div>
           </div>
 
-          {/* Main Content — “All items” grid (tile pattern aligned with console catalog) */}
+          {/* Main Content — catalog grid (search + sort left-aligned) */}
           <div className="flex-1 min-w-0">
-            <div className="flex flex-col gap-[16px] mb-[24px] lg:flex-row lg:items-center lg:justify-between">
-              <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[18px] text-[#151515] dark:text-white shrink-0">
-                All items
-              </h2>
-              <div className="flex flex-col gap-[12px] sm:flex-row sm:items-center sm:justify-end flex-1 min-w-0">
-                <div className="relative w-full sm:max-w-[320px] lg:w-[320px]">
-                  <Search className="absolute left-[12px] top-[10px] size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-                  <input
-                    type="search"
-                    placeholder="Filter by keyword…"
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full pl-[36px] pr-[12px] py-[8px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[#c7c7c7] dark:border-[rgba(255,255,255,0.2)] rounded-[999px] text-[14px] text-[#151515] dark:text-white placeholder:text-[#4d4d4d] dark:placeholder:text-[#b0b0b0] focus:outline-none focus:ring-2 focus:ring-[#0066cc] dark:focus:ring-[#4dabf7]"
-                  />
-                </div>
-                <select
-                  aria-label="Sort catalog items"
-                  value={catalogSort}
-                  onChange={(e) => setCatalogSort(e.target.value as "relevance" | "name")}
-                  className="w-full sm:w-auto min-w-[140px] pl-[12px] pr-[12px] py-[8px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[#c7c7c7] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] text-[14px] text-[#151515] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0066cc] dark:focus:ring-[#4dabf7]"
-                >
-                  <option value="relevance">Relevance</option>
-                  <option value="name">Name (A–Z)</option>
-                </select>
+            <div className="flex flex-col gap-[12px] mb-[24px] sm:flex-row sm:flex-wrap sm:items-center sm:justify-start sm:gap-[12px]">
+              <div className="relative w-full sm:max-w-[320px] sm:w-[320px]">
+                <Search className="absolute left-[12px] top-[10px] size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
+                <input
+                  type="search"
+                  placeholder="Filter by keyword…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-[36px] pr-[12px] py-[8px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[#c7c7c7] dark:border-[rgba(255,255,255,0.2)] rounded-[999px] text-[14px] text-[#151515] dark:text-white placeholder:text-[#4d4d4d] dark:placeholder:text-[#b0b0b0] focus:outline-none focus:ring-2 focus:ring-[#0066cc] dark:focus:ring-[#4dabf7]"
+                />
               </div>
+              <select
+                aria-label="Sort catalog items"
+                value={catalogSort}
+                onChange={(e) => setCatalogSort(e.target.value as "relevance" | "name")}
+                className="w-full sm:w-auto min-w-[140px] pl-[12px] pr-[12px] py-[8px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[#c7c7c7] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] text-[14px] text-[#151515] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0066cc] dark:focus:ring-[#4dabf7]"
+              >
+                <option value="relevance">Relevance</option>
+                <option value="name">Name (A–Z)</option>
+              </select>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-[16px]">
               {filteredCatalogItems.map((item) => {
-                const logoSrc = catalogItemLogoSrc(item.id, item.catalogType as LogoCatalogType);
                 return (
                 <button
                   key={item.id}
@@ -1233,18 +1206,12 @@ export default function SoftwareCatalogPage() {
                   className="flex h-full min-h-[220px] flex-col bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.14)] rounded-[12px] p-[18px] text-left hover:shadow-[0px_4px_16px_0px_rgba(0,0,0,0.12)] dark:hover:border-[rgba(255,255,255,0.22)] transition-all"
                 >
                   <div className="flex justify-between items-start gap-[12px] mb-[16px]">
-                    <div
-                      className="size-[40px] rounded-[6px] bg-white dark:bg-[#ececec] flex items-center justify-center p-[6px] shrink-0 border border-[rgba(0,0,0,0.08)] dark:border-[rgba(0,0,0,0.12)]"
-                      aria-hidden
-                    >
-                      <img
-                        src={logoSrc}
-                        alt=""
-                        className="max-h-[28px] max-w-[28px] w-auto h-auto object-contain"
-                        loading="lazy"
-                        decoding="async"
-                      />
-                    </div>
+                    <CatalogBrandLogo
+                      id={item.id}
+                      catalogType={item.catalogType as LogoCatalogType}
+                      boxClassName="size-[40px] rounded-[6px] bg-white dark:bg-[#ececec] flex items-center justify-center p-[6px] shrink-0 border border-[rgba(0,0,0,0.08)] dark:border-[rgba(0,0,0,0.12)]"
+                      logoClassName="h-[28px] w-[28px] max-h-[28px] max-w-[28px]"
+                    />
                     <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#5c5f62] text-white shrink-0 max-w-[min(148px,48%)] text-right">
                       {catalogCardPillLabel(item)}
                     </span>
@@ -1305,16 +1272,12 @@ export default function SoftwareCatalogPage() {
             <div className="flex-1 overflow-y-auto">
               <header className="sticky top-0 z-[2] border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.92)] dark:bg-[rgba(28,28,28,0.96)] px-6 pt-5 pb-4 backdrop-blur-md">
                 <div className="flex gap-4">
-                  <div className="size-14 shrink-0 rounded-md bg-white dark:bg-[#2b2b2b] flex items-center justify-center overflow-hidden border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.12)]">
-                    <img
-                      src={catalogItemLogoSrc(
-                        selectedCatalogItem.id,
-                        selectedCatalogItem.catalogType as LogoCatalogType,
-                      )}
-                      alt=""
-                      className="size-11 object-contain"
-                    />
-                  </div>
+                  <CatalogBrandLogo
+                    id={selectedCatalogItem.id}
+                    catalogType={selectedCatalogItem.catalogType as LogoCatalogType}
+                    boxClassName="size-14 shrink-0 rounded-md bg-white dark:bg-[#2b2b2b] flex items-center justify-center overflow-hidden border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.12)]"
+                    logoClassName="size-11 max-h-11 max-w-11"
+                  />
                   <div className="flex-1 min-w-0 pr-2">
                     <div className="flex justify-between gap-3 items-start">
                       <div className="min-w-0">
