@@ -1,6 +1,34 @@
-# OCP Cluster Update UX Prototype
+# OCP 5.x Operator Management & OLM — UX prototype
 
-Interactive React/TypeScript prototype for OpenShift Container Platform **5.x** cluster update and operator experiences. Built with **Vite**, **Tailwind CSS v4**, and **React Router v7**.
+Interactive React/TypeScript prototype for OpenShift Container Platform **5.x** operator catalog, installed operators, and related management flows. Built with **Vite**, **Tailwind CSS v4**, and **React Router v7**.
+
+**Primary tracking:** [HPUX-1480](https://redhat.atlassian.net/browse/HPUX-1480) (Atlassian / Jira).
+
+This repository is the **standalone** home for this work (separate from the cluster-update–only prototype repo). Historical lineage traces to shared UX exploration with `ocp5-cluster-update-experience`; ongoing Operator Management / OLM UX changes land here.
+
+### Problem statement
+
+Cluster Administrators need a centralized, consistent Operator Management experience. Today, fragmented catalog experiences, limited guidance on updates, and suboptimal table density increase cognitive load and slow decision-making.
+
+### Goals
+
+- Centralize Operator discovery/management by moving to a single catalog API.
+- Integrate AI-driven update recommendations to reduce update fatigue and risk.
+- Optimize Operator Management tables for efficient scanning and decision-making.
+
+### Definition of Done
+
+- Epic scope and success criteria are approved by UX and Console stakeholders.
+- All child stories are created, prioritized, and linked to this Epic.
+- Cross-team dependencies are identified (Console, catalog API, AI/insights).
+- Plan includes validation checkpoints (design reviews, usability/feedback as needed).
+
+### Strategic reminders
+
+- Link this Epic to the relevant **OCPSTRAT** item for Operator Lifecycle / Operator Management so it appears on leadership dashboards.
+- Ensure **Fix Version** is set to **5.0**.
+
+---
 
 ## Getting Started
 
@@ -120,4 +148,4 @@ In-app links reference OpenShift documentation where appropriate, for example:
 
 ---
 
-*This repository is a UX prototype; behavior and data are simulated for exploration and presentation.*
+*This repository is a UX prototype; behavior and data are simulated for exploration and presentation. Product requirements and delivery are tracked in Jira under [HPUX-1480](https://redhat.atlassian.net/browse/HPUX-1480).*

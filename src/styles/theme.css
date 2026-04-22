@@ -485,3 +485,210 @@ html.no-glass.dark .app-glass-panel.app-glass-panel--edge-right {
 .ols-chatbot-panel .pf-v6-c-drawer__close .pf-v6-c-button {
   color: var(--pf-t--global--text--color--regular);
 }
+
+/**
+ * App shell: dark theme mimics OpenShift console chrome; light theme uses PatternFly default surfaces + text.
+ * Theme follows `html.dark` from {@link applyThemeToDocument}.
+ */
+
+/* —— Dark theme —— */
+html.dark .ocs-console-page.pf-v6-c-page {
+  --pf-v6-c-masthead--BackgroundColor: var(--pf-color-gray-95);
+  --pf-v6-c-masthead--BorderColor: var(--pf-color-gray-80);
+  --pf-v6-c-page__sidebar--BackgroundColor: var(--pf-color-gray-95);
+  --pf-v6-c-page__sidebar--xl--BackgroundColor: var(--pf-color-gray-95);
+  --pf-v6-c-page__sidebar--BackdropFilter: none;
+  --pf-v6-c-page__sidebar--xl--BackdropFilter: none;
+}
+
+html.dark .ocs-console-masthead.pf-v6-c-masthead {
+  --pf-v6-c-masthead--BorderColor: var(--pf-color-gray-80);
+}
+
+html.dark .ocs-console-masthead .pf-v6-c-masthead__main,
+html.dark .ocs-console-masthead .pf-v6-c-masthead__content {
+  color: var(--pf-color-white);
+}
+
+html.dark .ocs-console-masthead .pf-v6-c-button.pf-m-plain {
+  color: var(--pf-color-white);
+}
+
+html.dark .ocs-console-masthead .pf-v6-c-button.pf-m-plain:hover {
+  color: var(--pf-color-white);
+  --pf-v6-c-button--BackgroundColor: rgba(255, 255, 255, 0.12);
+}
+
+/* —— Light theme —— (reset shell to PatternFly light tokens; do not inherit dark chrome) */
+html:not(.dark) .ocs-console-page.pf-v6-c-page {
+  --pf-v6-c-masthead--BackgroundColor: var(--pf-t--global--background--color--secondary--default);
+  --pf-v6-c-masthead--BorderColor: var(--pf-t--global--border--color--default);
+  --pf-v6-c-page__sidebar--BackgroundColor: var(--pf-t--global--background--color--floating--secondary--default);
+  --pf-v6-c-page__sidebar--xl--BackgroundColor: var(
+    --pf-t--global--background--color--glass--primary--default,
+    var(--pf-t--global--background--color--secondary--default)
+  );
+}
+
+html:not(.dark) .ocs-console-masthead .pf-v6-c-masthead__main,
+html:not(.dark) .ocs-console-masthead .pf-v6-c-masthead__content {
+  color: var(--pf-t--global--text--color--regular);
+}
+
+html:not(.dark) .ocs-console-masthead .pf-v6-c-button.pf-m-plain {
+  color: var(--pf-t--global--text--color--regular);
+}
+
+html:not(.dark) .ocs-console-masthead .pf-v6-c-button.pf-m-plain:hover {
+  color: var(--pf-t--global--text--color--regular);
+  --pf-v6-c-button--BackgroundColor: var(--pf-t--global--background--color--action--plain--alt--hover);
+}
+
+.ocs-masthead-brand-link {
+  display: block;
+  text-decoration: none;
+  color: inherit;
+}
+
+.ocs-masthead-brand-link:hover {
+  text-decoration: none;
+  color: inherit;
+}
+
+/** Left crop of full RGB logo: red fedora only; wordmark is separate HTML (white) for dark masthead. */
+.ocs-masthead-logo-hat {
+  display: block;
+  height: 2.25rem;
+  width: 2.125rem;
+  object-fit: cover;
+  object-position: left center;
+  flex-shrink: 0;
+}
+
+.ocs-masthead-brand-rh,
+.ocs-masthead-brand-ocp {
+  line-height: 1.15;
+}
+
+html.dark .ocs-masthead-brand-rh,
+html.dark .ocs-masthead-brand-ocp {
+  color: var(--pf-color-white);
+}
+
+html:not(.dark) .ocs-masthead-brand-rh,
+html:not(.dark) .ocs-masthead-brand-ocp {
+  color: var(--pf-t--global--text--color--regular);
+}
+
+.ocs-masthead-brand-rh {
+  font-weight: var(--pf-t--global--font--weight--heading--bold);
+  font-size: var(--pf-t--global--font--size--body--default);
+}
+
+.ocs-masthead-brand-ocp {
+  font-weight: var(--pf-t--global--font--weight--body--default);
+  font-size: var(--pf-t--global--font--size--body--default);
+}
+
+html.dark .ocs-masthead-user-toggle.pf-v6-c-menu-toggle {
+  color: var(--pf-color-white);
+}
+
+html:not(.dark) .ocs-masthead-user-toggle.pf-v6-c-menu-toggle {
+  color: var(--pf-t--global--text--color--regular);
+}
+
+.ocs-masthead-cluster-switch-label {
+  white-space: nowrap;
+}
+
+.ocs-masthead-cluster-switch.pf-v6-c-switch {
+  flex-wrap: nowrap;
+  align-items: center;
+  --pf-v6-c-switch__label--FontSize: var(--pf-t--global--font--size--body--default);
+}
+
+html.dark .ocs-masthead-cluster-switch.pf-v6-c-switch {
+  --pf-v6-c-switch__label--Color: var(--pf-color-white);
+}
+
+html:not(.dark) .ocs-masthead-cluster-switch.pf-v6-c-switch {
+  --pf-v6-c-switch__label--Color: var(--pf-t--global--text--color--regular);
+}
+
+.ocs-masthead-cluster-switch .pf-v6-c-switch__label {
+  white-space: nowrap;
+}
+
+.ocs-masthead-toolbar-cluster-switch {
+  flex-shrink: 0;
+}
+
+.ocs-masthead-toolbar-group.pf-v6-c-toolbar__group {
+  align-items: center;
+}
+
+.ocs-masthead-toolbar-item.pf-v6-c-toolbar__item {
+  display: flex;
+  align-items: center;
+  align-self: center;
+}
+
+.ocs-masthead-toolbar-item .pf-v6-c-button.pf-m-plain {
+  height: 2.25rem;
+  min-width: 2.25rem;
+  padding-inline: var(--pf-t--global--spacer--sm);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ocs-masthead-toolbar-notifications .pf-v6-c-badge {
+  align-self: center;
+}
+
+.ocs-lightspeed-fab.pf-v6-c-button.pf-m-plain {
+  position: fixed;
+  z-index: var(--pf-t--global--z-index--2xl);
+  bottom: var(--pf-t--global--spacer--lg);
+  right: var(--pf-t--global--spacer--lg);
+  padding: 0;
+  line-height: 0;
+  border: none;
+  box-shadow: none;
+  background-color: transparent;
+  --pf-v6-c-button--BorderWidth: 0;
+}
+
+.ocs-lightspeed-fab.pf-v6-c-button.pf-m-plain:hover {
+  --pf-v6-c-button--m-plain--hover--BackgroundColor: transparent;
+}
+
+.ocs-lightspeed-fab__icon {
+  display: block;
+  height: auto;
+  max-height: 3rem;
+  width: auto;
+  border: none;
+  vertical-align: middle;
+}
+
+html.dark .ocs-console-sidebar .pf-v6-c-nav {
+  --pf-v6-c-nav__link--Color: rgba(255, 255, 255, 0.82);
+  --pf-v6-c-nav__link--hover--Color: var(--pf-color-white);
+  --pf-v6-c-nav__link--hover--BackgroundColor: rgba(255, 255, 255, 0.08);
+  --pf-v6-c-nav__link--m-current--Color: var(--pf-color-white);
+  --pf-v6-c-nav__link--m-current--BackgroundColor: rgba(255, 255, 255, 0.14);
+  --pf-v6-c-nav__section-title--Color: rgba(255, 255, 255, 0.65);
+}
+
+html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
+  /* Let PatternFly nav tokens follow light theme; only ensure section title matches. */
+  --pf-v6-c-nav__section-title--Color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-console-sidebar .pf-v6-c-nav__section-title {
+  font-size: var(--pf-t--global--font--size--body--default);
+  text-transform: none;
+  letter-spacing: normal;
+}

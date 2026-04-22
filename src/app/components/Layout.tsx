@@ -1,19 +1,12 @@
 import { Link, Outlet, useLocation } from "react-router";
-import {
-  forwardRef,
-  useContext,
-  useEffect,
-  useId,
-  useState,
-  type ComponentType,
-  type ReactNode,
-} from "react";
+import { forwardRef, useEffect, useRef, useState } from "react";
 import {
   applyThemeToDocument,
   readThemePreferences,
   writeThemePreferences,
 } from "@/lib/documentTheme";
 import {
+  Badge,
   Banner,
   Button,
   Content,
@@ -22,21 +15,21 @@ import {
   DropdownItem,
   Divider,
   Flex,
+  FlexItem,
   Masthead,
   MastheadBrand,
   MastheadContent,
-  MastheadLogo,
   MastheadMain,
   MastheadToggle,
   MenuToggle,
   Nav,
-  NavContext,
+  NavExpandable,
+  NavGroup,
   NavItem,
-  NavList,
+  NavItemSeparator,
   Page,
   PageSidebar,
   PageSidebarBody,
-  PageSidebarContext,
   PageToggleButton,
   SkipToContent,
   Switch,
@@ -46,26 +39,15 @@ import {
   ToolbarItem,
 } from "@patternfly/react-core";
 import { css } from "@patternfly/react-styles";
-import navStyles from "@patternfly/react-styles/css/components/Nav/nav.mjs";
 import displayStyles from "@patternfly/react-styles/css/utilities/Display/display.mjs";
 import flexStyles from "@patternfly/react-styles/css/utilities/Flex/flex.mjs";
 import sizingStyles from "@patternfly/react-styles/css/utilities/Sizing/sizing.mjs";
 import BellIcon from "@patternfly/react-icons/dist/esm/icons/bell-icon";
-import ChartLineIcon from "@patternfly/react-icons/dist/esm/icons/chart-line-icon";
 import CogIcon from "@patternfly/react-icons/dist/esm/icons/cog-icon";
-import CubesIcon from "@patternfly/react-icons/dist/esm/icons/cubes-icon";
-import GlobeIcon from "@patternfly/react-icons/dist/esm/icons/globe-icon";
-import HammerIcon from "@patternfly/react-icons/dist/esm/icons/hammer-icon";
-import HddIcon from "@patternfly/react-icons/dist/esm/icons/hdd-icon";
-import HomeIcon from "@patternfly/react-icons/dist/esm/icons/home-icon";
 import MinusCircleIcon from "@patternfly/react-icons/dist/esm/icons/minus-circle-icon";
 import MoonIcon from "@patternfly/react-icons/dist/esm/icons/moon-icon";
-import ProjectDiagramIcon from "@patternfly/react-icons/dist/esm/icons/project-diagram-icon";
 import QuestionCircleIcon from "@patternfly/react-icons/dist/esm/icons/question-circle-icon";
-import RobotIcon from "@patternfly/react-icons/dist/esm/icons/robot-icon";
-import ServerIcon from "@patternfly/react-icons/dist/esm/icons/server-icon";
 import SignOutAltIcon from "@patternfly/react-icons/dist/esm/icons/sign-out-alt-icon";
-import StarIcon from "@patternfly/react-icons/dist/esm/icons/star-icon";
 import SunIcon from "@patternfly/react-icons/dist/esm/icons/sun-icon";
 import ThIcon from "@patternfly/react-icons/dist/esm/icons/th-icon";
 import UserCogIcon from "@patternfly/react-icons/dist/esm/icons/user-cog-icon";
@@ -77,6 +59,19 @@ import { usePermissions } from "../contexts/PermissionsContext";
 import { useChat } from "../contexts/ChatContext";
 import { useFavorites } from "../contexts/FavoritesContext";
 import { useClusterUpdateDemoVariant } from "../contexts/ClusterUpdateDemoContext";
+import {
+  ADMINISTRATION_SUB,
+  BUILDS_SUB,
+  COMPUTE_SUB,
+  ECOSYSTEM_SUB,
+  HOME_SUB,
+  NETWORKING_SUB,
+  OBSERVE_SUB,
+  type SubNavEntry,
+  STORAGE_SUB,
+  USER_MANAGEMENT_SUB,
+  WORKLOADS_SUB,
+} from "../navigation/consoleNav";
 
 interface ImpersonatedUser {
   id: string;
@@ -86,10 +81,6 @@ interface ImpersonatedUser {
   department: string;
 }
 
-/**
- * PatternFly NavItem renders the custom component with `href` set from its `to` prop.
- * React Router’s Link expects `to`, not `href`, so plain `component={Link}` never navigates.
- */
 const NavItemLink = forwardRef<HTMLAnchorElement, React.ComponentProps<typeof Link> & { href?: string }>(
   function NavItemLink({ href, to, ...rest }, ref) {
     const destination = to ?? href;
@@ -101,25 +92,19 @@ function MastheadIconButton({ label, icon }: { label: string; icon: React.ReactN
   return <Button variant="plain" type="button" aria-label={label} data-name={label} icon={icon} />;
 }
 
-/** Cluster Update prototype: Manual + Agent (5.1) vs Agent only (5.0). Persists via {@link ClusterUpdateDemoContext}. */
 function ClusterUpdateDemoMastheadSwitch() {
   const { demoVariant, setDemoVariant } = useClusterUpdateDemoVariant();
   const isManualAndAgent = demoVariant === "manual-and-agent";
   return (
     <Switch
+      className="ocs-masthead-cluster-switch"
       id="cluster-update-demo-experience-switch"
       isChecked={isManualAndAgent}
       onChange={(_e, checked) => setDemoVariant(checked ? "manual-and-agent" : "agent-only")}
       label={
-        isManualAndAgent ? (
-          <>
-            Manual + Agent <Content component="small">· OCP 5.1</Content>
-          </>
-        ) : (
-          <>
-            Agent only <Content component="small">· OCP 5.0</Content>
-          </>
-        )
+        <span className="ocs-masthead-cluster-switch-label">
+          {isManualAndAgent ? "Manual + Agent · OCP 5.1" : "Agent only · OCP 5.0"}
+        </span>
       }
       aria-label={
         isManualAndAgent
@@ -130,15 +115,6 @@ function ClusterUpdateDemoMastheadSwitch() {
   );
 }
 
-type IconComponent = ComponentType<{ className?: string; "aria-hidden"?: boolean | "true" | "false" }>;
-
-interface MenuConfigItem {
-  path: string;
-  label: string;
-  icon: IconComponent;
-  subItems?: { path: string; label: string }[];
-}
-
 function subPathMatches(pathname: string, basePath: string): boolean {
   return pathname === basePath || pathname.startsWith(`${basePath}/`);
 }
@@ -147,113 +123,26 @@ function subRoutesActive(pathname: string, subItems: { path: string }[]) {
   return subItems.some((s) => subPathMatches(pathname, s.path));
 }
 
-/** Among sibling sub-routes under one expandable, only the longest matching path is current (avoids double-active prefixes). */
 function activeSubPath(pathname: string, subItems: { path: string }[]): string | null {
   const matches = subItems.filter((s) => subPathMatches(pathname, s.path));
   if (matches.length === 0) return null;
   return matches.reduce((a, b) => (b.path.length > a.path.length ? b : a)).path;
 }
 
-/**
- * PatternFly `NavExpandable` wraps non-string titles in a single link-text node, so icon
- * + label cannot match `NavItem` markup (icon span, text span, toggle as siblings). This
- * component mirrors the intended expandable button DOM for the sidebar.
- */
-function AppNavExpandable({
-  groupId,
-  title,
-  icon,
-  isActive = false,
-  isExpanded = false,
-  onExpand,
-  children,
-  className,
-  id: idProp,
-  ...props
-}: Omit<React.ComponentProps<"li">, "title"> & {
-  groupId: string | number;
-  title: string;
-  icon: ReactNode;
-  isActive?: boolean;
-  isExpanded?: boolean;
-  onExpand?: (event: React.MouseEvent<HTMLButtonElement>, nextExpanded: boolean) => void;
-  id?: string;
-}) {
-  const generatedId = useId();
-  const navId = idProp ?? generatedId;
-  const { onToggle } = useContext(NavContext);
-  const { isSidebarOpen = true } = useContext(PageSidebarContext);
-  const [expandedState, setExpandedState] = useState(isExpanded);
-
-  useEffect(() => {
-    setExpandedState(isExpanded);
-  }, [isExpanded]);
-
-  const handleExpand = (event: React.MouseEvent<HTMLButtonElement>) => {
-    const next = !expandedState;
-    if (onExpand) {
-      onExpand(event, next);
-    } else {
-      setExpandedState(next);
-      onToggle?.(event, groupId, next);
-    }
-  };
-
-  return (
-    <li
-      className={css(
-        navStyles.navItem,
-        expandedState && navStyles.modifiers.expanded,
-        isActive && navStyles.modifiers.current,
-        className
-      )}
-      {...props}
-    >
-      <button
-        type="button"
-        className={css(navStyles.navLink)}
-        id={navId}
-        onClick={handleExpand}
-        aria-expanded={expandedState}
-        tabIndex={isSidebarOpen ? undefined : -1}
-      >
-        <span className={css(navStyles.navLinkIcon)}>{icon}</span>
-        <span className={css(navStyles.navLinkText)}>{title}</span>
-        <span className={css(navStyles.navToggle)}>
-          <span className={css(navStyles.navToggleIcon)}>
-            <RhMicronsCaretDownIcon />
-          </span>
-        </span>
-      </button>
-      <section
-        className={css(navStyles.navSubnav)}
-        aria-labelledby={navId}
-        hidden={expandedState ? undefined : true}
-        {...(!expandedState && { inert: "" })}
-      >
-        <ul className={css(navStyles.navList)} role="list">
-          {children}
-        </ul>
-      </section>
-    </li>
-  );
-}
-
 function ExpandableNavRouteGroup({
   groupId,
   label,
-  icon: Icon,
   pathname,
   subItems,
 }: {
   groupId: string;
   label: string;
-  icon: IconComponent;
   pathname: string;
-  subItems: { path: string; label: string }[];
+  subItems: SubNavEntry[];
 }) {
-  const groupHasActiveChild = subRoutesActive(pathname, subItems);
-  const currentSubPath = activeSubPath(pathname, subItems);
+  const flatPaths = subItems.filter((x): x is { path: string; label: string } => x !== "separator");
+  const groupHasActiveChild = subRoutesActive(pathname, flatPaths);
+  const currentSubPath = activeSubPath(pathname, flatPaths);
   const [expanded, setExpanded] = useState(groupHasActiveChild);
 
   useEffect(() => {
@@ -261,30 +150,80 @@ function ExpandableNavRouteGroup({
   }, [groupHasActiveChild]);
 
   return (
-    <AppNavExpandable
+    <NavExpandable
       groupId={groupId}
       title={label}
-      icon={<Icon aria-hidden />}
-      isActive={false}
       isExpanded={expanded}
       onExpand={(_e, next) => setExpanded(next)}
     >
-      {subItems.map((sub) => (
-        <NavItem
-          key={sub.path}
-          itemId={sub.path}
-          isActive={currentSubPath === sub.path}
-          to={sub.path}
-          component={NavItemLink}
-        >
-          {sub.label}
-        </NavItem>
-      ))}
-    </AppNavExpandable>
+      {subItems.map((entry, i) =>
+        entry === "separator" ? (
+          <NavItemSeparator key={`${groupId}-sep-${i}`} />
+        ) : (
+          <NavItem
+            key={entry.path}
+            itemId={entry.path}
+            isActive={currentSubPath === entry.path}
+            to={entry.path}
+            component={NavItemLink}
+          >
+            {entry.label}
+          </NavItem>
+        )
+      )}
+    </NavExpandable>
   );
 }
 
-function AvatarMd({
+/** Full-width RGB logo (hat + wordmark); only the left region is shown as the hat; wordmark is white HTML text for dark masthead contrast. */
+const OPENSHIFT_PRODUCT_LOGO_REMOTE =
+  "https://www.hpcwire.com/aiwire/wp-content/uploads/sites/3/2024/05/5-7-24-Logo-Red_Hat-OpenShift-A-Standard-RGB-1.png";
+
+/** Red Hat OpenShift Lightspeed floating action button (official icon asset). */
+const LIGHTSPEED_FAB_ICON_SRC =
+  "https://www.redhat.com/rhdc/managed-files/styles/training_page/private/Red%20Hat%20OpenShift%20Lightspeed%20icon.png?itok=PF8IqhT4";
+
+function MastheadBrandLink() {
+  const [logoSrc, setLogoSrc] = useState("/redhat-openshift-logo-rgb.png");
+  const logoFallbackApplied = useRef(false);
+
+  return (
+    <MastheadBrand component="div">
+      <Link to="/" className="ocs-masthead-brand-link" aria-label="Red Hat OpenShift">
+        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+          <FlexItem>
+            <img
+              src={logoSrc}
+              alt=""
+              aria-hidden
+              className="ocs-masthead-logo-hat"
+              loading="eager"
+              decoding="async"
+              referrerPolicy="no-referrer"
+              onError={() => {
+                if (logoFallbackApplied.current) return;
+                logoFallbackApplied.current = true;
+                setLogoSrc(OPENSHIFT_PRODUCT_LOGO_REMOTE);
+              }}
+            />
+          </FlexItem>
+          <FlexItem>
+            <Flex direction={{ default: "column" }} gap={{ default: "gapNone" }}>
+              <Content component="span" className="ocs-masthead-brand-rh">
+                Red Hat
+              </Content>
+              <Content component="span" className="ocs-masthead-brand-ocp">
+                OpenShift
+              </Content>
+            </Flex>
+          </FlexItem>
+        </Flex>
+      </Link>
+    </MastheadBrand>
+  );
+}
+
+function UserMenu({
   impersonatedUser,
   onImpersonate,
   onStopImpersonation,
@@ -294,16 +233,33 @@ function AvatarMd({
   onStopImpersonation: () => void;
 }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [isDark, setIsDark] = useState(() => readThemePreferences().dark);
+  const [isGlass, setIsGlass] = useState(() => readThemePreferences().glass);
 
-  const displayName = impersonatedUser ? impersonatedUser.name : "John Smith";
-  const displayEmail = impersonatedUser ? impersonatedUser.email : "john.smith@redhat.com";
-  const displayInitials = impersonatedUser
-    ? impersonatedUser.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .toUpperCase()
-    : "JS";
+  const displayName = impersonatedUser ? impersonatedUser.name : "kube:admin";
+  const displayEmail = impersonatedUser ? impersonatedUser.email : "kube:admin";
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const p = readThemePreferences();
+    setIsDark(p.dark);
+    setIsGlass(p.glass);
+  }, [isOpen]);
+
+  const toggleTheme = () => {
+    const newIsDark = !isDark;
+    setIsDark(newIsDark);
+    const next = { dark: newIsDark, glass: isGlass };
+    applyThemeToDocument(next);
+    writeThemePreferences(next);
+  };
+
+  const setGlass = (glass: boolean) => {
+    setIsGlass(glass);
+    const next = { dark: isDark, glass };
+    applyThemeToDocument(next);
+    writeThemePreferences(next);
+  };
 
   return (
     <Dropdown
@@ -314,12 +270,16 @@ function AvatarMd({
         <MenuToggle
           ref={toggleRef}
           variant="plain"
-          data-name="avatar-MD"
+          className="ocs-masthead-user-toggle"
+          data-name="user-menu"
           aria-label="User menu"
           onClick={() => setIsOpen((o) => !o)}
           isExpanded={isOpen}
         >
-          {displayInitials}
+          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapXs" }}>
+            <Content component="span">{displayName}</Content>
+            <RhMicronsCaretDownIcon aria-hidden />
+          </Flex>
         </MenuToggle>
       )}
       onSelect={() => setIsOpen(false)}
@@ -327,7 +287,7 @@ function AvatarMd({
       <DropdownGroup
         label={
           <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }}>
-            <Content component="p">{displayName}</Content>
+            <Content component="p">{impersonatedUser ? impersonatedUser.name : "kube:admin"}</Content>
             <Content component="small">{displayEmail}</Content>
             {impersonatedUser ? (
               <Content component="small">
@@ -346,6 +306,43 @@ function AvatarMd({
         <DropdownItem itemId="roles" icon={<UserCogIcon aria-hidden />} onClick={() => setIsOpen(false)}>
           Role Management
         </DropdownItem>
+      </DropdownGroup>
+      <Divider component="li" />
+      <DropdownGroup label="Theme mode">
+        <DropdownItem
+          itemId="toggle-theme"
+          icon={isDark ? <SunIcon aria-hidden /> : <MoonIcon aria-hidden />}
+          onClick={() => {
+            toggleTheme();
+            setIsOpen(false);
+          }}
+        >
+          {isDark ? "Switch to light theme" : "Switch to dark theme"}
+        </DropdownItem>
+      </DropdownGroup>
+      <Divider component="li" />
+      <DropdownGroup label="Glass effect">
+        {isGlass ? (
+          <DropdownItem
+            itemId="glass-off"
+            onClick={() => {
+              setGlass(false);
+              setIsOpen(false);
+            }}
+          >
+            Disable glass effect
+          </DropdownItem>
+        ) : (
+          <DropdownItem
+            itemId="glass-on"
+            onClick={() => {
+              setGlass(true);
+              setIsOpen(false);
+            }}
+          >
+            Enable glass effect
+          </DropdownItem>
+        )}
       </DropdownGroup>
       <Divider component="li" />
       {impersonatedUser ? (
@@ -380,69 +377,10 @@ function AvatarMd({
   );
 }
 
-function ThemeToggle() {
-  const [isDark, setIsDark] = useState(() => readThemePreferences().dark);
-  const [isGlass, setIsGlass] = useState(() => readThemePreferences().glass);
-  const [isOpen, setIsOpen] = useState(false);
-
-  const toggleTheme = () => {
-    const newIsDark = !isDark;
-    setIsDark(newIsDark);
-    const next = { dark: newIsDark, glass: isGlass };
-    applyThemeToDocument(next);
-    writeThemePreferences(next);
-  };
-
-  const setGlass = (glass: boolean) => {
-    setIsGlass(glass);
-    const next = { dark: isDark, glass };
-    applyThemeToDocument(next);
-    writeThemePreferences(next);
-  };
-
-  return (
-    <Dropdown
-      isOpen={isOpen}
-      onOpenChange={setIsOpen}
-      popperProps={{ position: "end", enableFlip: true }}
-      toggle={(toggleRef) => (
-        <MenuToggle
-          ref={toggleRef}
-          variant="plain"
-          onClick={() => setIsOpen((o) => !o)}
-          isExpanded={isOpen}
-          aria-label="Theme and display options"
-          data-name="ThemeToggle"
-        >
-          {isDark ? <SunIcon aria-hidden /> : <MoonIcon aria-hidden />}
-        </MenuToggle>
-      )}
-      onSelect={() => setIsOpen(false)}
-    >
-      <DropdownGroup label="Theme mode">
-        <DropdownItem itemId="toggle-theme" onClick={() => toggleTheme()}>
-          {isDark ? "Switch to light theme" : "Switch to dark theme"}
-        </DropdownItem>
-      </DropdownGroup>
-      <Divider component="li" />
-      <DropdownGroup label="Glass effect">
-        {isGlass ? (
-          <DropdownItem itemId="glass-off" onClick={() => setGlass(false)}>
-            Disable glass effect
-          </DropdownItem>
-        ) : (
-          <DropdownItem itemId="glass-on" onClick={() => setGlass(true)}>
-            Enable glass effect
-          </DropdownItem>
-        )}
-      </DropdownGroup>
-    </Dropdown>
-  );
-}
-
 export default function Layout() {
   const [isImpersonateModalOpen, setIsImpersonateModalOpen] = useState(false);
   const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(false);
+  const [isHomeExpanded, setIsHomeExpanded] = useState(true);
   const location = useLocation();
 
   const { impersonatedUser, setImpersonatedUser } = usePermissions();
@@ -465,54 +403,13 @@ export default function Layout() {
     setImpersonatedUser(null);
   };
 
-  const menuConfig: MenuConfigItem[] = [
-    { path: "/", label: "Home", icon: HomeIcon },
-    { path: "/favorites", label: "Favorites", icon: StarIcon },
-    {
-      path: "/ecosystem",
-      label: "Ecosystem",
-      icon: ProjectDiagramIcon,
-      subItems: [
-        { path: "/ecosystem/software-catalog", label: "Software Catalog" },
-        { path: "/ecosystem/installed-operators", label: "Installed Operators" },
-        { path: "/ecosystem/helm", label: "Helm" },
-      ],
-    },
-    {
-      path: "/workloads",
-      label: "Workloads",
-      icon: CubesIcon,
-      subItems: [
-        { path: "/workloads/topology", label: "Topology" },
-        { path: "/workloads/pods", label: "Pods" },
-        { path: "/workloads/deployments", label: "Deployments" },
-        { path: "/workloads/statefulsets", label: "StatefulSets" },
-        { path: "/workloads/daemonsets", label: "DaemonSets" },
-        { path: "/workloads/jobs", label: "Jobs" },
-        { path: "/workloads/cronjobs", label: "CronJobs" },
-      ],
-    },
-    { path: "/networking", label: "Networking", icon: GlobeIcon },
-    { path: "/storage", label: "Storage", icon: HddIcon },
-    { path: "/builds", label: "Builds", icon: HammerIcon },
-    { path: "/observe", label: "Observe", icon: ChartLineIcon },
-    { path: "/compute", label: "Compute", icon: ServerIcon },
-    { path: "/user-management", label: "User Management", icon: UsersIcon },
-    {
-      path: "/administration",
-      label: "Administration",
-      icon: CogIcon,
-      subItems: [
-        { path: "/administration/cluster-update", label: "Cluster Update" },
-        { path: "/administration/cluster-settings", label: "Cluster Settings" },
-        { path: "/administration/namespaces", label: "Namespaces" },
-        { path: "/administration/resource-quotas", label: "ResourceQuotas" },
-        { path: "/administration/limit-ranges", label: "LimitRanges" },
-        { path: "/administration/custom-resource-definitions", label: "CustomResourceDefinitions" },
-        { path: "/administration/dynamic-plugins", label: "Dynamic Plugins" },
-      ],
-    },
-  ];
+  const homeFlat = HOME_SUB.filter((x): x is { path: string; label: string } => x !== "separator");
+  const homeGroupActive = subRoutesActive(location.pathname, homeFlat);
+  const homeCurrentPath = activeSubPath(location.pathname, homeFlat);
+
+  useEffect(() => {
+    if (homeGroupActive) setIsHomeExpanded(true);
+  }, [homeGroupActive]);
 
   const favoritesPathActive =
     location.pathname === "/favorites" || location.pathname.startsWith("/favorites/");
@@ -530,50 +427,48 @@ export default function Layout() {
   }, [favoritesGroupActive]);
 
   const masthead = (
-    <Masthead display={{ default: "inline" }}>
+    <Masthead display={{ default: "inline" }} className="ocs-console-masthead">
       <MastheadMain>
         <MastheadToggle>
           <PageToggleButton id="layout-nav-toggle" aria-label="Global navigation" isHamburgerButton />
         </MastheadToggle>
-        <MastheadBrand>
-          <MastheadLogo component={NavItemLink} href="/">
-            OpenShift
-          </MastheadLogo>
-        </MastheadBrand>
+        <MastheadBrandLink />
       </MastheadMain>
       <MastheadContent>
         <Toolbar id="layout-masthead-toolbar-end" ouiaId="layout-masthead-toolbar-end" isFullHeight>
           <ToolbarContent alignItems="center">
-            <ToolbarGroup gap={{ default: "gapSm" }} align={{ default: "alignEnd" }} alignItems="center">
-              <ToolbarItem>
+            <ToolbarGroup
+              className="ocs-masthead-toolbar-group"
+              gap={{ default: "gapSm" }}
+              align={{ default: "alignEnd" }}
+              alignItems="center"
+            >
+              <ToolbarItem className="ocs-masthead-toolbar-item ocs-masthead-toolbar-cluster-switch">
                 <ClusterUpdateDemoMastheadSwitch />
               </ToolbarItem>
-              <ToolbarItem>
-                <MastheadIconButton label="Help" icon={<QuestionCircleIcon aria-hidden />} />
-              </ToolbarItem>
-              <ToolbarItem>
-                <MastheadIconButton label="Notifications" icon={<BellIcon aria-hidden />} />
-              </ToolbarItem>
-              <ToolbarItem>
+              <ToolbarItem className="ocs-masthead-toolbar-item">
                 <MastheadIconButton label="Application launcher" icon={<ThIcon aria-hidden />} />
               </ToolbarItem>
-              <ToolbarItem>
-                <Button
-                  variant="secondary"
-                  type="button"
-                  onClick={() => setIsAIOpen(true)}
-                  aria-label="Open OpenShift LightSpeed"
-                  icon={<RobotIcon aria-hidden />}
-                  iconPosition="start"
+              <ToolbarItem className="ocs-masthead-toolbar-item ocs-masthead-toolbar-notifications">
+                <Flex
+                  alignItems={{ default: "alignItemsCenter" }}
+                  justifyContent={{ default: "justifyContentCenter" }}
+                  gap={{ default: "gapXs" }}
                 >
-                  10
-                </Button>
+                  <MastheadIconButton label="Notifications" icon={<BellIcon aria-hidden />} />
+                  <Badge isRead={false} screenReaderText="Unread notifications">
+                    3
+                  </Badge>
+                </Flex>
               </ToolbarItem>
-              <ToolbarItem>
-                <ThemeToggle />
+              <ToolbarItem className="ocs-masthead-toolbar-item">
+                <MastheadIconButton label="Settings" icon={<CogIcon aria-hidden />} />
               </ToolbarItem>
-              <ToolbarItem>
-                <AvatarMd
+              <ToolbarItem className="ocs-masthead-toolbar-item">
+                <MastheadIconButton label="Help" icon={<QuestionCircleIcon aria-hidden />} />
+              </ToolbarItem>
+              <ToolbarItem className="ocs-masthead-toolbar-item">
+                <UserMenu
                   impersonatedUser={impersonatedUser}
                   onImpersonate={() => setIsImpersonateModalOpen(true)}
                   onStopImpersonation={handleStopImpersonation}
@@ -587,25 +482,36 @@ export default function Layout() {
   );
 
   const sidebar = (
-    <PageSidebar id="layout-sidebar" data-name="Sidebar">
+    <PageSidebar id="layout-sidebar" className="ocs-console-sidebar" data-name="Sidebar">
       <PageSidebarBody>
-        <Nav aria-label="Global">
-          <NavList>
-            <NavItem
-              itemId="layout-nav-home"
-              isActive={location.pathname === "/"}
-              to="/"
-              component={NavItemLink}
-              icon={<HomeIcon aria-hidden />}
+        <Nav aria-label="Core platform">
+          <NavGroup title="Core platform" id="layout-nav-core-platform">
+            <NavExpandable
+              groupId="layout-nav-home"
+              title="Home"
+              isExpanded={isHomeExpanded}
+              onExpand={(_e, next) => setIsHomeExpanded(next)}
             >
-              Home
-            </NavItem>
+              {HOME_SUB.map((entry, i) =>
+                entry === "separator" ? (
+                  <NavItemSeparator key={`home-sep-${i}`} />
+                ) : (
+                  <NavItem
+                    key={entry.path}
+                    itemId={entry.path}
+                    isActive={homeCurrentPath === entry.path}
+                    to={entry.path}
+                    component={NavItemLink}
+                  >
+                    {entry.label}
+                  </NavItem>
+                )
+              )}
+            </NavExpandable>
 
-            <AppNavExpandable
+            <NavExpandable
               groupId="layout-favorites"
               title={`Favorites${favorites.length > 0 ? ` (${favorites.length})` : ""}`}
-              icon={<StarIcon aria-hidden />}
-              isActive={false}
               isExpanded={isFavoritesExpanded}
               onExpand={(_e, next) => setIsFavoritesExpanded(next)}
             >
@@ -626,38 +532,63 @@ export default function Layout() {
                   </NavItem>
                 ))
               )}
-            </AppNavExpandable>
+            </NavExpandable>
 
-            {menuConfig.slice(2).map((item) => {
-              if (item.subItems) {
-                return (
-                  <ExpandableNavRouteGroup
-                    key={item.path}
-                    groupId={`layout-nav-${item.path.replace(/\//g, "-")}`}
-                    label={item.label}
-                    icon={item.icon}
-                    pathname={location.pathname}
-                    subItems={item.subItems}
-                  />
-                );
-              }
-              const ItemIcon = item.icon;
-              const itemActive =
-                location.pathname === item.path || location.pathname.startsWith(`${item.path}/`);
-              return (
-                <NavItem
-                  key={item.path}
-                  itemId={item.path}
-                  isActive={itemActive}
-                  to={item.path}
-                  component={NavItemLink}
-                  icon={<ItemIcon aria-hidden />}
-                >
-                  {item.label}
-                </NavItem>
-              );
-            })}
-          </NavList>
+            <ExpandableNavRouteGroup
+              groupId="layout-nav-ecosystem"
+              label="Ecosystem"
+              pathname={location.pathname}
+              subItems={ECOSYSTEM_SUB}
+            />
+            <ExpandableNavRouteGroup
+              groupId="layout-nav-workloads"
+              label="Workloads"
+              pathname={location.pathname}
+              subItems={WORKLOADS_SUB}
+            />
+            <ExpandableNavRouteGroup
+              groupId="layout-nav-networking"
+              label="Networking"
+              pathname={location.pathname}
+              subItems={NETWORKING_SUB}
+            />
+            <ExpandableNavRouteGroup
+              groupId="layout-nav-storage"
+              label="Storage"
+              pathname={location.pathname}
+              subItems={STORAGE_SUB}
+            />
+            <ExpandableNavRouteGroup
+              groupId="layout-nav-builds"
+              label="Builds"
+              pathname={location.pathname}
+              subItems={BUILDS_SUB}
+            />
+            <ExpandableNavRouteGroup
+              groupId="layout-nav-observe"
+              label="Observe"
+              pathname={location.pathname}
+              subItems={OBSERVE_SUB}
+            />
+            <ExpandableNavRouteGroup
+              groupId="layout-nav-compute"
+              label="Compute"
+              pathname={location.pathname}
+              subItems={COMPUTE_SUB}
+            />
+            <ExpandableNavRouteGroup
+              groupId="layout-nav-user-management"
+              label="User Management"
+              pathname={location.pathname}
+              subItems={USER_MANAGEMENT_SUB}
+            />
+            <ExpandableNavRouteGroup
+              groupId="layout-nav-administration"
+              label="Administration"
+              pathname={location.pathname}
+              subItems={ADMINISTRATION_SUB}
+            />
+          </NavGroup>
         </Nav>
       </PageSidebarBody>
     </PageSidebar>
@@ -709,7 +640,7 @@ export default function Layout() {
           style={{ minHeight: "var(--pf-t--global--spacer--0, 0px)" }}
         >
           <Page
-            className={css(sizingStyles.h_100)}
+            className={css(sizingStyles.h_100, "ocs-console-page")}
             isManagedSidebar
             isContentFilled
             masthead={masthead}
@@ -751,6 +682,26 @@ export default function Layout() {
         onClose={() => setIsImpersonateModalOpen(false)}
         onImpersonate={handleImpersonate}
       />
+
+      <Button
+        type="button"
+        variant="plain"
+        className="ocs-lightspeed-fab"
+        onClick={() => setIsAIOpen(!isAIOpen)}
+        aria-label={isAIOpen ? "Close OpenShift LightSpeed" : "Open OpenShift LightSpeed"}
+        aria-pressed={isAIOpen}
+      >
+        <img
+          src={LIGHTSPEED_FAB_ICON_SRC}
+          alt=""
+          className="ocs-lightspeed-fab__icon"
+          width={56}
+          height={48}
+          loading="lazy"
+          decoding="async"
+          referrerPolicy="no-referrer"
+        />
+      </Button>
     </>
   );
 }

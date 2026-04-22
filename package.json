@@ -1,7 +1,14 @@
 {
-  "name": "ocp5-cluster-update-experience",
-  "description": "OpenShift Container Platform 5.x Cluster Update UX prototype (Vite/React/TypeScript): manual and agent-based update flows, demo variants (OCP 5.1 dual-path vs OCP 5.0 agent-only), Installed Operators table aligned with cluster update, bulk operator approval, column management, OpenShift Lightspeed pre-check entry points, and ecosystem operator routes.",
+  "name": "ocp5-olm-update-experience",
+  "description": "OpenShift Container Platform 5.x Operator Management & OLM UX prototype (Vite/React/TypeScript). Jira HPUX-1480. Software Catalog, Installed Operators, cluster update flows, Lightspeed entry points — simulated data for design and stakeholder demos.",
   "private": true,
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kevinhatchoua/ocp5-olm-update-experience.git"
+  },
+  "bugs": {
+    "url": "https://redhat.atlassian.net/browse/HPUX-1480"
+  },
   "version": "1.0.0",
   "type": "module",
   "scripts": {
