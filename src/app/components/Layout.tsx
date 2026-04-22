@@ -1,5 +1,5 @@
 import { Link, Outlet, useLocation } from "react-router";
-import { forwardRef, useEffect, useRef, useState } from "react";
+import { forwardRef, useEffect, useState } from "react";
 import {
   applyThemeToDocument,
   readThemePreferences,
@@ -55,6 +55,7 @@ import UserIcon from "@patternfly/react-icons/dist/esm/icons/user-icon";
 import UsersIcon from "@patternfly/react-icons/dist/esm/icons/users-icon";
 import RhMicronsCaretDownIcon from "@patternfly/react-icons/dist/esm/icons/rh-microns-caret-down-icon";
 import ImpersonateUserModal from "./ImpersonateUserModal";
+import { MastheadFedoraMark } from "./MastheadFedoraMark";
 import { usePermissions } from "../contexts/PermissionsContext";
 import { useChat } from "../contexts/ChatContext";
 import { useFavorites } from "../contexts/FavoritesContext";
@@ -175,49 +176,21 @@ function ExpandableNavRouteGroup({
   );
 }
 
-/** Full-width RGB logo (hat + wordmark); only the left region is shown as the hat; wordmark is white HTML text for dark masthead contrast. */
-const OPENSHIFT_PRODUCT_LOGO_REMOTE =
-  "https://www.hpcwire.com/aiwire/wp-content/uploads/sites/3/2024/05/5-7-24-Logo-Red_Hat-OpenShift-A-Standard-RGB-1.png";
-
 /** Red Hat OpenShift Lightspeed floating action button (official icon asset). */
 const LIGHTSPEED_FAB_ICON_SRC =
   "https://www.redhat.com/rhdc/managed-files/styles/training_page/private/Red%20Hat%20OpenShift%20Lightspeed%20icon.png?itok=PF8IqhT4";
 
 function MastheadBrandLink() {
-  const [logoSrc, setLogoSrc] = useState("/redhat-openshift-logo-rgb.png");
-  const logoFallbackApplied = useRef(false);
-
   return (
     <MastheadBrand component="div">
       <Link to="/" className="ocs-masthead-brand-link" aria-label="Red Hat OpenShift">
-        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-          <FlexItem>
-            <img
-              src={logoSrc}
-              alt=""
-              aria-hidden
-              className="ocs-masthead-logo-hat"
-              loading="eager"
-              decoding="async"
-              referrerPolicy="no-referrer"
-              onError={() => {
-                if (logoFallbackApplied.current) return;
-                logoFallbackApplied.current = true;
-                setLogoSrc(OPENSHIFT_PRODUCT_LOGO_REMOTE);
-              }}
-            />
-          </FlexItem>
-          <FlexItem>
-            <Flex direction={{ default: "column" }} gap={{ default: "gapNone" }}>
-              <Content component="span" className="ocs-masthead-brand-rh">
-                Red Hat
-              </Content>
-              <Content component="span" className="ocs-masthead-brand-ocp">
-                OpenShift
-              </Content>
-            </Flex>
-          </FlexItem>
-        </Flex>
+        <div className="ocs-masthead-brand-lockup">
+          <MastheadFedoraMark className="ocs-masthead-logo-hat" />
+          <div className="ocs-masthead-brand-text">
+            <span className="ocs-masthead-brand-rh">Red Hat</span>
+            <span className="ocs-masthead-brand-ocp">OpenShift</span>
+          </div>
+        </div>
       </Link>
     </MastheadBrand>
   );

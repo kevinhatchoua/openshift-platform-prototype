@@ -19,6 +19,7 @@
   "dependencies": {
     "@patternfly/patternfly": "6.5.0-prerelease.66",
     "@patternfly/react-core": "6.5.0-prerelease.50",
+    "@patternfly/react-data-view": "^6.5.0-prerelease.1",
     "@patternfly/react-icons": "6.5.0-prerelease.21",
     "@patternfly/react-table": "6.5.0-prerelease.51",
     "react": "18.3.1",

@@ -495,10 +495,18 @@ html.no-glass.dark .app-glass-panel.app-glass-panel--edge-right {
 html.dark .ocs-console-page.pf-v6-c-page {
   --pf-v6-c-masthead--BackgroundColor: var(--pf-color-gray-95);
   --pf-v6-c-masthead--BorderColor: var(--pf-color-gray-80);
-  --pf-v6-c-page__sidebar--BackgroundColor: var(--pf-color-gray-95);
-  --pf-v6-c-page__sidebar--xl--BackgroundColor: var(--pf-color-gray-95);
+  /* Flat shell: nav + main on page canvas (no solid column or glass “card” behind content) */
+  --pf-v6-c-page__sidebar--BackgroundColor: transparent;
+  --pf-v6-c-page__sidebar--xl--BackgroundColor: transparent;
   --pf-v6-c-page__sidebar--BackdropFilter: none;
   --pf-v6-c-page__sidebar--xl--BackdropFilter: none;
+  --pf-v6-c-page__main-container--BackgroundColor: transparent;
+  --pf-v6-c-page__main-container--BackdropFilter: none;
+  --pf-v6-c-page__main-container--BoxShadow: none;
+  --pf-v6-c-page__main-container--BorderBlockStartWidth: 0;
+  --pf-v6-c-page__main-container--BorderBlockEndWidth: 0;
+  --pf-v6-c-page__main-container--BorderInlineStartWidth: 0;
+  --pf-v6-c-page__main-container--BorderInlineEndWidth: 0;
 }
 
 html.dark .ocs-console-masthead.pf-v6-c-masthead {
@@ -523,11 +531,18 @@ html.dark .ocs-console-masthead .pf-v6-c-button.pf-m-plain:hover {
 html:not(.dark) .ocs-console-page.pf-v6-c-page {
   --pf-v6-c-masthead--BackgroundColor: var(--pf-t--global--background--color--secondary--default);
   --pf-v6-c-masthead--BorderColor: var(--pf-t--global--border--color--default);
-  --pf-v6-c-page__sidebar--BackgroundColor: var(--pf-t--global--background--color--floating--secondary--default);
-  --pf-v6-c-page__sidebar--xl--BackgroundColor: var(
-    --pf-t--global--background--color--glass--primary--default,
-    var(--pf-t--global--background--color--secondary--default)
-  );
+  /* Flat shell: same as dark — nav + main on the grey page canvas */
+  --pf-v6-c-page__sidebar--BackgroundColor: transparent;
+  --pf-v6-c-page__sidebar--xl--BackgroundColor: transparent;
+  --pf-v6-c-page__sidebar--BackdropFilter: none;
+  --pf-v6-c-page__sidebar--xl--BackdropFilter: none;
+  --pf-v6-c-page__main-container--BackgroundColor: transparent;
+  --pf-v6-c-page__main-container--BackdropFilter: none;
+  --pf-v6-c-page__main-container--BoxShadow: none;
+  --pf-v6-c-page__main-container--BorderBlockStartWidth: 0;
+  --pf-v6-c-page__main-container--BorderBlockEndWidth: 0;
+  --pf-v6-c-page__main-container--BorderInlineStartWidth: 0;
+  --pf-v6-c-page__main-container--BorderInlineEndWidth: 0;
 }
 
 html:not(.dark) .ocs-console-masthead .pf-v6-c-masthead__main,
@@ -555,14 +570,27 @@ html:not(.dark) .ocs-console-masthead .pf-v6-c-button.pf-m-plain:hover {
   color: inherit;
 }
 
-/** Left crop of full RGB logo: red fedora only; wordmark is separate HTML (white) for dark masthead. */
+/** Fedora SVG + stacked wordmark (see `MastheadFedoraMark`). */
+.ocs-masthead-brand-lockup {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  min-height: 2.25rem;
+}
+
+.ocs-masthead-brand-text {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0;
+}
+
 .ocs-masthead-logo-hat {
   display: block;
-  height: 2.25rem;
-  width: 2.125rem;
-  object-fit: cover;
-  object-position: left center;
   flex-shrink: 0;
+  height: 2rem;
+  width: auto;
 }
 
 .ocs-masthead-brand-rh,
@@ -570,14 +598,14 @@ html:not(.dark) .ocs-console-masthead .pf-v6-c-button.pf-m-plain:hover {
   line-height: 1.15;
 }
 
-html.dark .ocs-masthead-brand-rh,
-html.dark .ocs-masthead-brand-ocp {
-  color: var(--pf-color-white);
+html.dark .ocs-console-masthead .ocs-masthead-brand-rh,
+html.dark .ocs-console-masthead .ocs-masthead-brand-ocp {
+  color: #ffffff;
 }
 
-html:not(.dark) .ocs-masthead-brand-rh,
-html:not(.dark) .ocs-masthead-brand-ocp {
-  color: var(--pf-t--global--text--color--regular);
+html:not(.dark) .ocs-console-masthead .ocs-masthead-brand-rh,
+html:not(.dark) .ocs-console-masthead .ocs-masthead-brand-ocp {
+  color: #000000;
 }
 
 .ocs-masthead-brand-rh {
@@ -673,6 +701,20 @@ html:not(.dark) .ocs-masthead-cluster-switch.pf-v6-c-switch {
   vertical-align: middle;
 }
 
+/**
+ * Glass Page shell: `pf-v6-c-page__sidebar-main` is an inset “card” with horizontal
+ * margins. Those gutters are outside the frosted surface (parent column is transparent
+ * in glass), so they read as a hard frame on both the start and end edges of the nav.
+ * Pin the card to the sidebar column on both sides; canvas still from html/body
+ * (see global.css). Main content keeps its own page inset.
+ */
+:where(.pf-v6-theme-glass):not(.no-glass) .ocs-console-page .pf-v6-c-page__sidebar-main {
+  --pf-v6-c-page__sidebar-main--MarginInlineStart--glass: 0;
+  --pf-v6-c-page__sidebar-main--MarginInlineEnd--glass: 0;
+  --pf-v6-c-page__sidebar-main--xl--MarginInlineStart--glass: 0;
+  --pf-v6-c-page__sidebar-main--xl--MarginInlineEnd--glass: 0;
+}
+
 html.dark .ocs-console-sidebar .pf-v6-c-nav {
   --pf-v6-c-nav__link--Color: rgba(255, 255, 255, 0.82);
   --pf-v6-c-nav__link--hover--Color: var(--pf-color-white);
@@ -691,4 +733,25 @@ html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
   font-size: var(--pf-t--global--font--size--body--default);
   text-transform: none;
   letter-spacing: normal;
+}
+
+/* Installed Operators — @patternfly/react-data-view (HPUX-1429) */
+.ocs-io-dataview [data-ouia-component-id="installed-operators-dv-toolbar"] {
+  width: 100%;
+}
+
+.ocs-operator-table-sort.pf-v6-c-button.pf-m-plain {
+  font-weight: var(--pf-t--global--font--weight--heading--bold);
+  color: inherit;
+  padding-inline: var(--pf-t--global--spacer--xs);
+  column-gap: var(--pf-t--global--spacer--xs);
+}
+
+.ocs-operator-table-sort-icon--idle {
+  opacity: 0.45;
+}
+
+.ocs-operator-table-sort-icon--active {
+  opacity: 1;
+  color: var(--pf-t--global--text--color--link--default, #06c);
 }

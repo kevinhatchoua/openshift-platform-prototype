@@ -6,6 +6,18 @@ body,
   padding: 0;
 }
 
+/**
+ * One canvas behind the whole app. PatternFly glass `Page` uses a transparent
+ * `pf-v6-c-page` + transparent `pf-v6-c-page__sidebar` so the gutter around the
+ * rounded `pf-v6-c-page__sidebar-main` / main container shows the layer behind.
+ * Themed `body` (Tailwind @layer base) is not always inherited the same for `html`
+ * / `#root` defaults, which can read as a square strip at the viewport edge.
+ */
+html,
+#root {
+  background-color: var(--color-background, var(--background, #f0f0f0));
+}
+
 body {
   font-family: 'Red Hat Text', 'Red Hat Display', -apple-system, BlinkMacSystemFont,
     'Segoe UI', Roboto, sans-serif;

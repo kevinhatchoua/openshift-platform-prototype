@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, type CSSProperties } from "react";
 import {
   CheckCircle,
   Info,
@@ -15,24 +15,38 @@ import {
   Button,
   Card,
   CardBody,
+  Checkbox,
   Content,
   Dropdown,
-  DropdownGroup,
   DropdownItem,
   Flex,
   FlexItem,
   Icon,
   Label,
   MenuToggle,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
   PageSection,
-  SearchInput,
+  Pagination,
+  PaginationVariant,
   Title,
-  Toolbar,
-  ToolbarContent,
   ToolbarGroup,
   ToolbarItem,
 } from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewCheckboxFilter,
+  DataViewFilters,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
+import SlidersHIcon from "@patternfly/react-icons/dist/esm/icons/sliders-h-icon";
+import SortCommonAscIcon from "@patternfly/react-icons/dist/esm/icons/pficon-sort-common-asc-icon";
+import SortCommonDescIcon from "@patternfly/react-icons/dist/esm/icons/pficon-sort-common-desc-icon";
 import { InnerScrollContainer, Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
@@ -40,6 +54,10 @@ import { useChat } from "../../contexts/ChatContext";
 import { BulkUpdateModal } from "../../components/OperatorUpdateModals";
 import { AiAssessmentSection } from "../../components/AiAssessmentSection";
 import { OlsChatbot } from "../../components/OlsChatbot";
+import {
+  ListAdvancedFilterModal,
+  type ListAdvancedAttributeSpec,
+} from "../../components/dataView/ListAdvancedFilterModal";
 
 const CLUSTER_TARGET_VERSION = "5.1.10";
 const CLUSTER_CHANNEL = "fast-5.1";
@@ -63,6 +81,150 @@ const TABLE_COLUMN_OPTIONS: { key: TableColumnKey; label: string }[] = [
   { key: "lastUpdated", label: "Last updated" },
   { key: "managedNamespaces", label: "Managed namespaces" },
 ];
+
+/** Shown in the “Default columns” group; Operator is always visible and listed as disabled. */
+const DEFAULT_MANAGE_COLUMN_ORDER: { key: TableColumnKey; label: string }[] = [
+  { key: "version", label: "Version" },
+  { key: "status", label: "Status" },
+  { key: "clusterCompatibility", label: "Cluster compatibility" },
+  { key: "lastUpdated", label: "Last updated" },
+];
+
+const ADDITIONAL_MANAGE_COLUMN_ORDER: { key: TableColumnKey; label: string }[] = [
+  { key: "updatePlan", label: "Update plan" },
+  { key: "support", label: "Support" },
+  { key: "managedNamespaces", label: "Managed namespaces" },
+];
+
+/** “Restore default columns” — default group on, additional off (list-filter manage-columns pattern). */
+const RESTORE_DEFAULT_VISIBLE: Record<TableColumnKey, boolean> = {
+  version: true,
+  status: true,
+  clusterCompatibility: true,
+  lastUpdated: true,
+  updatePlan: false,
+  support: false,
+  managedNamespaces: false,
+};
+
+const ALL_COLUMNS_VISIBLE: Record<TableColumnKey, boolean> = {
+  version: true,
+  clusterCompatibility: true,
+  updatePlan: true,
+  support: true,
+  status: true,
+  lastUpdated: true,
+  managedNamespaces: true,
+};
+
+const ioManageColRowStyle = (withDivider: boolean): CSSProperties => ({
+  paddingBlock: "var(--pf-t--global--spacer--sm)",
+  ...(withDivider
+    ? { borderBottom: "1px solid var(--pf-t--global--border--color--default)" }
+    : {}),
+});
+
+/**
+ * PatternFly Data View filters (see @patternfly/react-data-view) — `useDataViewFilters` shape.
+ * Matches HPUX-1429 / CONSOLE-5091 prototype (attribute menu + chip rows on ToolbarFilter).
+ */
+type IoListFilters = {
+  name: string;
+  status: string[];
+  updatePlan: string[];
+  clusterCompatibility: string[];
+  support: string[];
+};
+
+const INITIAL_IO_FILTERS: IoListFilters = {
+  name: "",
+  status: [],
+  updatePlan: [],
+  clusterCompatibility: [],
+  support: [],
+};
+
+function getEmptyIoListFilters(): IoListFilters {
+  return { ...INITIAL_IO_FILTERS };
+}
+
+const FILTER_VALUE_OPTIONS: Record<
+  keyof Pick<IoListFilters, "status" | "updatePlan" | "clusterCompatibility" | "support">,
+  { value: string; label: string }[]
+> = {
+  status: [
+    { value: "Running", label: "Running" },
+    { value: "Degraded", label: "Degraded" },
+    { value: "Pending", label: "Pending" },
+  ],
+  updatePlan: [
+    { value: "Automatic", label: "Automatic" },
+    { value: "Manual", label: "Manual" },
+  ],
+  clusterCompatibility: [
+    { value: "Compatible", label: "Compatible" },
+    { value: "Incompatible", label: "Incompatible" },
+    { value: "Unknown", label: "Unknown" },
+  ],
+  support: [
+    { value: "Full", label: "Full" },
+    { value: "Limited", label: "Limited" },
+    { value: "Community", label: "Community" },
+    { value: "Self-support", label: "Self-support" },
+  ],
+};
+
+/** HPUX-1429 / CONSOLE-5091 list advanced filter — same attributes as the DataView toolbar. */
+const IO_LIST_ADV_FILTER_SPEC: ListAdvancedAttributeSpec<keyof IoListFilters>[] = [
+  {
+    id: "name",
+    label: "Name",
+    valueKind: "text",
+    valuePlaceholder: "Filter by name or namespace",
+  },
+  {
+    id: "status",
+    label: "Status",
+    valueKind: "multi",
+    valuePlaceholder: "Filter by status",
+    options: FILTER_VALUE_OPTIONS.status,
+  },
+  {
+    id: "updatePlan",
+    label: "Update plan",
+    valueKind: "multi",
+    valuePlaceholder: "Filter by update plan",
+    options: FILTER_VALUE_OPTIONS.updatePlan,
+  },
+  {
+    id: "clusterCompatibility",
+    label: "Cluster compatibility",
+    valueKind: "multi",
+    valuePlaceholder: "Filter by cluster compatibility",
+    options: FILTER_VALUE_OPTIONS.clusterCompatibility,
+  },
+  {
+    id: "support",
+    label: "Support",
+    valueKind: "multi",
+    valuePlaceholder: "Filter by support",
+    options: FILTER_VALUE_OPTIONS.support,
+  },
+];
+
+type SortColumnKey = "name" | "version" | "status" | "lastUpdated" | "clusterCompatibility";
+
+const COMPAT_SORT_ORDER: Record<"Compatible" | "Incompatible" | "Unknown", number> = {
+  Compatible: 0,
+  Unknown: 1,
+  Incompatible: 2,
+};
+
+function parseUpdatedAt(s?: string): number {
+  if (!s) return 0;
+  const t = Date.parse(s);
+  return Number.isNaN(t) ? 0 : t;
+}
 
 type InstalledOperator = {
   name: string;
@@ -127,6 +289,58 @@ function getOperatorCompatibilityPage(
     };
   }
   return { compatibility: "Compatible" };
+}
+
+type OperatorRow = CatalogOperator & {
+  clusterCompatibility: "Compatible" | "Incompatible" | "Unknown";
+};
+
+function rowMatchesDataViewFilters(op: OperatorRow, f: IoListFilters): boolean {
+  if (f.name.trim()) {
+    const q = f.name.trim().toLowerCase();
+    if (!op.name.toLowerCase().includes(q) && !op.namespace.toLowerCase().includes(q)) return false;
+  }
+  if (f.status.length > 0 && !f.status.includes(op.status)) return false;
+  if (f.updatePlan.length > 0) {
+    const autoOk = f.updatePlan.includes("Automatic") && op.autoUpdate;
+    const manOk = f.updatePlan.includes("Manual") && !op.autoUpdate;
+    if (!autoOk && !manOk) return false;
+  }
+  if (f.clusterCompatibility.length > 0 && !f.clusterCompatibility.includes(op.clusterCompatibility)) {
+    return false;
+  }
+  if (f.support.length > 0 && !f.support.includes(op.support)) return false;
+  return true;
+}
+
+function sortOperatorRows(rows: OperatorRow[], key: SortColumnKey, dir: "asc" | "desc"): OperatorRow[] {
+  const m = dir === "asc" ? 1 : -1;
+  return [...rows].sort((a, b) => {
+    let cmp = 0;
+    switch (key) {
+      case "name":
+        cmp = a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+        break;
+      case "version":
+        cmp = compareVersions(a.version, b.version);
+        break;
+      case "status": {
+        const order = { Running: 0, Degraded: 1, Pending: 2 };
+        cmp = order[a.status] - order[b.status];
+        break;
+      }
+      case "clusterCompatibility":
+        cmp = COMPAT_SORT_ORDER[a.clusterCompatibility] - COMPAT_SORT_ORDER[b.clusterCompatibility];
+        break;
+      case "lastUpdated":
+        cmp = parseUpdatedAt(a.lastUpdated) - parseUpdatedAt(b.lastUpdated);
+        break;
+      default:
+        cmp = 0;
+    }
+    if (cmp !== 0) return cmp * m;
+    return a.name.localeCompare(b.name) * m;
+  });
 }
 
 const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
@@ -388,20 +602,24 @@ export default function InstalledOperatorsPage() {
   const [selectedOperators, setSelectedOperators] = useState<string[]>([]);
   const [openKebabIndex, setOpenKebabIndex] = useState<number | null>(null);
   const [isBulkUpdateModalOpen, setIsBulkUpdateModalOpen] = useState(false);
-  const [searchTerm, setSearchTerm] = useState("");
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<IoListFilters>({
+    initialFilters: INITIAL_IO_FILTERS,
+  });
+  const [page, setPage] = useState(1);
+  const [perPage, setPerPage] = useState(10);
+  const [sortColumn, setSortColumn] = useState<SortColumnKey>("name");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
   const [chatbotOpen, setChatbotOpen] = useState(false);
   const [chatbotContext, setChatbotContext] = useState("");
   const [olsMountKey, setOlsMountKey] = useState(0);
-  const [columnMenuOpen, setColumnMenuOpen] = useState(false);
-  const [visibleColumns, setVisibleColumns] = useState<Record<TableColumnKey, boolean>>({
-    version: true,
-    clusterCompatibility: true,
-    updatePlan: true,
-    support: true,
-    status: true,
-    lastUpdated: true,
-    managedNamespaces: true,
-  });
+  const [isManageColumnsModalOpen, setIsManageColumnsModalOpen] = useState(false);
+  const [isAdvancedFilterModalOpen, setIsAdvancedFilterModalOpen] = useState(false);
+  const [visibleColumns, setVisibleColumns] = useState<Record<TableColumnKey, boolean>>(
+    () => ({ ...ALL_COLUMNS_VISIBLE })
+  );
+  const [columnModalDraft, setColumnModalDraft] = useState<Record<TableColumnKey, boolean>>(
+    () => ({ ...ALL_COLUMNS_VISIBLE })
+  );
   const navigate = useNavigate();
   const { setCurrentPage } = useChat();
   const isGlass = usePatternFlyGlassActive();
@@ -443,13 +661,59 @@ export default function InstalledOperatorsPage() {
     });
   }, [operators]);
 
-  const filteredOperators = useMemo(() => {
-    const q = searchTerm.trim().toLowerCase();
-    return operatorsWithCompat.filter((op) => {
-      if (!q) return true;
-      return op.name.toLowerCase().includes(q) || op.namespace.toLowerCase().includes(q);
-    });
-  }, [operatorsWithCompat, searchTerm]);
+  const searchAndAttributeFiltered = useMemo(
+    () => operatorsWithCompat.filter((op) => rowMatchesDataViewFilters(op, filters)),
+    [operatorsWithCompat, filters]
+  );
+
+  const sortedFilteredOperators = useMemo(
+    () => sortOperatorRows(searchAndAttributeFiltered, sortColumn, sortDirection),
+    [searchAndAttributeFiltered, sortColumn, sortDirection]
+  );
+
+  const pagedOperators = useMemo(() => {
+    const start = (page - 1) * perPage;
+    return sortedFilteredOperators.slice(start, start + perPage);
+  }, [sortedFilteredOperators, page, perPage]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters, perPage]);
+
+  const toggleSort = useCallback((col: SortColumnKey) => {
+    if (col !== sortColumn) {
+      setSortColumn(col);
+      setSortDirection("asc");
+    } else {
+      setSortDirection((d) => (d === "asc" ? "desc" : "asc"));
+    }
+  }, [sortColumn]);
+
+  const renderSortableHeader = useCallback(
+    (label: string, col: SortColumnKey) => {
+      const active = sortColumn === col;
+      const SortHeaderIcon =
+        active && sortDirection === "desc" ? SortCommonDescIcon : SortCommonAscIcon;
+      return (
+        <Button
+          className="ocs-operator-table-sort"
+          variant="plain"
+          onClick={() => toggleSort(col)}
+          isInline
+          iconPosition="end"
+          icon={
+            <SortHeaderIcon
+              className={active ? "ocs-operator-table-sort-icon--active" : "ocs-operator-table-sort-icon--idle"}
+              aria-hidden
+            />
+          }
+        >
+          {label}
+        </Button>
+      );
+    },
+    [sortColumn, sortDirection, toggleSort]
+  );
 
   const v1Count = operators.filter((o) => o.isOlmV1Extension).length;
 
@@ -508,7 +772,7 @@ export default function InstalledOperatorsPage() {
     setSelectedOperators([]);
   }, []);
 
-  const navigateToUpdate = (op: (typeof filteredOperators)[0]) => {
+  const navigateToUpdate = (op: OperatorRow) => {
     navigate(`/ecosystem/installed-operators/${encodeURIComponent(op.name)}/update`, {
       state: { returnTo: "/ecosystem/installed-operators", operatorName: op.name, operatorData: op },
     });
@@ -516,7 +780,7 @@ export default function InstalledOperatorsPage() {
 
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) {
-      setSelectedOperators(filteredOperators.map((op) => op.name));
+      setSelectedOperators(sortedFilteredOperators.map((op) => op.name));
     } else {
       setSelectedOperators([]);
     }
@@ -561,9 +825,11 @@ export default function InstalledOperatorsPage() {
                 <FavoriteButton name="Installed Operators" path="/ecosystem/installed-operators" />
               </Flex>
               <p>
-                Manage catalog operators installed on this cluster. The table matches <strong>Cluster Update</strong>{" "}
-                for column names and layout. Select <strong>two or more</strong> operators with catalog updates to run a
-                bulk approval from <strong>Approve update</strong>.
+                Manage catalog operators installed on this cluster. The list uses the PatternFly <strong>DataView</strong>{" "}
+                package (<code>@patternfly/react-data-view</code>) — attribute filter menu,{" "}
+                <strong>ToolbarFilter</strong> value chips, top pagination, and a compact table with sortable
+                headers — following the HPUX-1429 / CONSOLE-5091 list–filter prototype. Select <strong>two or more</strong>{" "}
+                operators with catalog updates to run a bulk approval from <strong>Approve update</strong>.
               </p>
             </Content>
 
@@ -645,86 +911,120 @@ export default function InstalledOperatorsPage() {
             </FlexItem>
             </Flex>
 
-            <Toolbar id="installed-operators-toolbar" ouiaId="installed-operators-toolbar">
-            <ToolbarContent>
-              <ToolbarItem>
-                <SearchInput
-                  aria-label="Find by name or namespace"
-                  placeholder="Find by name or namespace"
-                  value={searchTerm}
-                  onChange={(_event, value) => setSearchTerm(value)}
-                  onClear={(e) => {
-                    e.stopPropagation();
-                    setSearchTerm("");
-                  }}
-                  style={{ width: "min(100%, 280px)" }}
-                />
-              </ToolbarItem>
-              <ToolbarGroup align={{ default: "alignEnd" }} gap={{ default: "gapMd" }}>
-                <ToolbarItem>
-                  <Button
-                    variant="primary"
-                    onClick={() => setIsBulkUpdateModalOpen(true)}
-                    isDisabled={selectedOperators.length < 2}
-                    title={
-                      selectedOperators.length < 2
-                        ? "Select at least two operators to run a bulk approval"
-                        : "Review and approve updates for the selected operators"
-                    }
+            <DataView ouiaId="installed-operators-data-view" className="ocs-io-dataview">
+              <DataViewToolbar
+                ouiaId="installed-operators-dv-toolbar"
+                className="ocs-io-dataview-toolbar"
+                clearAllFilters={clearAllFilters}
+                filters={
+                  <DataViewFilters<IoListFilters>
+                    values={filters}
+                    onChange={(_filterId, partial) => onSetFilters(partial as Partial<IoListFilters>)}
+                    breakpoint="md"
                   >
-                    Approve update
-                  </Button>
-                </ToolbarItem>
-                <ToolbarItem>
-                  <Button
-                    variant="link"
-                    component={Link}
-                    to="/ecosystem/software-catalog"
-                    icon={<ExternalLink />}
-                    iconPosition="right"
-                  >
-                    Browse Software Catalog
-                  </Button>
-                </ToolbarItem>
-                <ToolbarItem>
-                  <Dropdown
-                    isOpen={columnMenuOpen}
-                    onOpenChange={setColumnMenuOpen}
-                    toggle={(toggleRef) => (
-                      <MenuToggle
-                        ref={toggleRef}
-                        variant="secondary"
-                        aria-label="Table column visibility"
-                        onClick={() => setColumnMenuOpen((o) => !o)}
-                        isExpanded={columnMenuOpen}
+                    <DataViewTextFilter
+                      title="Name"
+                      filterId="name"
+                      placeholder="Filter by name or namespace"
+                      style={{ minWidth: "16rem", maxWidth: "100%" }}
+                    />
+                    <DataViewCheckboxFilter
+                      title="Status"
+                      filterId="status"
+                      options={FILTER_VALUE_OPTIONS.status}
+                    />
+                    <DataViewCheckboxFilter
+                      title="Update plan"
+                      filterId="updatePlan"
+                      options={FILTER_VALUE_OPTIONS.updatePlan}
+                    />
+                    <DataViewCheckboxFilter
+                      title="Cluster compatibility"
+                      filterId="clusterCompatibility"
+                      options={FILTER_VALUE_OPTIONS.clusterCompatibility}
+                    />
+                    <DataViewCheckboxFilter
+                      title="Support"
+                      filterId="support"
+                      options={FILTER_VALUE_OPTIONS.support}
+                    />
+                  </DataViewFilters>
+                }
+                actions={
+                  <ToolbarGroup align={{ default: "alignEnd" }} gap={{ default: "gapMd" }} variant="action-group">
+                    <ToolbarItem>
+                      <Button
+                        variant="plain"
+                        title="Advanced filter"
+                        aria-label="Advanced filter"
+                        onClick={() => {
+                          setIsAdvancedFilterModalOpen(true);
+                        }}
+                        icon={<SlidersHIcon aria-hidden />}
+                      />
+                    </ToolbarItem>
+                    <ToolbarItem>
+                      <Button
+                        variant="plain"
+                        title="Manage columns"
+                        aria-label="Manage columns"
+                        onClick={() => {
+                          setColumnModalDraft({ ...visibleColumns });
+                          setIsManageColumnsModalOpen(true);
+                        }}
                         icon={<Columns2 aria-hidden />}
+                      />
+                    </ToolbarItem>
+                    <ToolbarItem>
+                      <Button
+                        variant="primary"
+                        onClick={() => setIsBulkUpdateModalOpen(true)}
+                        isDisabled={selectedOperators.length < 2}
+                        title={
+                          selectedOperators.length < 2
+                            ? "Select at least two operators to run a bulk approval"
+                            : "Review and approve updates for the selected operators"
+                        }
                       >
-                        Manage columns
-                      </MenuToggle>
-                    )}
-                    onSelect={() => {}}
-                    shouldFocusToggleOnSelect={false}
-                  >
-                    <DropdownGroup label="Visible columns">
-                      {TABLE_COLUMN_OPTIONS.map(({ key, label }) => (
-                        <DropdownItem
-                          key={key}
-                          itemId={key}
-                          hasCheckbox
-                          isSelected={visibleColumns[key]}
-                          onClick={() =>
-                            setVisibleColumns((v) => ({ ...v, [key]: !v[key] }))
-                          }
-                        >
-                          {label}
-                        </DropdownItem>
-                      ))}
-                    </DropdownGroup>
-                  </Dropdown>
-                </ToolbarItem>
-              </ToolbarGroup>
-            </ToolbarContent>
-            </Toolbar>
+                        Approve update
+                      </Button>
+                    </ToolbarItem>
+                    <ToolbarItem>
+                      <Button
+                        variant="link"
+                        component={Link}
+                        to="/ecosystem/software-catalog"
+                        icon={<ExternalLink />}
+                        iconPosition="right"
+                      >
+                        Browse Software Catalog
+                      </Button>
+                    </ToolbarItem>
+                  </ToolbarGroup>
+                }
+                pagination={
+                  <Pagination
+                    perPageOptions={[
+                      { title: "5", value: 5 },
+                      { title: "10", value: 10 },
+                      { title: "20", value: 20 },
+                      { title: "50", value: 50 },
+                    ]}
+                    itemCount={sortedFilteredOperators.length}
+                    page={page}
+                    perPage={perPage}
+                    onSetPage={(_e, p) => setPage(p)}
+                    onPerPageSelect={(_e, pp) => {
+                      setPerPage(pp);
+                      setPage(1);
+                    }}
+                    variant={PaginationVariant.top}
+                    isCompact
+                    ouiaId="installed-operators-pagination"
+                    titles={{ items: "operators" }}
+                  />
+                }
+              />
 
             <PageSection aria-label="Installed operators table" padding={{ default: "noPadding" }}>
             <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
@@ -741,29 +1041,39 @@ export default function InstalledOperatorsPage() {
                 </Content>
               </Flex>
               <InnerScrollContainer>
-                <Table aria-label="Installed operators" borders>
+                <Table aria-label="Installed operators" borders variant="compact">
                   <Thead>
                     <Tr>
                       <Th modifier="fitContent" aria-label="Select all operators in view">
                         <input
                           type="checkbox"
                           checked={
-                            filteredOperators.length > 0 &&
-                            selectedOperators.length === filteredOperators.length
+                            sortedFilteredOperators.length > 0 &&
+                            sortedFilteredOperators.every((op) => selectedOperators.includes(op.name))
                           }
                           onChange={handleSelectAll}
-                          title="Select all in view"
+                          title="Select all results matching current filters and search"
                         />
                       </Th>
-                      <Th dataLabel="Operator">Operator</Th>
-                      {visibleColumns.version && <Th dataLabel="Version">Version</Th>}
+                      <Th dataLabel="Operator">
+                        {renderSortableHeader("Operator", "name")}
+                      </Th>
+                      {visibleColumns.version && (
+                        <Th dataLabel="Version">{renderSortableHeader("Version", "version")}</Th>
+                      )}
                       {visibleColumns.clusterCompatibility && (
-                        <Th dataLabel="Cluster compatibility">Cluster compatibility</Th>
+                        <Th dataLabel="Cluster compatibility">
+                          {renderSortableHeader("Cluster compatibility", "clusterCompatibility")}
+                        </Th>
                       )}
                       {visibleColumns.updatePlan && <Th dataLabel="Update plan">Update plan</Th>}
                       {visibleColumns.support && <Th dataLabel="Support">Support</Th>}
-                      {visibleColumns.status && <Th dataLabel="Status">Status</Th>}
-                      {visibleColumns.lastUpdated && <Th dataLabel="Last updated">Last updated</Th>}
+                      {visibleColumns.status && (
+                        <Th dataLabel="Status">{renderSortableHeader("Status", "status")}</Th>
+                      )}
+                      {visibleColumns.lastUpdated && (
+                        <Th dataLabel="Last updated">{renderSortableHeader("Last updated", "lastUpdated")}</Th>
+                      )}
                       {visibleColumns.managedNamespaces && (
                         <Th dataLabel="Managed namespaces">Managed namespaces</Th>
                       )}
@@ -773,14 +1083,14 @@ export default function InstalledOperatorsPage() {
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {filteredOperators.length === 0 ? (
+                    {sortedFilteredOperators.length === 0 ? (
                       <Tr>
                         <Td colSpan={tableColSpan} dataLabel="Empty state">
-                          No operators match your search.
+                          No operators match your search or filters.
                         </Td>
                       </Tr>
                     ) : (
-                      filteredOperators.map((op, i) => (
+                      pagedOperators.map((op, i) => (
                         <Tr key={op.name} isRowSelected={selectedOperators.includes(op.name)}>
                           <Td modifier="fitContent" dataLabel="Select row">
                             <input
@@ -989,11 +1299,123 @@ export default function InstalledOperatorsPage() {
               </InnerScrollContainer>
             </Flex>
             </PageSection>
+            </DataView>
           </Flex>
             </Breadcrumbs>
         </div>
       </div>
       </OlsChatbot>
+
+      <Modal
+        variant="large"
+        isOpen={isManageColumnsModalOpen}
+        onClose={() => setIsManageColumnsModalOpen(false)}
+        aria-labelledby="io-manage-cols-title"
+        aria-describedby="io-manage-cols-body"
+      >
+        <ModalHeader
+          labelId="io-manage-cols-title"
+          descriptorId="io-manage-cols-body"
+          title="Manage columns"
+          description="Default columns are always available; additional columns are optional. Operator stays visible."
+        />
+        <ModalBody id="io-manage-cols-body">
+          <Flex
+            direction={{ default: "column", md: "row" }}
+            gap={{ default: "gap2xl" }}
+            alignItems={{ default: "alignItemsStretch" }}
+            style={{ maxWidth: "100%" }}
+          >
+            <FlexItem grow={{ default: "grow" }} style={{ minWidth: 0, flex: 1 }}>
+              <Title headingLevel="h3" size="md" className="pf-v6-u-mb-md">
+                Default columns
+              </Title>
+              <div style={ioManageColRowStyle(true)}>
+                <Checkbox
+                  id="io-col-operator-mandatory"
+                  label="Operator"
+                  isChecked
+                  isDisabled
+                  onChange={() => {}}
+                />
+              </div>
+              {DEFAULT_MANAGE_COLUMN_ORDER.map((col, i) => {
+                const isLast = i === DEFAULT_MANAGE_COLUMN_ORDER.length - 1;
+                return (
+                  <div key={col.key} style={ioManageColRowStyle(!isLast)}>
+                    <Checkbox
+                      id={`io-col-draft-${col.key}`}
+                      label={col.label}
+                      isChecked={columnModalDraft[col.key]}
+                      onChange={(_e, c) =>
+                        setColumnModalDraft((d) => ({ ...d, [col.key]: c }))
+                      }
+                    />
+                  </div>
+                );
+              })}
+            </FlexItem>
+            <FlexItem grow={{ default: "grow" }} style={{ minWidth: 0, flex: 1 }}>
+              <Title headingLevel="h3" size="md" className="pf-v6-u-mb-md">
+                Additional columns
+              </Title>
+              {ADDITIONAL_MANAGE_COLUMN_ORDER.map((col, i) => {
+                const isLast = i === ADDITIONAL_MANAGE_COLUMN_ORDER.length - 1;
+                return (
+                  <div key={col.key} style={ioManageColRowStyle(!isLast)}>
+                    <Checkbox
+                      id={`io-col-draft-${col.key}`}
+                      label={col.label}
+                      isChecked={columnModalDraft[col.key]}
+                      onChange={(_e, c) =>
+                        setColumnModalDraft((d) => ({ ...d, [col.key]: c }))
+                      }
+                    />
+                  </div>
+                );
+              })}
+            </FlexItem>
+          </Flex>
+        </ModalBody>
+        <ModalFooter>
+          <Flex
+            flexWrap={{ default: "flexWrapWrap" }}
+            alignItems={{ default: "alignItemsCenter" }}
+            gap={{ default: "gapMd" }}
+            justifyContent={{ default: "justifyContentFlexStart" }}
+          >
+            <Button
+              variant="primary"
+              onClick={() => {
+                setVisibleColumns({ ...columnModalDraft });
+                setIsManageColumnsModalOpen(false);
+              }}
+            >
+              Save
+            </Button>
+            <Button variant="link" onClick={() => setIsManageColumnsModalOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="link"
+              onClick={() => setColumnModalDraft({ ...RESTORE_DEFAULT_VISIBLE })}
+            >
+              Restore default columns
+            </Button>
+          </Flex>
+        </ModalFooter>
+      </Modal>
+
+      <ListAdvancedFilterModal<keyof IoListFilters>
+        isOpen={isAdvancedFilterModalOpen}
+        onClose={() => setIsAdvancedFilterModalOpen(false)}
+        source={filters}
+        onSave={(next) => onSetFilters(next as IoListFilters)}
+        getEmpty={getEmptyIoListFilters}
+        spec={IO_LIST_ADV_FILTER_SPEC}
+        defaultAttributeWhenNoRows="status"
+        idPrefix="io-list-adv"
+      />
 
       <BulkUpdateModal
         isOpen={isBulkUpdateModalOpen}
