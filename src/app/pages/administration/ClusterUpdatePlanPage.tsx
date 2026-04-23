@@ -445,7 +445,7 @@ export default function ClusterUpdatePlanPage() {
         }}
       >
         <Tab eventKey="update-plan" title={<TabTitleText>Update plan</TabTitleText>}>
-          <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
+          <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
           <AiAssessmentSection
             openChatbot={openChatbot}
             selectedVersion={selectedVersion}
