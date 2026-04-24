@@ -502,8 +502,9 @@ html.no-glass.dark .app-glass-panel.app-glass-panel--edge-right {
 html.dark .ocs-console-page.pf-v6-c-page {
   --pf-v6-c-masthead--BackgroundColor: var(--pf-color-gray-95);
   --pf-v6-c-masthead--BorderColor: var(--pf-color-gray-80);
-  --pf-v6-c-page__sidebar--BackgroundColor: var(--pf-color-gray-95);
-  --pf-v6-c-page__sidebar--xl--BackgroundColor: var(--pf-color-gray-95);
+  /* Unset solid column fill: PF uses background-color: var(--pf-v6-c-page__sidebar--BackgroundColor) */
+  --pf-v6-c-page__sidebar--BackgroundColor: transparent;
+  --pf-v6-c-page__sidebar--xl--BackgroundColor: transparent;
   --pf-v6-c-page__sidebar--BackdropFilter: none;
   --pf-v6-c-page__sidebar--xl--BackdropFilter: none;
 }
@@ -530,13 +531,16 @@ html.dark .ocs-console-masthead .pf-v6-c-button.pf-m-plain:hover {
 html:not(.dark) .ocs-console-page.pf-v6-c-page {
   --pf-v6-c-masthead--BackgroundColor: var(--pf-t--global--background--color--secondary--default);
   --pf-v6-c-masthead--BorderColor: var(--pf-t--global--border--color--default);
-  --pf-v6-c-page__sidebar--BackgroundColor: var(
-    --pf-t--global--background--color--floating--secondary--default
-  );
-  --pf-v6-c-page__sidebar--xl--BackgroundColor: var(
-    --pf-t--global--background--color--glass--primary--default,
-    var(--pf-t--global--background--color--secondary--default)
-  );
+  /* Unset solid column fill: PF uses background-color: var(--pf-v6-c-page__sidebar--BackgroundColor) */
+  --pf-v6-c-page__sidebar--BackgroundColor: transparent;
+  --pf-v6-c-page__sidebar--xl--BackgroundColor: transparent;
+  --pf-v6-c-page__sidebar--BackdropFilter: none;
+  --pf-v6-c-page__sidebar--xl--BackdropFilter: none;
+}
+
+/* Nav scroll area: PF Page has no default fill on sidebar-body */
+.ocs-console-page.pf-v6-c-page .pf-v6-c-page__sidebar-body {
+  background-color: var(--pf-t--global--background--color--primary--default);
 }
 
 html:not(.dark) .ocs-console-masthead .pf-v6-c-masthead__main,
@@ -753,11 +757,50 @@ html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
   width: 100%;
 }
 
+.ocs-io-filters-mid__group.pf-v6-c-toolbar__group {
+  flex-wrap: wrap;
+  row-gap: var(--pf-t--global--spacer--sm);
+  column-gap: var(--pf-t--global--spacer--md);
+  align-items: center;
+}
+
+/* Align filters left; actions + compact pagination on the right (Data View / list toolbar pattern) */
+.ocs-io-dv-toolbar-align.pf-v6-c-toolbar .pf-v6-c-toolbar__content .pf-v6-c-toolbar__content-section {
+  align-items: center;
+  row-gap: var(--pf-t--global--spacer--sm);
+  column-gap: var(--pf-t--global--spacer--md);
+}
+/* With actions embedded in the filter strip, 2nd toolbar child is top pagination. */
+.ocs-io-dv-toolbar-align.pf-v6-c-toolbar .pf-v6-c-toolbar__item:nth-child(2) {
+  margin-inline-start: auto;
+  flex: 0 1 auto;
+  min-width: 0;
+}
+/* react-data-view DataViewToolbar sets pagination item to 100% width; keep it on the first row, right-aligned */
+.ocs-io-dv-toolbar-align.pf-v6-c-toolbar .pf-v6-c-toolbar__item.pf-m-pagination,
+.ocs-io-dv-toolbar-align.pf-v6-c-toolbar .pf-v6-c-toolbar__item.pf-m-pagination > div {
+  flex: 0 0 auto !important;
+  width: auto !important;
+  flex-basis: auto !important;
+  max-width: 100%;
+}
+
 .ocs-operator-table-sort.pf-v6-c-button.pf-m-plain {
   font-weight: var(--pf-t--global--font--weight--heading--bold);
   color: inherit;
   padding-inline: var(--pf-t--global--spacer--xs);
   column-gap: var(--pf-t--global--spacer--xs);
+}
+
+/* Non-sortable column title — same type metrics as .ocs-operator-table-sort, no control affordance */
+.ocs-operator-table-header-static.pf-v6-c-button.pf-m-plain {
+  pointer-events: none;
+  cursor: default;
+  user-select: none;
+  background: transparent;
+}
+.ocs-operator-table-header-static.pf-v6-c-button.pf-m-plain:where(:focus, :hover) {
+  background: transparent;
 }
 
 .ocs-operator-table-sort-icon--idle {
@@ -767,6 +810,118 @@ html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
 .ocs-operator-table-sort-icon--active {
   opacity: 1;
   color: var(--pf-t--global--text--color--link--default, #06c);
+}
+
+/**
+ * Installed operators table: sortable headers use plain buttons; PF focus/hover can add a pill
+ * background that changes measured width and shifts columns. Keep one stable surface and a
+ * fixed end slot for the sort glyph (asc/desc) so switching the active sort column does not
+ * relayout the grid.
+ */
+.ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button .pf-v6-c-button__icon {
+  display: inline-flex;
+  width: 1.125em;
+  min-width: 1.125em;
+  height: 1.125em;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  margin-inline: 0;
+  padding: 0;
+  box-sizing: content-box;
+}
+.ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button .pf-v6-c-button__icon svg,
+.ocs-io-operator-table .ocs-operator-table-sort-glyph {
+  display: block;
+  width: 1em;
+  height: 1em;
+  flex-shrink: 0;
+  transform-origin: 50% 50%;
+  transition: transform 0.12s ease, opacity 0.12s ease, color 0.12s ease;
+}
+/* Same glyph for asc/desc: rotate preserves bbox (replaces two different pficons that could subpixel‑shift) */
+.ocs-io-operator-table .ocs-operator-table-sort-glyph {
+  vertical-align: middle;
+}
+/**
+ * Cluster extension: sorted pages swap rows with "—" vs "OLM v1 managed" — with `table-layout: auto`
+ * the column’s intrinsic max changes and the whole table shifts. Lock the column to one width.
+ */
+.ocs-io-operator-table th.ocs-io-col-cluster-ext,
+.ocs-io-operator-table td.ocs-io-col-cluster-ext {
+  width: 12.5rem;
+  min-width: 12.5rem;
+  max-width: 12.5rem;
+  box-sizing: border-box;
+  vertical-align: middle;
+}
+.ocs-io-operator-table td.ocs-io-col-cluster-ext {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ocs-io-operator-table th.ocs-io-col-cluster-ext .ocs-operator-table-sort.pf-v6-c-button {
+  max-width: 100%;
+  justify-content: flex-start;
+}
+.ocs-io-operator-table th.ocs-io-col-cluster-ext .ocs-operator-table-sort.pf-v6-c-button .pf-v6-c-button__text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: start;
+}
+.ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-plain {
+  --pf-v6-c-button--MinWidth: 0;
+  min-width: 0;
+  border-radius: 0;
+  /* Avoid pill-shaped hit area (border-radius--pill) changing inline size when :focus or .pf-m-hovered */
+  --pf-v6-c-button--BorderRadius: 0;
+  --pf-v6-c-button--hover--ScaleX: 1;
+  --pf-v6-c-button--hover--ScaleY: 1;
+  --pf-v6-c-button--m-clicked--ScaleX: 1;
+  --pf-v6-c-button--m-clicked--ScaleY: 1;
+}
+.ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-plain {
+  --pf-v6-c-button--m-clicked--BackgroundColor: transparent;
+  --pf-v6-c-button--BackgroundColor: transparent;
+  --pf-v6-c-button--hover--BackgroundColor: transparent;
+  background: transparent;
+}
+.ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-plain:where(
+    :hover,
+    :focus,
+    :focus-within
+  ) {
+  --pf-v6-c-button--BackgroundColor: transparent;
+  --pf-v6-c-button--hover--BackgroundColor: transparent;
+  background: transparent;
+}
+.ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-plain:where(:active, .pf-m-clicked) {
+  --pf-v6-c-button--m-clicked--BackgroundColor: transparent;
+  --pf-v6-c-button--BackgroundColor: transparent;
+  background: transparent;
+}
+.ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-plain:where(
+    :focus-visible
+  ) {
+  outline: 2px solid var(--pf-t--global--color--status--active--on-light, #6a6e73);
+  outline-offset: 1px;
+  --pf-v6-c-button--BackgroundColor: transparent;
+  --pf-v6-c-button--hover--BackgroundColor: transparent;
+  box-shadow: none;
+}
+html:not(.dark) .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-plain:where(
+    :focus-visible
+  ) {
+  outline-color: var(
+    --pf-t--global--active--text--on-secondary,
+    var(--pf-t--global--border--color--default)
+  );
+}
+html.dark .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-plain:where(
+    :focus-visible
+  ) {
+  outline-color: var(--pf-t--global--border--color--hover, #a3a3a3);
 }
 
 /**
