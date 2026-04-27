@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { css } from "@patternfly/react-styles";
 import displayStyles from "@patternfly/react-styles/css/utilities/Display/display.mjs";
 import flexStyles from "@patternfly/react-styles/css/utilities/Flex/flex.mjs";
@@ -50,6 +50,41 @@ type ChatMessage = {
   actions?: ChatAction[];
 };
 
+function installedOperatorsPrecheckSummary(version: string, channel: string): string {
+  return (
+    `**Installed Operators — pre-check**\n\n` +
+    `**Target:** ${version} · **Channel:** ${channel}\n\n` +
+    `**OLM v0 (Subscriptions)**\n` +
+    `Updates **4** · Blocking **2** · Up to date **1**\n\n` +
+    `**OLM v1 (extensions)**\n` +
+    `Healthy **1** · Pending **1**\n\n` +
+    `_Operator names, checks, and steps → **Detail analysis**_`
+  );
+}
+
+function installedOperatorsPrecheckDetail(version: string, channel: string): string {
+  return (
+    `**Detailed analysis**\n\n` +
+    `**Cluster target:** ${version} · **Channel:** ${channel}\n\n` +
+    `**OLM v0 (Subscriptions)**\n` +
+    `• **Update available** — Abot Operator-v3.0.0, Airflow Helm Operator, Ansible Automation Platform, Bare Metal Event Relay\n` +
+    `• **Required before some cluster updates** — Abot Operator-v3.0.0, Airflow Helm Operator\n` +
+    `• **Up to date** — Camel K Operator\n\n` +
+    `**OLM v1 (cluster extensions)**\n` +
+    `• **Healthy** — OpenShift GitOps (cluster extension)\n` +
+    `• **Conditions pending** — Sample observability bundle (discovery still settling)\n\n` +
+    `**Checks performed**\n` +
+    `• Subscription / extension status vs. target version\n` +
+    `• Support and end-of-life signals (as shown in the table)\n` +
+    `• Alignment with **Cluster Update** readiness for the same target\n\n` +
+    `**Next steps**\n` +
+    `1. Approve updates for operators that block your cluster plan (row actions, or select **two or more** then **Approve update**).\n` +
+    `2. Resolve **Incompatible** operators before go-live.\n` +
+    `3. Open **Cluster Update** when catalog and platform both look clear.\n\n` +
+    `Ask about upgrade order, risk, or a specific operator in the list.`
+  );
+}
+
 export function OlsChatbot({
   isOpen,
   children,
@@ -68,22 +103,26 @@ export function OlsChatbot({
   onAction: (actionId: string) => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>(() => {
+    if (context === "installed-operators-precheck") {
+      return [
+        {
+          role: "assistant",
+          text: installedOperatorsPrecheckSummary(selectedVersion, selectedChannel),
+          actions: [
+            { label: "Detail analysis", variant: "secondary", actionId: "io-precheck-detail" },
+            { label: "Open Cluster Update", variant: "primary", actionId: "view-plan" },
+          ],
+        },
+      ];
+    }
+
     const initial: ChatMessage[] = [
       {
         role: "assistant",
         text: `Hello! I'm OpenShift Lightspeed, your AI assistant for cluster operations.\n\nI can see your cluster is currently on version **5.0.0** using the **${selectedChannel}** channel, and you're considering an update to **${selectedVersion}**.\n\nPre-checks and status updates cover **platform operators** and **Software Catalog (OLM) operators** together—one holistic view as those experiences converge on the dashboard.`,
       },
     ];
-    if (context === "installed-operators-precheck") {
-      initial[0] = {
-        role: "assistant",
-        text: `Hello! I'm OpenShift Lightspeed. You're on **Installed Operators** — I'm focused on **catalog operators** (OLM Subscriptions and cluster extensions) on this cluster, using **${selectedVersion}** on **${selectedChannel}** as the compatibility target.`,
-      };
-      initial.push({
-        role: "assistant",
-        text: `**Pre-check: Installed Operators**\n\n**Cluster target:** ${selectedVersion} · **Channel:** ${selectedChannel}\n\n**OLM v0 (Subscriptions)**\n• **Update available** — Abot Operator-v3.0.0, Airflow Helm Operator, Ansible Automation Platform, Bare Metal Event Relay\n• **Required before some cluster updates** — Abot Operator-v3.0.0, Airflow Helm Operator\n• **Up to date** — Camel K Operator\n\n**OLM v1 (cluster extensions)**\n• **Healthy** — OpenShift GitOps (cluster extension)\n• **Conditions pending** — Sample observability bundle (discovery still settling)\n\n**Checks performed**\n• Subscription / extension status vs. target version\n• Support and end-of-life signals (as shown in the table)\n• Alignment with **Cluster Update** readiness for the same target\n\n**Next steps**\n1. Approve updates for operators that block your cluster plan (use row actions or select **two or more** operators and **Approve update** for bulk approval)\n2. Resolve **Unknown** compatibility before go-live\n3. Open **Cluster Update** when catalog and platform both look clear\n\nAsk about upgrade order, risk, or a specific operator in the list.`,
-      });
-    } else if (context === "recommendations") {
+    if (context === "recommendations") {
       initial.push({
         role: "assistant",
         text: `Based on your cluster's workload profile and update history, here are my recommendations:\n\n• **Recommended version**: ${selectedVersion} — Low risk with strong community adoption\n• **Best update window**: Weekdays 2:00-4:00 AM UTC based on your traffic patterns\n• **Pre-update actions**: Update cluster-logging operator to v6.5+ before proceeding\n• **Estimated downtime**: ~2 minutes for API server restart`,
@@ -164,7 +203,6 @@ export function OlsChatbot({
       const contextActions: Record<string, ChatAction[]> = {
         "agent-precheck": [],
         "ai-precheck": [],
-        "installed-operators-precheck": [{ label: "Open Cluster Update", variant: "primary", actionId: "view-plan" }],
         "agent-start": [{ label: "Review update plan", variant: "primary", actionId: "view-plan" }],
         "compatibility-analysis": [{ label: "Generate remediation plan", variant: "secondary", actionId: "remediation" }],
         "agent-config": [{ label: "Review configuration", variant: "secondary", actionId: "view-plan" }],
@@ -183,6 +221,34 @@ export function OlsChatbot({
   });
   const [input, setInput] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const handleAssistantAction = useCallback(
+    (action: ChatAction) => {
+      if (action.actionId === "io-precheck-detail") {
+        setMessages((prev) => {
+          if (prev.some((m) => m.role === "assistant" && m.text.startsWith("**Detailed analysis**"))) {
+            return prev;
+          }
+          const withoutDetailButton = prev.map((m) =>
+            m.role === "assistant" && m.actions?.some((a) => a.actionId === "io-precheck-detail")
+              ? { ...m, actions: (m.actions ?? []).filter((a) => a.actionId !== "io-precheck-detail") }
+              : m
+          );
+          return [
+            ...withoutDetailButton,
+            {
+              role: "assistant",
+              text: installedOperatorsPrecheckDetail(selectedVersion, selectedChannel),
+              actions: [{ label: "Open Cluster Update", variant: "primary", actionId: "view-plan" }],
+            },
+          ];
+        });
+        return;
+      }
+      onAction(action.actionId);
+    },
+    [onAction, selectedChannel, selectedVersion]
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -341,7 +407,7 @@ export function OlsChatbot({
                                     isInline={action.variant === "link"}
                                     onClick={(e) => {
                                       e.stopPropagation();
-                                      onAction(action.actionId);
+                                      handleAssistantAction(action);
                                     }}
                                   >
                                     {action.label}

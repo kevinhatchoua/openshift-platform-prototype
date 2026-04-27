@@ -53,6 +53,7 @@ import { useChat } from "../../contexts/ChatContext";
 import { BulkUpdateModal } from "../../components/OperatorUpdateModals";
 import { AiAssessmentSection } from "../../components/AiAssessmentSection";
 import { OlsChatbot } from "../../components/OlsChatbot";
+import { useClusterUpdateDemoVariant } from "../../contexts/ClusterUpdateDemoContext";
 import {
   ListAdvancedFilterModal,
   type ListAdvancedAttributeSpec,
@@ -165,13 +166,12 @@ const FILTER_VALUE_OPTIONS: Record<
   clusterCompatibility: [
     { value: "Compatible", label: "Compatible" },
     { value: "Incompatible", label: "Incompatible" },
-    { value: "Unknown", label: "Unknown" },
   ],
   support: [
     { value: "Full", label: "Full" },
     { value: "Limited", label: "Limited" },
     { value: "Community", label: "Community" },
-    { value: "Self-support", label: "Self-support" },
+    { value: "Unsupported", label: "Unsupported" },
   ],
 };
 
@@ -219,12 +219,12 @@ type SortColumnKey =
   | "status"
   | "lastUpdated"
   | "clusterCompatibility"
-  | "clusterExtension";
+  | "clusterExtension"
+  | "support";
 
-const COMPAT_SORT_ORDER: Record<"Compatible" | "Incompatible" | "Unknown", number> = {
+const COMPAT_SORT_ORDER: Record<"Compatible" | "Incompatible", number> = {
   Compatible: 0,
-  Unknown: 1,
-  Incompatible: 2,
+  Incompatible: 1,
 };
 
 function parseUpdatedAt(s?: string): number {
@@ -254,9 +254,9 @@ type InstalledOperator = {
   source: string;
   status: "Running" | "Degraded" | "Pending";
   autoUpdate: boolean;
-  clusterCompatibility: "Compatible" | "Incompatible" | "Unknown";
+  clusterCompatibility: "Compatible" | "Incompatible";
   compatibilityMessage?: string;
-  support: "Full" | "Limited" | "Community" | "Self-support";
+  support: "Full" | "Limited" | "Community" | "Unsupported";
   supportEndDate?: string;
   supportBadge?: string;
   supportBadgeType?: "success" | "danger" | "warning";
@@ -284,16 +284,19 @@ function compareVersions(a: string, b: string): number {
 function getOperatorCompatibilityPage(
   op: InstalledOperator,
   targetVersion: string
-): { compatibility: "Compatible" | "Incompatible" | "Unknown"; message?: string } {
+): { compatibility: "Compatible" | "Incompatible"; message?: string } {
   if (op.status === "Pending") {
-    return { compatibility: "Unknown", message: op.compatibilityMessage || "Operator is pending." };
+    return {
+      compatibility: "Incompatible",
+      message: op.compatibilityMessage || "Operator is pending and not compatible until it is running.",
+    };
   }
   if (op.status === "Degraded") {
     return {
-      compatibility: "Unknown",
+      compatibility: "Incompatible",
       message:
         op.compatibilityMessage ||
-        "Operator is degraded. Compatibility cannot be determined until the operator is healthy.",
+        "Operator is degraded and not compatible until the operator is healthy.",
     };
   }
   if (!op.maxOcpVersion) return { compatibility: "Compatible" };
@@ -312,8 +315,72 @@ function getOperatorCompatibilityPage(
 }
 
 type OperatorRow = CatalogOperator & {
-  clusterCompatibility: "Compatible" | "Incompatible" | "Unknown";
+  clusterCompatibility: "Compatible" | "Incompatible";
 };
+
+/** Parses prototype date strings like "Nov 13, 2025" reliably across environments. */
+function parseSupportEndDateMs(supportEndDate?: string): number | undefined {
+  if (!supportEndDate || supportEndDate === "—") return undefined;
+  const trimmed = supportEndDate.trim();
+  let parsed = Date.parse(trimmed);
+  if (!Number.isNaN(parsed)) return parsed;
+  const d = new Date(trimmed);
+  if (!Number.isNaN(d.getTime())) return d.getTime();
+  // Safari / some locales: "MMM d, yyyy"
+  const mdy = trimmed.match(/^([A-Za-z]{3})\s+(\d{1,2}),\s+(\d{4})$/);
+  if (mdy) {
+    parsed = Date.parse(`${mdy[1]} ${mdy[2]}, ${mdy[3]}`);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  // ISO yyyy-mm-dd
+  const iso = trimmed.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (iso) {
+    parsed = Date.UTC(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
+    return parsed;
+  }
+  return undefined;
+}
+
+function normalizeSupportBadgeLabel(supportBadge?: string): string | undefined {
+  const s = supportBadge?.replace(/\s+/g, " ").trim();
+  return s || undefined;
+}
+
+function getSupportDisplayValue(supportEndDate?: string, supportBadge?: string): string {
+  const badge = normalizeSupportBadgeLabel(supportBadge);
+  if (badge?.toLowerCase() === "end of life") return "End of life";
+
+  const ms = parseSupportEndDateMs(supportEndDate);
+  if (ms !== undefined && ms < Date.now()) return "End of life";
+
+  if (!supportEndDate || supportEndDate === "—") {
+    if (badge?.toLowerCase() === "unsupported") return "Unsupported";
+    if (badge) return badge;
+    return "—";
+  }
+  return supportEndDate;
+}
+
+/** Monotonic timestamp for sorting the Support column (earlier = older risk). */
+function getSupportSortTimestamp(op: OperatorRow): number {
+  const badge = normalizeSupportBadgeLabel(op.supportBadge);
+  if (badge?.toLowerCase() === "end of life") {
+    const ms = parseSupportEndDateMs(op.supportEndDate);
+    return ms !== undefined ? ms : 0;
+  }
+  const ms = parseSupportEndDateMs(op.supportEndDate);
+  if (ms !== undefined) return ms;
+  if (!op.supportEndDate || op.supportEndDate === "—") {
+    if (badge?.toLowerCase() === "unsupported") return Number.MAX_SAFE_INTEGER - 2;
+    if (badge) return Number.MAX_SAFE_INTEGER - 3;
+  }
+  return Number.MAX_SAFE_INTEGER - 1;
+}
+
+function getSupportTooltipText(supportBadge?: string): string | undefined {
+  if (!supportBadge) return undefined;
+  return supportBadge.replaceAll("Self-support", "Unsupported");
+}
 
 function rowMatchesDataViewFilters(op: OperatorRow, f: IoListFilters): boolean {
   if (f.name.trim()) {
@@ -360,6 +427,9 @@ function sortOperatorRows(rows: OperatorRow[], key: SortColumnKey, dir: "asc" | 
       case "lastUpdated":
         cmp = parseUpdatedAt(a.lastUpdated) - parseUpdatedAt(b.lastUpdated);
         break;
+      case "support":
+        cmp = getSupportSortTimestamp(a) - getSupportSortTimestamp(b);
+        break;
       default:
         cmp = 0;
     }
@@ -381,7 +451,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     compatibilityMessage:
       "Max supported OCP version is 5.0. Update to v6.5+ before upgrading cluster.",
     support: "Full",
-    supportEndDate: "Nov 13, 2025",
+    supportEndDate: "2025-11-13",
     supportBadge: "End of life",
     supportBadgeType: "danger",
     updateAvailable: "6.5.1",
@@ -538,7 +608,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     source: "redhat-operators",
     status: "Degraded",
     autoUpdate: false,
-    clusterCompatibility: "Unknown",
+    clusterCompatibility: "Incompatible",
     compatibilityMessage:
       "Operator is degraded. Compatibility cannot be determined until the operator is healthy.",
     support: "Limited",
@@ -610,11 +680,11 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     source: "community-operators",
     status: "Pending",
     autoUpdate: true,
-    clusterCompatibility: "Unknown",
+    clusterCompatibility: "Incompatible",
     compatibilityMessage: "V1 discovery in progress — update availability TBD",
     support: "Community",
     supportEndDate: "—",
-    supportBadge: "Self-support",
+    supportBadge: "Unsupported",
     supportBadgeType: "danger",
     lastUpdated: "Jun 11, 2025, 9:15 AM",
     managedNamespaces: ["observability-sample"],
@@ -646,8 +716,10 @@ export default function InstalledOperatorsPage() {
     () => ({ ...RESTORE_DEFAULT_VISIBLE })
   );
   const navigate = useNavigate();
+  const { demoVariant } = useClusterUpdateDemoVariant();
   const { setCurrentPage } = useChat();
   const isGlass = usePatternFlyGlassActive();
+  const showAssessmentAndOverviewCards = demoVariant === "manual-and-agent";
 
   const openChatbot = useCallback((context: string) => {
     setChatbotContext(context);
@@ -876,68 +948,84 @@ export default function InstalledOperatorsPage() {
               </p>
             </Content>
 
-            <AiAssessmentSection
-              variant="installed-operators"
-              installedSummary={installedAiSummary}
-              openChatbot={openChatbot}
-              selectedVersion={CLUSTER_TARGET_VERSION}
-            />
+            {showAssessmentAndOverviewCards && (
+              <>
+                <AiAssessmentSection
+                  variant="installed-operators"
+                  installedSummary={installedAiSummary}
+                  openChatbot={openChatbot}
+                  selectedVersion={CLUSTER_TARGET_VERSION}
+                />
 
-            <Flex flexWrap={{ default: "flexWrapWrap" }} gap={{ default: "gapLg" }}>
-            <FlexItem flex={{ default: "flex_1" }} grow={{ default: "grow" }} shrink={{ default: "shrink" }}>
-              <Card isGlass={isGlass} isFullHeight>
-                <CardBody>
-                  <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                    <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }}>
-                      <Icon size="lg" status="success">
-                        <CheckCircle />
-                      </Icon>
-                      <Content component="small">Total installed</Content>
-                    </Flex>
-                    <Title headingLevel="h3" size="4xl">
-                      {operators.length}
-                    </Title>
-                  </Flex>
-                </CardBody>
-              </Card>
-            </FlexItem>
-            <FlexItem flex={{ default: "flex_1" }} grow={{ default: "grow" }} shrink={{ default: "shrink" }}>
-              <Card isGlass={isGlass} isFullHeight>
-                <CardBody>
-                  <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                    <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }}>
-                      <Icon size="lg" status="info">
-                        <Info />
-                      </Icon>
-                      <Content component="small">Available Updates</Content>
-                    </Flex>
-                    <Title headingLevel="h3" size="4xl">
-                      {operators.filter((o) => o.updateAvailable).length}
-                    </Title>
-                  </Flex>
-                </CardBody>
-              </Card>
-            </FlexItem>
-            <FlexItem flex={{ default: "flex_1" }} grow={{ default: "grow" }} shrink={{ default: "shrink" }}>
-              <Card isGlass={isGlass} isFullHeight>
-                <CardBody>
-                  <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                    <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }}>
-                      <Icon size="lg" status="warning">
-                        <AlertCircle />
-                      </Icon>
-                      <Content component="small">End of Life Support</Content>
-                    </Flex>
-                    <Title headingLevel="h3" size="4xl">
-                      {operators.filter((o) => o.supportBadge === "End of life").length}
-                    </Title>
-                  </Flex>
-                </CardBody>
-              </Card>
-            </FlexItem>
-            </Flex>
+                <Flex flexWrap={{ default: "flexWrapWrap" }} gap={{ default: "gapLg" }}>
+                  <FlexItem flex={{ default: "flex_1" }} grow={{ default: "grow" }} shrink={{ default: "shrink" }}>
+                    <Card isGlass={isGlass} isFullHeight>
+                      <CardBody>
+                        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }}>
+                            <Icon size="lg" status="success">
+                              <CheckCircle />
+                            </Icon>
+                            <Content component="small">Total installed</Content>
+                          </Flex>
+                          <Title headingLevel="h3" size="4xl">
+                            {operators.length}
+                          </Title>
+                        </Flex>
+                      </CardBody>
+                    </Card>
+                  </FlexItem>
+                  <FlexItem flex={{ default: "flex_1" }} grow={{ default: "grow" }} shrink={{ default: "shrink" }}>
+                    <Card isGlass={isGlass} isFullHeight>
+                      <CardBody>
+                        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }}>
+                            <Icon size="lg" status="info">
+                              <Info />
+                            </Icon>
+                            <Content component="small">Available Updates</Content>
+                          </Flex>
+                          <Title headingLevel="h3" size="4xl">
+                            {operators.filter((o) => o.updateAvailable).length}
+                          </Title>
+                        </Flex>
+                      </CardBody>
+                    </Card>
+                  </FlexItem>
+                  <FlexItem flex={{ default: "flex_1" }} grow={{ default: "grow" }} shrink={{ default: "shrink" }}>
+                    <Card isGlass={isGlass} isFullHeight>
+                      <CardBody>
+                        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }}>
+                            <Icon size="lg" status="warning">
+                              <AlertCircle />
+                            </Icon>
+                            <Content component="small">End of Life Support</Content>
+                          </Flex>
+                          <Title headingLevel="h3" size="4xl">
+                            {
+                              operators.filter(
+                                (o) => getSupportDisplayValue(o.supportEndDate, o.supportBadge) === "End of life"
+                              ).length
+                            }
+                          </Title>
+                        </Flex>
+                      </CardBody>
+                    </Card>
+                  </FlexItem>
+                </Flex>
+              </>
+            )}
 
-            <DataView ouiaId="installed-operators-data-view" className="ocs-io-dataview">
+            <DataView
+              ouiaId="installed-operators-data-view"
+              className="ocs-io-dataview"
+              style={
+                showAssessmentAndOverviewCards
+                  ? undefined
+                  : { marginBlockStart: "var(--pf-t--global--spacer--lg)" }
+              }
+            >
               <DataViewToolbar
                 ouiaId="installed-operators-dv-toolbar"
                 id="installed-operators-dv-toolbar"
@@ -1104,7 +1192,7 @@ export default function InstalledOperatorsPage() {
                         </Th>
                       )}
                       {visibleColumns.support && (
-                        <Th dataLabel="Support">{renderPlainHeader("Support")}</Th>
+                        <Th dataLabel="Support">{renderSortableHeader("Support", "support")}</Th>
                       )}
                       {visibleColumns.lastUpdated && (
                         <Th dataLabel="Last updated">{renderSortableHeader("Last updated", "lastUpdated")}</Th>
@@ -1211,11 +1299,9 @@ export default function InstalledOperatorsPage() {
                           )}
                           {visibleColumns.clusterExtension && (
                             <Td dataLabel="Cluster extension" className="ocs-io-col-cluster-ext">
-                              {op.isOlmV1Extension ? (
-                                <Content component="small">OLM v1 managed</Content>
-                              ) : (
-                                <span className="text-[var(--pf-t--global--text--color--subtle)]">—</span>
-                              )}
+                              <Content component="small">
+                                {op.isOlmV1Extension ? "OLM v1 managed" : "OLM v0 managed"}
+                              </Content>
                             </Td>
                           )}
                           {visibleColumns.clusterCompatibility && (
@@ -1227,19 +1313,12 @@ export default function InstalledOperatorsPage() {
                                   </Icon>
                                   Compatible
                                 </Flex>
-                              ) : op.clusterCompatibility === "Incompatible" ? (
+                              ) : (
                                 <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
                                   <Icon status="danger">
                                     <AlertCircle />
                                   </Icon>
                                   Incompatible
-                                </Flex>
-                              ) : (
-                                <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-                                  <Icon status="warning">
-                                    <AlertTriangle />
-                                  </Icon>
-                                  Unknown
                                 </Flex>
                               )}
                             </Td>
@@ -1253,7 +1332,7 @@ export default function InstalledOperatorsPage() {
                               >
                                 {op.supportBadge ? (
                                   <Tooltip
-                                    content={op.supportBadge}
+                                    content={getSupportTooltipText(op.supportBadge)}
                                     position="top"
                                     trigger="mouseenter focus click"
                                     aria="describedby"
@@ -1284,7 +1363,9 @@ export default function InstalledOperatorsPage() {
                                     </span>
                                   </Tooltip>
                                 ) : null}
-                                <Content component="span">{op.supportEndDate || "—"}</Content>
+                                <Content component="span">
+                                  {getSupportDisplayValue(op.supportEndDate, op.supportBadge)}
+                                </Content>
                               </Flex>
                             </Td>
                           )}

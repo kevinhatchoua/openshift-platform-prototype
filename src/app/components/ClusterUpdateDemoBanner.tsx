@@ -37,21 +37,7 @@ export default function ClusterUpdateDemoBanner() {
         >
           <ToggleGroupItem
             text={
-              <Flex direction={{ default: "column" }} alignItems={{ default: "alignItemsFlexStart" }}>
-                <Content component="span">Agent only</Content>
-                <Content
-                  component="small"
-                  style={{
-                    margin: 0,
-                    color:
-                      demoVariant === "agent-only"
-                        ? "var(--pf-t--global--palette--purple--50)"
-                        : "var(--pf-t--global--text--Color--200)",
-                  }}
-                >
-                  (OCP 5.0)
-                </Content>
-              </Flex>
+              <Content component="span">OCP 5.0</Content>
             }
             isSelected={demoVariant === "agent-only"}
             onChange={(_event, selected) => {
@@ -62,21 +48,7 @@ export default function ClusterUpdateDemoBanner() {
           />
           <ToggleGroupItem
             text={
-              <Flex direction={{ default: "column" }} alignItems={{ default: "alignItemsFlexStart" }}>
-                <Content component="span">Manual + Agent</Content>
-                <Content
-                  component="small"
-                  style={{
-                    margin: 0,
-                    color:
-                      demoVariant === "manual-and-agent"
-                        ? "var(--pf-t--global--palette--blue--50)"
-                        : "var(--pf-t--global--text--Color--200)",
-                  }}
-                >
-                  (OCP 5.1)
-                </Content>
-              </Flex>
+              <Content component="span">OCP 5.1</Content>
             }
             isSelected={demoVariant === "manual-and-agent"}
             onChange={(_event, selected) => {

@@ -104,7 +104,7 @@ function ClusterUpdateDemoMastheadSwitch() {
       onChange={(_e, checked) => setDemoVariant(checked ? "manual-and-agent" : "agent-only")}
       label={
         <span className="ocs-masthead-cluster-switch-label">
-          {isManualAndAgent ? "Manual + Agent · OCP 5.1" : "Agent only · OCP 5.0"}
+          {isManualAndAgent ? "OCP 5.1" : "OCP 5.0"}
         </span>
       }
       aria-label={
