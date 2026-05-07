@@ -1214,6 +1214,14 @@ html .ocs-console-page.pf-v6-c-page {
   --pf-v6-c-page__main-breadcrumb--BackgroundColor: transparent;
 }
 
+/**
+ * PF Tabs active underline uses `--pf-t--global--color--brand--accent--default` (RH red) by default.
+ * Match sidebar / console tab accent: link token (cyan-blue), not brand-accent red.
+ */
+html .ocs-console-page.pf-v6-c-page .pf-v6-c-tabs {
+  --pf-v6-c-tabs__item--m-current__link--after--BorderColor: var(--pf-t--global--text--color--link--default);
+}
+
 /** Home / stub PageSection, or any full-width app section without Breadcrumbs. */
 .ocs-app-page-chrome.pf-v6-c-page__main-section {
   padding-block-start: var(--ocs-app-page-pad-t);
