@@ -13,7 +13,7 @@ import {
   Bookmark,
   Volume2,
   Paperclip,
-  Sparkles,
+  Bot,
 } from "@/lib/pfIcons";
 import {
   Button,
@@ -75,13 +75,13 @@ function installedOperatorsPrecheckDetail(version: string, channel: string): str
     `• **Conditions pending** — Sample observability bundle (discovery still settling)\n\n` +
     `**Checks performed**\n` +
     `• Subscription / extension status vs. target version\n` +
-    `• Support phase and lifecycle dates (full support, maintenance, EOL — as shown in the table)\n` +
+    `• Support and end-of-life signals (as shown in the table)\n` +
     `• Alignment with **Cluster Update** readiness for the same target\n\n` +
     `**Next steps**\n` +
-    `1. Approve updates for operators that block your cluster plan (row **Update** / operator update flow).\n` +
+    `1. Approve updates for operators that block your cluster plan (row actions, or select **two or more** then **Approve update**).\n` +
     `2. Resolve **Incompatible** operators before go-live.\n` +
     `3. Open **Cluster Update** when catalog and platform both look clear.\n\n` +
-    `Ask about upgrade order, risk, or a specific operator in the list.`
+    `Ask about update order, risk, or a specific operator in the list.`
   );
 }
 
@@ -140,12 +140,12 @@ export function OlsChatbot({
     } else if (context === "agent-precheck" || context === "ai-precheck") {
       initial.push({
         role: "assistant",
-        text: `Running AI-powered pre-check for update to **${selectedVersion}**...\n\n**Holistic scope (consolidated AI)**\nPre-checks and status updates now cover **OpenShift platform operators** and **Software Catalog (OLM / Installed Software) operators** together—one assessment aligned with the converged dashboard experience.\n\n**Pre-checks from Target Release Payload (${selectedVersion})**\nThese checks are shipped with the target release payload and validate cluster readiness against version-specific requirements.\n\n✅ **ClusterVersionUpgradeable** — ClusterVersion conditions permit upgrade\n✅ **ClusterOperatorDegraded** — No cluster operators are degraded\n✅ **ClusterOperatorAvailable** — All cluster operators are available\n✅ **MachineConfigPoolDraining** — MachineConfigPools can drain nodes safely\n⚠️ **PodDisruptionBudgetAtLimit** — 1 PDB at maxUnavailable=0, pod eviction may stall\n❌ **DeprecatedAPIInUse** — 3 resources using rbac.authorization.k8s.io/v1beta1, migrate to v1\n\n**Cluster Health Pre-checks**\n✅ **Node Status** — 6/6 nodes Ready\n✅ **Storage Health** — 85% available, all PVs bound\n✅ **Network Health** — OVN verified, no packet loss\n✅ **Certificates** — Valid for >90 days\n✅ **etcd** — Quorum established\n\n⚠️ **Operator compatibility (platform + catalog)** — Issues span both layers:\n• **Catalog:** cluster-logging v6.4.3 (max OCP 5.0) → Update to v6.5.1+\n• **Catalog:** elasticsearch-operator v5.7.2 (max OCP 5.0) → Update to v5.8.0+\n\n**Recommended next steps:**\n1. Migrate deprecated rbac.authorization.k8s.io/v1beta1 resources to v1\n2. Review PodDisruptionBudget settings to avoid eviction stalls during rolling update\n3. Update the incompatible catalog operators from **Installed Software**\n4. Re-run the pre-check to confirm platform and catalog are clear\n5. Approve the update plan to proceed`,
+        text: `Running AI-powered pre-check for update to **${selectedVersion}**...\n\n**Holistic scope (consolidated AI)**\nPre-checks and status updates now cover **OpenShift platform operators** and **Software Catalog (OLM / Installed Software) operators** together—one assessment aligned with the converged dashboard experience.\n\n**Pre-checks from Target Release Payload (${selectedVersion})**\nThese checks are shipped with the target release payload and validate cluster readiness against version-specific requirements.\n\n✅ **ClusterVersionUpgradeable** — ClusterVersion conditions permit update\n✅ **ClusterOperatorDegraded** — No cluster operators are degraded\n✅ **ClusterOperatorAvailable** — All cluster operators are available\n✅ **MachineConfigPoolDraining** — MachineConfigPools can drain nodes safely\n⚠️ **PodDisruptionBudgetAtLimit** — 1 PDB at maxUnavailable=0, pod eviction may stall\n❌ **DeprecatedAPIInUse** — 3 resources using rbac.authorization.k8s.io/v1beta1, migrate to v1\n\n**Cluster Health Pre-checks**\n✅ **Node Status** — 6/6 nodes Ready\n✅ **Storage Health** — 85% available, all PVs bound\n✅ **Network Health** — OVN verified, no packet loss\n✅ **Certificates** — Valid for >90 days\n✅ **etcd** — Quorum established\n\n⚠️ **Operator compatibility (platform + catalog)** — Issues span both layers:\n• **Catalog:** cluster-logging v6.4.3 (max OCP 5.0) → Update to v6.5.1+\n• **Catalog:** elasticsearch-operator v5.7.2 (max OCP 5.0) → Update to v5.8.0+\n\n**Recommended next steps:**\n1. Migrate deprecated rbac.authorization.k8s.io/v1beta1 resources to v1\n2. Review PodDisruptionBudget settings to avoid eviction stalls during rolling update\n3. Update the incompatible catalog operators from **Installed Software**\n4. Re-run the pre-check to confirm platform and catalog are clear\n5. Approve the update plan to proceed`,
       });
     } else if (context === "compatibility-analysis") {
       initial.push({
         role: "assistant",
-        text: `I've analyzed the compatibility profile for updating to **${selectedVersion}** on the **${selectedChannel}** channel. Here's what I found:\n\n**Operator Issues:**\n• **Cluster Logging v6.4.3** — max supported OCP is 5.0. You need v6.5.1+ before upgrading.\n• **Elasticsearch Operator v5.7.2** — max supported OCP is 5.0. Upgrade to v5.8.0+.\n• **OLM v4.21.0** — recommended to update to v4.22.0 for full 5.1 support.\n\n**API Deprecations:**\n• \`flowcontrol.apiserver.k8s.io/v1beta2\` — migrate to \`v1\` before 5.2.\n\n**Recommendation:** Update the 2 incompatible operators first, then approve the update plan. I can generate a step-by-step remediation runbook if needed.`,
+        text: `I've analyzed the compatibility profile for updating to **${selectedVersion}** on the **${selectedChannel}** channel. Here's what I found:\n\n**Operator Issues:**\n• **Cluster Logging v6.4.3** — max supported OCP is 5.0. You need v6.5.1+ before updating.\n• **Elasticsearch Operator v5.7.2** — max supported OCP is 5.0. Update to v5.8.0+.\n• **OLM v4.21.0** — recommended to update to v4.22.0 for full 5.1 support.\n\n**API Deprecations:**\n• \`flowcontrol.apiserver.k8s.io/v1beta2\` — migrate to \`v1\` before 5.2.\n\n**Recommendation:** Update the 2 incompatible operators first, then approve the update plan. I can generate a step-by-step remediation runbook if needed.`,
       });
     } else if (context === "agent-start") {
       initial.push({
@@ -326,8 +326,8 @@ export function OlsChatbot({
           >
             <DrawerHead>
               <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-                <Icon size="lg" status="danger">
-                  <Sparkles />
+                <Icon size="lg" status="custom">
+                  <Bot aria-hidden className="text-[var(--pf-t--global--danger-color--100,#c9190b)]" />
                 </Icon>
                 <Title headingLevel="h2" size="md">
                   OpenShift LightSpeed

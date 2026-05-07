@@ -1,37 +1,70 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router";
-import { CheckCircle, Loader2, Info, MoreVertical, AlertTriangle, X, Play, Pause, FileText } from "@/lib/pfIcons";
+import {
+  Alert,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  CardTitle,
+  Content,
+  Flex,
+  Icon,
+  PageSection,
+  Title,
+} from "@patternfly/react-core";
+import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
+import { InnerScrollContainer, Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import { CheckCircle, Loader2, Clock, Sparkles } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import AgentExecutionLogsPanel, {
+  PLATFORM_CLUSTER_OPERATORS,
+} from "../../components/cluster-update/AgentExecutionLogsPanel";
 
 type TabKey = "update-plan" | "active-update-plans" | "update-history";
 
-interface UpdatingOperator {
+type RowStatus = "Updating" | "Updated" | "Pending";
+
+interface OperatorRowModel {
   name: string;
   version: string;
-  status: "Updating" | "Updated" | "Pending";
   compatibility: "compatible" | "incompatible";
   lastUpdated: string;
 }
 
-interface WorkerPool {
+interface WorkerPoolModel {
   pool: string;
-  status: "Updating" | "Updated" | "Pending";
-  version: string;
+  baseVersion: string;
   compatibility: "compatible" | "incompatible";
 }
 
-const UPDATING_OPERATORS: UpdatingOperator[] = [
-  { name: "Abot Operator-v3.0.0", version: "3.2.5", status: "Updating", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
-  { name: "Airflow Helm Operator", version: "3.5", status: "Updating", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
-  { name: "Ansible Automation Platform", version: "3.25", status: "Updating", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
-  { name: "Bare Metal Event Relay", version: "1.2.0", status: "Pending", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
-  { name: "Camel K Operator", version: "2.1.0", status: "Pending", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
+const OPERATORS_BASE: OperatorRowModel[] = [
+  { name: "Abot Operator-v3.0.0", version: "3.2.5", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
+  { name: "Airflow Helm Operator", version: "3.5", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
+  { name: "Ansible Automation Platform", version: "3.25", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
+  { name: "Bare Metal Event Relay", version: "1.2.0", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
+  { name: "Camel K Operator", version: "2.1.0", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
 ];
 
-const WORKER_POOLS: WorkerPool[] = [
-  { pool: "worker-east", status: "Updating", version: "4.18.16", compatibility: "compatible" },
-  { pool: "worker-west", status: "Pending", version: "4.18.15", compatibility: "compatible" },
+const WORKER_POOLS_BASE: WorkerPoolModel[] = [
+  { pool: "worker-east", baseVersion: "5.0.0", compatibility: "compatible" },
+  { pool: "worker-west", baseVersion: "5.0.0", compatibility: "compatible" },
+  { pool: "worker-central", baseVersion: "5.0.0", compatibility: "compatible" },
+  { pool: "worker-north", baseVersion: "5.0.0", compatibility: "compatible" },
+  { pool: "worker-south", baseVersion: "5.0.0", compatibility: "compatible" },
 ];
+
+/** Maps overall phase % to per-row status so tables stay aligned with progress bars. */
+function slotStatus(index: number, rowCount: number, pct: number): RowStatus {
+  if (rowCount <= 0) return "Pending";
+  const seg = 100 / rowCount;
+  if (pct >= (index + 1) * seg) return "Updated";
+  if (pct > index * seg) return "Updating";
+  return index === 0 ? "Updating" : "Pending";
+}
+
+/** Time to keep Agent logs visible with final completion lines before navigating to the success screen. */
+const COMPLETION_NAV_DELAY_MS = 4000;
 
 export default function ClusterUpdateInProgressPage() {
   const navigate = useNavigate();
@@ -39,40 +72,70 @@ export default function ClusterUpdateInProgressPage() {
   const version = (location.state as any)?.version || "5.1.10";
   const [activeTab, setActiveTab] = useState<TabKey>("update-plan");
 
-  const [operatorProgress, setOperatorProgress] = useState(0);
-  const [controlProgress, setControlProgress] = useState(0);
-  const [workerProgress, setWorkerProgress] = useState(0);
-  const [paused, setPaused] = useState(false);
-  const [showAbortModal, setShowAbortModal] = useState(false);
+  const [progress, setProgress] = useState({ op: 0, cp: 0, wn: 0 });
   const [showLogsPanel, setShowLogsPanel] = useState(false);
+  const completionNavTimeoutRef = useRef<number | null>(null);
+
+  const operatorProgress = progress.op;
+  const controlProgress = progress.cp;
+  const workerProgress = progress.wn;
 
   useEffect(() => {
     localStorage.setItem("clusterUpdateInProgress", JSON.stringify({ version, startedAt: Date.now() }));
   }, [version]);
 
   useEffect(() => {
-    if (paused) return;
     const timer = setInterval(() => {
-      setControlProgress(p => Math.min(100, p + 1.5));
-      setOperatorProgress(p => Math.min(100, p + 0.8));
-      setWorkerProgress(p => {
-        if (controlProgress > 40) return Math.min(100, p + 0.3);
-        return p;
+      setProgress((s) => {
+        const cp = Math.min(100, s.cp + 1.5);
+        const op = Math.min(100, s.op + 0.8);
+        const wn = cp > 40 ? Math.min(100, s.wn + 0.35) : s.wn;
+        return { cp, op, wn };
       });
     }, 300);
     return () => clearInterval(timer);
-  }, [controlProgress, paused]);
+  }, []);
 
   useEffect(() => {
-    if (operatorProgress >= 100 && controlProgress >= 100 && workerProgress >= 100) {
-      localStorage.removeItem("clusterUpdateInProgress");
-      setTimeout(() => navigate("/administration/cluster-update/complete", { state: { version } }), 1200);
-    }
+    if (operatorProgress < 100 || controlProgress < 100 || workerProgress < 100) return;
+    if (completionNavTimeoutRef.current != null) return;
+
+    localStorage.removeItem("clusterUpdateInProgress");
+    setShowLogsPanel(true);
+
+    completionNavTimeoutRef.current = window.setTimeout(() => {
+      completionNavTimeoutRef.current = null;
+      navigate("/administration/cluster-update/complete", { state: { version } });
+    }, COMPLETION_NAV_DELAY_MS);
+
+    return () => {
+      if (completionNavTimeoutRef.current != null) {
+        window.clearTimeout(completionNavTimeoutRef.current);
+        completionNavTimeoutRef.current = null;
+      }
+    };
   }, [operatorProgress, controlProgress, workerProgress, navigate, version]);
 
   const opPct = Math.round(operatorProgress);
   const cpPct = Math.round(controlProgress);
   const wnPct = Math.round(workerProgress);
+
+  const operatorRows = OPERATORS_BASE.map((op, i) => ({
+    ...op,
+    status: slotStatus(i, OPERATORS_BASE.length, operatorProgress),
+  }));
+
+  const workerRows = WORKER_POOLS_BASE.map((pool, i) => ({
+    ...pool,
+    status: slotStatus(i, WORKER_POOLS_BASE.length, workerProgress),
+  }));
+
+  const clusterOperatorRows = PLATFORM_CLUSTER_OPERATORS.map((name, i) => ({
+    name,
+    status: slotStatus(i, PLATFORM_CLUSTER_OPERATORS.length, controlProgress),
+  }));
+
+  const updateFullyComplete = operatorProgress >= 100 && controlProgress >= 100 && workerProgress >= 100;
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: "update-plan", label: "Update plan" },
@@ -114,46 +177,25 @@ export default function ClusterUpdateInProgressPage() {
         ))}
       </div>
 
-      {/* Estimated Update Time Banner */}
-      <div className="rounded-[12px] border-2 border-[#0066cc] dark:border-[#4dabf7] bg-[#e7f1fa] dark:bg-[rgba(0,102,204,0.08)] px-[20px] py-[16px] mb-[24px]">
-        <div className="flex items-start gap-[12px]">
-          <Info className="size-[20px] text-[#0066cc] dark:text-[#4dabf7] shrink-0 mt-[2px]" />
-          <div className="flex-1">
-            <p className="text-[#151515] dark:text-white text-[16px] font-semibold font-['Red_Hat_Display:SemiBold',sans-serif] mb-[4px]">
-              Estimated update time 2 hours 12 minutes
-            </p>
-            <p className="text-[#4d4d4d] dark:text-[#b0b0b0] text-[13px] font-['Red_Hat_Text:Regular',sans-serif] mb-[14px]">
-              This is a rough estimate and will vary based on resource availability and usage.
-            </p>
-            <div className="flex items-center gap-[10px]">
-              <button
-                onClick={() => setPaused(!paused)}
-                className="inline-flex items-center gap-[6px] bg-[#0066cc] hover:bg-[#004080] text-white text-[13px] px-[16px] py-[7px] rounded-[999px] border-0 cursor-pointer transition-colors font-['Red_Hat_Text:Regular',sans-serif] font-medium">
-                {paused ? <><Play className="size-[13px]" /> Resume update</> : <><Pause className="size-[13px]" /> Pause update</>}
-              </button>
-              <button
-                onClick={() => setShowAbortModal(true)}
-                className="bg-transparent text-[#c9190b] text-[13px] px-[16px] py-[7px] rounded-[999px] border border-[#c9190b] cursor-pointer hover:bg-[rgba(201,25,11,0.05)] transition-colors font-['Red_Hat_Text:Regular',sans-serif] font-medium">
-                Abort update
-              </button>
-              <button
+      <div className="mb-[var(--pf-t--global--spacer--lg)]">
+        <Alert variant="info" isInline title="Estimated update time 2 hours 12 minutes">
+          <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
+            <Content component="p" style={{ margin: 0 }}>
+              This is a rough estimate and will vary based on resource availability and usage. After launch, this update
+              runs to completion; pause, resume, and abort are not available.
+            </Content>
+            <div>
+              <Button
+                variant="primary"
+                icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
                 onClick={() => setShowLogsPanel(true)}
-                className="inline-flex items-center gap-[5px] text-[#0066cc] dark:text-[#4dabf7] text-[13px] bg-transparent border-0 cursor-pointer hover:underline font-['Red_Hat_Text:Regular',sans-serif] font-medium ml-[4px] p-0">
-                <FileText className="size-[13px]" /> View logs
-              </button>
+              >
+                View agent logs
+              </Button>
             </div>
-          </div>
-        </div>
+          </Flex>
+        </Alert>
       </div>
-
-      {paused && (
-        <div className="flex items-center gap-[12px] bg-[#fdf7e7] dark:bg-[rgba(240,171,0,0.06)] border border-[#f0ab00] rounded-[8px] px-[16px] py-[12px] mb-[16px]">
-          <AlertTriangle className="size-[16px] text-[#f0ab00] shrink-0" />
-          <p className="text-[#795600] dark:text-[#dca614] text-[14px] font-['Red_Hat_Text:Regular',sans-serif]">
-            <span className="font-medium">Update paused.</span> Progress has been halted. Click "Resume update" to continue.
-          </p>
-        </div>
-      )}
 
       {/* Cluster ID */}
       <div className="mb-[24px]">
@@ -163,151 +205,314 @@ export default function ClusterUpdateInProgressPage() {
 
       {/* Progress Bars */}
       <div className="grid grid-cols-3 gap-[24px] mb-[32px]">
-        <ProgressSection label="Operators" percentage={opPct} />
-        <ProgressSection label="Control Plane" percentage={cpPct} />
-        <ProgressSection label="Worker Nodes" percentage={wnPct} />
+        <ProgressSection label="Installed operators" percentage={opPct} />
+        <ProgressSection label="Cluster operators" percentage={cpPct} />
+        <ProgressSection label="Worker nodes" percentage={wnPct} />
       </div>
 
-      {/* Operators on this cluster */}
-      <div className="rounded-[16px] border border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)] mb-[24px] overflow-hidden">
-        <div className="px-[24px] py-[16px] border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)]">
-          <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[18px]">Operators on this cluster</h2>
-        </div>
-        <table className="w-full text-[13px] font-['Red_Hat_Text:Regular',sans-serif]">
-          <thead>
-            <tr className="border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-left text-[11px] text-[#6a6e73] dark:text-[#8a8d90] uppercase tracking-wide">
-              <th className="px-[24px] py-[10px] font-medium">Name</th>
-              <th className="px-[16px] py-[10px] font-medium">Status</th>
-              <th className="px-[16px] py-[10px] font-medium">Version</th>
-              <th className="px-[16px] py-[10px] font-medium">Cluster compatibility</th>
-              <th className="px-[16px] py-[10px] font-medium">Last updated</th>
-              <th className="px-[16px] py-[10px] font-medium w-[48px]">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {UPDATING_OPERATORS.map((op) => (
-              <tr key={op.name} className="border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] last:border-0 hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors">
-                <td className="px-[24px] py-[12px] font-medium text-[#151515] dark:text-white">{op.name}</td>
-                <td className="px-[16px] py-[12px]">
-                  <span className={`inline-flex items-center gap-[6px] text-[13px] ${op.status === "Updating" ? "text-[#0066cc] dark:text-[#4dabf7]" : op.status === "Updated" ? "text-[#3e8635]" : "text-[#6a6e73]"}`}>
-                    {op.status === "Updating" && <Loader2 className="size-[14px] animate-spin" />}
-                    {op.status === "Updated" && <CheckCircle className="size-[14px]" />}
-                    {op.status}
-                  </span>
-                </td>
-                <td className="px-[16px] py-[12px] font-mono text-[#4d4d4d] dark:text-[#b0b0b0]">{op.version}</td>
-                <td className="px-[16px] py-[12px]">
-                  <span className="inline-flex items-center gap-[4px] text-[12px] text-[#3e8635] border border-[#3e8635] rounded-[999px] px-[10px] py-[3px] bg-[rgba(62,134,53,0.04)]">
-                    <CheckCircle className="size-[13px]" /> compatible
-                  </span>
-                </td>
-                <td className="px-[16px] py-[12px] text-[#4d4d4d] dark:text-[#b0b0b0]">{op.lastUpdated}</td>
-                <td className="px-[16px] py-[12px] text-center">
-                  <button className="p-[4px] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.08)] rounded-[4px] transition-colors bg-transparent border-0 cursor-pointer">
-                    <MoreVertical className="size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Card className="mb-[var(--pf-t--global--spacer--lg)]">
+        <CardHeader>
+          <CardTitle>
+            <Title headingLevel="h2" size="lg">
+              Worker nodes on this cluster
+            </Title>
+          </CardTitle>
+        </CardHeader>
+        <CardBody style={{ padding: 0 }}>
+          <PageSection aria-label="Worker nodes on this cluster during update" padding={{ default: "noPadding" }}>
+            <InnerScrollContainer>
+              <Table
+                aria-label="Worker nodes on this cluster"
+                borders
+                variant="compact"
+                className="ocs-io-operator-table"
+              >
+                <Thead>
+                  <Tr>
+                    <Th dataLabel="Pool">Pool</Th>
+                    <Th dataLabel="Status">Status</Th>
+                    <Th dataLabel="Version">Version</Th>
+                    <Th dataLabel="Cluster compatibility">Cluster compatibility</Th>
+                    <Th modifier="fitContent" dataLabel="Actions">
+                      Actions
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {workerRows.map((pool) => (
+                    <Tr key={pool.pool}>
+                      <Td dataLabel="Pool">
+                        <Content component="span" style={{ fontWeight: 600 }}>
+                          {pool.pool}
+                        </Content>
+                      </Td>
+                      <Td dataLabel="Status">
+                        {pool.status === "Updating" ? (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <span
+                              className="inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-visible"
+                              aria-hidden
+                            >
+                              <span className="inline-flex origin-center scale-[0.2]">
+                                <Icon>
+                                  <Loader2 className="text-[var(--pf-t--global--palette--blue-50)]" aria-hidden />
+                                </Icon>
+                              </span>
+                            </span>
+                            Updating
+                          </Flex>
+                        ) : pool.status === "Updated" ? (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <Icon status="success">
+                              <CheckCircle aria-hidden />
+                            </Icon>
+                            Updated
+                          </Flex>
+                        ) : (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <Icon status="warning">
+                              <Clock aria-hidden />
+                            </Icon>
+                            Pending
+                          </Flex>
+                        )}
+                      </Td>
+                      <Td dataLabel="Version">
+                        <Content component="small">
+                          <code>{pool.status === "Updated" ? version : pool.baseVersion}</code>
+                        </Content>
+                      </Td>
+                      <Td dataLabel="Cluster compatibility">
+                        {pool.compatibility === "compatible" ? (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <Icon status="success">
+                              <CheckCircle aria-hidden />
+                            </Icon>
+                            Compatible
+                          </Flex>
+                        ) : (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            Incompatible
+                          </Flex>
+                        )}
+                      </Td>
+                      <Td dataLabel="Actions" isActionCell>
+                        <Button variant="plain" aria-label={`Actions for pool ${pool.pool}`} icon={<EllipsisVIcon />} />
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </InnerScrollContainer>
+          </PageSection>
+        </CardBody>
+      </Card>
 
-      {/* Worker nodes on this cluster */}
-      <div className="rounded-[16px] border border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)] mb-[32px] overflow-hidden">
-        <div className="px-[24px] py-[16px] border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)]">
-          <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[18px]">Worker nodes on this cluster</h2>
-        </div>
-        <table className="w-full text-[13px] font-['Red_Hat_Text:Regular',sans-serif]">
-          <thead>
-            <tr className="border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-left text-[11px] text-[#6a6e73] dark:text-[#8a8d90] uppercase tracking-wide">
-              <th className="px-[24px] py-[10px] font-medium">Pool</th>
-              <th className="px-[16px] py-[10px] font-medium">Status</th>
-              <th className="px-[16px] py-[10px] font-medium">Version</th>
-              <th className="px-[16px] py-[10px] font-medium">Cluster compatibility</th>
-              <th className="px-[16px] py-[10px] font-medium w-[48px]">Actions</th>
-            </tr>
-          </thead>
-          <tbody>
-            {WORKER_POOLS.map((pool) => (
-              <tr key={pool.pool} className="border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] last:border-0 hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors">
-                <td className="px-[24px] py-[12px] font-medium text-[#151515] dark:text-white">{pool.pool}</td>
-                <td className="px-[16px] py-[12px]">
-                  <span className={`inline-flex items-center gap-[6px] text-[13px] ${pool.status === "Updating" ? "text-[#0066cc] dark:text-[#4dabf7]" : pool.status === "Updated" ? "text-[#3e8635]" : "text-[#6a6e73]"}`}>
-                    {pool.status === "Updating" && <Loader2 className="size-[14px] animate-spin" />}
-                    {pool.status === "Updated" && <CheckCircle className="size-[14px]" />}
-                    {pool.status}
-                  </span>
-                </td>
-                <td className="px-[16px] py-[12px] font-mono text-[#4d4d4d] dark:text-[#b0b0b0]">{pool.version}</td>
-                <td className="px-[16px] py-[12px]">
-                  <span className="inline-flex items-center gap-[4px] text-[12px] text-[#3e8635] border border-[#3e8635] rounded-[999px] px-[10px] py-[3px] bg-[rgba(62,134,53,0.04)]">
-                    <CheckCircle className="size-[13px]" /> compatible
-                  </span>
-                </td>
-                <td className="px-[16px] py-[12px] text-center">
-                  <button className="p-[4px] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.08)] rounded-[4px] transition-colors bg-transparent border-0 cursor-pointer">
-                    <MoreVertical className="size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+      <Card className="mb-[var(--pf-t--global--spacer--lg)]">
+        <CardHeader>
+          <CardTitle>
+            <Title headingLevel="h2" size="lg">
+              Cluster operators
+            </Title>
+          </CardTitle>
+        </CardHeader>
+        <CardBody style={{ padding: 0 }}>
+          <PageSection aria-label="Cluster operators during update" padding={{ default: "noPadding" }}>
+            <InnerScrollContainer>
+              <Table
+                aria-label="Cluster operators"
+                borders
+                variant="compact"
+                className="ocs-io-operator-table"
+              >
+                <Thead>
+                  <Tr>
+                    <Th dataLabel="Name">Name</Th>
+                    <Th dataLabel="Status">Status</Th>
+                    <Th dataLabel="Version">Version</Th>
+                    <Th dataLabel="Cluster compatibility">Cluster compatibility</Th>
+                    <Th modifier="fitContent" dataLabel="Actions">
+                      Actions
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {clusterOperatorRows.map((row) => (
+                    <Tr key={row.name}>
+                      <Td dataLabel="Name">
+                        <Content component="span" style={{ fontWeight: 600 }}>
+                          {row.name}
+                        </Content>
+                      </Td>
+                      <Td dataLabel="Status">
+                        {row.status === "Updating" ? (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <span
+                              className="inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-visible"
+                              aria-hidden
+                            >
+                              <span className="inline-flex origin-center scale-[0.2]">
+                                <Icon>
+                                  <Loader2 className="text-[var(--pf-t--global--palette--blue-50)]" aria-hidden />
+                                </Icon>
+                              </span>
+                            </span>
+                            Updating
+                          </Flex>
+                        ) : row.status === "Updated" ? (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <Icon status="success">
+                              <CheckCircle aria-hidden />
+                            </Icon>
+                            Updated
+                          </Flex>
+                        ) : (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <Icon status="warning">
+                              <Clock aria-hidden />
+                            </Icon>
+                            Pending
+                          </Flex>
+                        )}
+                      </Td>
+                      <Td dataLabel="Version">
+                        <Content component="small">
+                          <code>{row.status === "Updated" ? version : "5.0.0"}</code>
+                        </Content>
+                      </Td>
+                      <Td dataLabel="Cluster compatibility">
+                        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                          <Icon status="success">
+                            <CheckCircle aria-hidden />
+                          </Icon>
+                          Compatible
+                        </Flex>
+                      </Td>
+                      <Td dataLabel="Actions" isActionCell>
+                        <Button variant="plain" aria-label={`Actions for cluster operator ${row.name}`} icon={<EllipsisVIcon />} />
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </InnerScrollContainer>
+          </PageSection>
+        </CardBody>
+      </Card>
 
-      {/* Abort cluster update */}
-      <button
-        onClick={() => setShowAbortModal(true)}
-        className="bg-[#c9190b] hover:bg-[#a11309] text-white text-[14px] px-[20px] py-[9px] rounded-[999px] border-0 cursor-pointer transition-colors font-['Red_Hat_Text:Regular',sans-serif] font-medium"
-      >
-        Abort cluster update
-      </button>
+      <Card className="mb-[var(--pf-t--global--spacer--lg)]">
+        <CardHeader>
+          <CardTitle>
+            <Title headingLevel="h2" size="lg">
+              Installed operators
+            </Title>
+          </CardTitle>
+        </CardHeader>
+        <CardBody style={{ padding: 0 }}>
+          <PageSection aria-label="Installed operators during update" padding={{ default: "noPadding" }}>
+            <InnerScrollContainer>
+              <Table
+                aria-label="Installed operators"
+                borders
+                variant="compact"
+                className="ocs-io-operator-table"
+              >
+                <Thead>
+                  <Tr>
+                    <Th dataLabel="Name">Name</Th>
+                    <Th dataLabel="Status">Status</Th>
+                    <Th dataLabel="Version">Version</Th>
+                    <Th dataLabel="Cluster compatibility">Cluster compatibility</Th>
+                    <Th dataLabel="Last updated">Last updated</Th>
+                    <Th modifier="fitContent" dataLabel="Actions">
+                      Actions
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {operatorRows.map((op) => (
+                    <Tr key={op.name}>
+                      <Td dataLabel="Name">
+                        <Content component="span" style={{ fontWeight: 600 }}>
+                          {op.name}
+                        </Content>
+                      </Td>
+                      <Td dataLabel="Status">
+                        {op.status === "Updating" ? (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <span
+                              className="inline-flex h-4 w-4 shrink-0 items-center justify-center overflow-visible"
+                              aria-hidden
+                            >
+                              <span className="inline-flex origin-center scale-[0.2]">
+                                <Icon>
+                                  <Loader2 className="text-[var(--pf-t--global--palette--blue-50)]" aria-hidden />
+                                </Icon>
+                              </span>
+                            </span>
+                            Updating
+                          </Flex>
+                        ) : op.status === "Updated" ? (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <Icon status="success">
+                              <CheckCircle aria-hidden />
+                            </Icon>
+                            Updated
+                          </Flex>
+                        ) : (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <Icon status="warning">
+                              <Clock aria-hidden />
+                            </Icon>
+                            Pending
+                          </Flex>
+                        )}
+                      </Td>
+                      <Td dataLabel="Version">
+                        <Content component="small">
+                          <code>{op.version}</code>
+                        </Content>
+                      </Td>
+                      <Td dataLabel="Cluster compatibility">
+                        {op.compatibility === "compatible" ? (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <Icon status="success">
+                              <CheckCircle aria-hidden />
+                            </Icon>
+                            Compatible
+                          </Flex>
+                        ) : (
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            Incompatible
+                          </Flex>
+                        )}
+                      </Td>
+                      <Td dataLabel="Last updated">{op.lastUpdated}</Td>
+                      <Td dataLabel="Actions" isActionCell>
+                        <Button variant="plain" aria-label={`Actions for ${op.name}`} icon={<EllipsisVIcon />} />
+                      </Td>
+                    </Tr>
+                  ))}
+                </Tbody>
+              </Table>
+            </InnerScrollContainer>
+          </PageSection>
+        </CardBody>
+      </Card>
+
       </Breadcrumbs>
 
-      {/* Abort Confirmation Modal */}
-      {showAbortModal && (
-        <div className="fixed inset-0 z-[1000] flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setShowAbortModal(false)} />
-          <div className="relative bg-white dark:bg-[#1a1a1a] rounded-[16px] shadow-[0_8px_32px_rgba(0,0,0,0.2)] w-[460px] max-w-[90vw] overflow-hidden">
-            <div className="flex items-center justify-between px-[24px] py-[16px] border-b border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)]">
-              <h3 className="text-[18px] font-semibold text-[#151515] dark:text-white font-['Red_Hat_Display:SemiBold',sans-serif]">Abort cluster update?</h3>
-              <button onClick={() => setShowAbortModal(false)} className="bg-transparent border-0 cursor-pointer p-[4px] hover:bg-[rgba(0,0,0,0.05)] rounded-[4px]">
-                <X className="size-[18px] text-[#6a6e73]" />
-              </button>
-            </div>
-            <div className="px-[24px] py-[20px]">
-              <div className="flex items-start gap-[12px] mb-[8px]">
-                <AlertTriangle className="size-[20px] text-[#c9190b] shrink-0 mt-[2px]" />
-                <div>
-                  <p className="text-[14px] text-[#151515] dark:text-white font-['Red_Hat_Text:Regular',sans-serif] mb-[8px]">
-                    <span className="font-medium">This action cannot be undone.</span> Aborting the update to <span className="font-mono font-medium">{version}</span> will:
-                  </p>
-                  <ul className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0] font-['Red_Hat_Text:Regular',sans-serif] pl-[16px] space-y-[4px] list-disc">
-                    <li>Stop all in-progress operator updates</li>
-                    <li>Halt control plane rollout</li>
-                    <li>Cancel pending worker node updates</li>
-                    <li>Roll back partially updated components to the previous version</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-            <div className="flex items-center justify-end gap-[10px] px-[24px] py-[16px] border-t border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)]">
-              <button onClick={() => setShowAbortModal(false)}
-                className="text-[14px] px-[16px] py-[8px] rounded-[999px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.2)] bg-transparent text-[#151515] dark:text-white cursor-pointer hover:bg-[rgba(0,0,0,0.03)] transition-colors font-['Red_Hat_Text:Regular',sans-serif] font-medium">
-                Cancel
-              </button>
-              <button onClick={() => { localStorage.removeItem("clusterUpdateInProgress"); navigate("/administration/cluster-update/failed", { state: { version } }); }}
-                className="text-[14px] px-[16px] py-[8px] rounded-[999px] border-0 bg-[#c9190b] hover:bg-[#a11309] text-white cursor-pointer transition-colors font-['Red_Hat_Text:Regular',sans-serif] font-medium">
-                Abort update
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Logs Side Panel */}
-      {showLogsPanel && <LogsPanel version={version} onClose={() => setShowLogsPanel(false)} />}
+      <AgentExecutionLogsPanel
+        isOpen={showLogsPanel}
+        version={version}
+        onClose={() => setShowLogsPanel(false)}
+        releaseCompletionLogLines={updateFullyComplete}
+        dashboardProgress={{
+          operatorPct: operatorProgress,
+          controlPct: controlProgress,
+          workerPct: workerProgress,
+        }}
+      />
     </div>
   );
 }
@@ -331,87 +536,3 @@ function ProgressSection({ label, percentage }: { label: string; percentage: num
   );
 }
 
-const LOG_ENTRIES = [
-  { ts: "00:00:01", level: "info", msg: "ClusterVersion operator initiated update to {version}" },
-  { ts: "00:00:02", level: "info", msg: "Setting desiredUpdate.version={version}, channel=fast-5.1" },
-  { ts: "00:00:03", level: "info", msg: "Reconciling ClusterVersion: status=Progressing" },
-  { ts: "00:00:05", level: "info", msg: "Downloading release image quay.io/openshift-release-dev/ocp-release:{version}-x86_64" },
-  { ts: "00:00:12", level: "info", msg: "Release image verified. Signature OK." },
-  { ts: "00:00:14", level: "info", msg: "Beginning control plane update…" },
-  { ts: "00:00:16", level: "info", msg: "Updating kube-apiserver to {version}" },
-  { ts: "00:00:24", level: "info", msg: "kube-apiserver rollout progressing (1/3 nodes updated)" },
-  { ts: "00:00:38", level: "info", msg: "kube-apiserver rollout progressing (2/3 nodes updated)" },
-  { ts: "00:00:52", level: "info", msg: "kube-apiserver rollout complete" },
-  { ts: "00:01:01", level: "info", msg: "Updating kube-controller-manager to {version}" },
-  { ts: "00:01:15", level: "info", msg: "kube-controller-manager rollout complete" },
-  { ts: "00:01:20", level: "info", msg: "Updating kube-scheduler to {version}" },
-  { ts: "00:01:32", level: "info", msg: "kube-scheduler rollout complete" },
-  { ts: "00:01:35", level: "info", msg: "Updating etcd to {version}" },
-  { ts: "00:01:55", level: "warn", msg: "etcd member etcd-master-2 slow: latency 218ms exceeds threshold" },
-  { ts: "00:02:10", level: "info", msg: "etcd rollout complete" },
-  { ts: "00:02:12", level: "info", msg: "Control plane update complete. Starting operator updates…" },
-  { ts: "00:02:14", level: "info", msg: "Updating operator: Abot Operator-v3.0.0 → 3.2.5" },
-  { ts: "00:02:20", level: "info", msg: "Updating operator: Airflow Helm Operator → 3.5" },
-  { ts: "00:02:28", level: "info", msg: "Updating operator: Ansible Automation Platform → 3.25" },
-  { ts: "00:02:35", level: "warn", msg: "Operator Bare Metal Event Relay: waiting for dependency resolution" },
-  { ts: "00:02:48", level: "info", msg: "Operator Abot Operator-v3.0.0 update complete" },
-  { ts: "00:03:02", level: "info", msg: "Operator Airflow Helm Operator update complete" },
-  { ts: "00:03:10", level: "info", msg: "Operator Ansible Automation Platform update complete" },
-  { ts: "00:03:18", level: "info", msg: "Beginning worker node updates…" },
-  { ts: "00:03:20", level: "info", msg: "Cordoning worker-east-1. Draining pods…" },
-  { ts: "00:03:45", level: "info", msg: "Worker worker-east-1 drained. Applying update…" },
-  { ts: "00:04:10", level: "info", msg: "Worker worker-east-1 rebooting with new OS image" },
-  { ts: "00:04:55", level: "info", msg: "Worker worker-east-1 update complete. Uncordoning." },
-];
-
-function LogsPanel({ version, onClose }: { version: string; onClose: () => void }) {
-  const [visibleCount, setVisibleCount] = useState(5);
-  const logsEndRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (visibleCount >= LOG_ENTRIES.length) return;
-    const timer = setTimeout(() => setVisibleCount(c => Math.min(LOG_ENTRIES.length, c + 1)), 800);
-    return () => clearTimeout(timer);
-  }, [visibleCount]);
-
-  useEffect(() => {
-    logsEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [visibleCount]);
-
-  const entries = LOG_ENTRIES.slice(0, visibleCount).map(e => ({
-    ...e,
-    msg: e.msg.replace(/\{version\}/g, version),
-  }));
-
-  return (
-    <div className="fixed inset-0 z-[1000] flex justify-end">
-      <div className="absolute inset-0 bg-black/30" onClick={onClose} />
-      <div className="relative w-[600px] max-w-[90vw] bg-[#1a1a1a] h-full flex flex-col shadow-[-4px_0_24px_rgba(0,0,0,0.3)] animate-slide-in">
-        <div className="flex items-center justify-between px-[20px] py-[14px] border-b border-[rgba(255,255,255,0.1)]">
-          <h3 className="text-[16px] font-semibold text-white font-['Red_Hat_Display:SemiBold',sans-serif]">Update Logs — {version}</h3>
-          <button onClick={onClose} className="bg-transparent border-0 cursor-pointer p-[4px] hover:bg-[rgba(255,255,255,0.1)] rounded-[4px]">
-            <X className="size-[18px] text-[#b0b0b0]" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-[16px] font-['Red_Hat_Mono:Regular',monospace] text-[12px] leading-[20px]">
-          {entries.map((entry, i) => (
-            <div key={i} className="flex gap-[8px]">
-              <span className="text-[#6a6e73] shrink-0 select-none">{entry.ts}</span>
-              <span className={`shrink-0 w-[40px] font-medium ${entry.level === "warn" ? "text-[#f0ab00]" : entry.level === "error" ? "text-[#c9190b]" : "text-[#3e8635]"}`}>
-                {entry.level.toUpperCase()}
-              </span>
-              <span className="text-[#e0e0e0]">{entry.msg}</span>
-            </div>
-          ))}
-          {visibleCount < LOG_ENTRIES.length && (
-            <div className="flex items-center gap-[6px] mt-[4px]">
-              <Loader2 className="size-[12px] text-[#6a6e73] animate-spin" />
-              <span className="text-[#6a6e73]">streaming…</span>
-            </div>
-          )}
-          <div ref={logsEndRef} />
-        </div>
-      </div>
-    </div>
-  );
-}

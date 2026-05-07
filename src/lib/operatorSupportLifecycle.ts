@@ -142,6 +142,49 @@ export function getPhaseLabelStatus(phase: SupportPhase): "success" | "warning" 
   }
 }
 
+/**
+ * Raw published date string for when the operator’s current {@link getDerivedSupportPhase} ends
+ * (full support end, maintenance end, EUS milestone, or final EOL as applicable).
+ */
+export function getCurrentPhaseEndDateRaw(
+  op: Pick<{ supportLifecycle?: OperatorSupportLifecycle; isUnsupported?: boolean }, "supportLifecycle" | "isUnsupported">,
+  nowMs: number = Date.now()
+): string | undefined {
+  if (op.isUnsupported) return undefined;
+  const L = op.supportLifecycle;
+  if (!L) return undefined;
+  const phase = getDerivedSupportPhase(op, nowMs);
+  switch (phase) {
+    case "Full Support":
+      return L.fullSupportEndDate;
+    case "Maintenance":
+      return L.maintenanceEndDate;
+    case "EUS1":
+      return L.eus1EndDate;
+    case "EUS2":
+      return L.eus2EndDate;
+    case "EUS3":
+      return L.eus3EndDate;
+    case "End of life":
+      return L.eolEndDate ?? L.maintenanceEndDate;
+    case "Unsupported":
+    default:
+      return undefined;
+  }
+}
+
+/** Timestamp for sorting the “Support phase end date” column; missing dates sort last (asc). */
+export function getCurrentPhaseEndSortTimestamp(op: {
+  isUnsupported?: boolean;
+  isOlmV1Extension?: boolean;
+  supportLifecycle?: OperatorSupportLifecycle;
+}): number {
+  if (op.isOlmV1Extension) return Number.MAX_SAFE_INTEGER - 1;
+  const raw = getCurrentPhaseEndDateRaw(op);
+  const ms = raw ? parseSupportEndDateMs(raw) : undefined;
+  return ms ?? Number.MAX_SAFE_INTEGER;
+}
+
 /** Rows for a PatternFly DescriptionList (policy-aligned labels). */
 export function getSupportLifecycleDateEntries(op: {
   isUnsupported?: boolean;

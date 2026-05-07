@@ -18,6 +18,7 @@ import {
   CardTitle,
   Checkbox,
   Content,
+  DatePicker,
   Divider,
   Dropdown,
   DropdownItem,
@@ -35,6 +36,10 @@ import {
   List,
   ListItem,
   MenuToggle,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
   Panel,
   PanelMain,
   PanelMainBody,
@@ -49,6 +54,7 @@ import {
   Tab,
   Tabs,
   TabTitleText,
+  TimePicker,
   Title,
   ToggleGroup,
   ToggleGroupItem,
@@ -56,11 +62,37 @@ import {
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import { InnerScrollContainer, Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { usePatternFlyGlassActive } from "@/lib/usePatternFlyGlassActive";
-import { ExternalLink, Sparkles, ArrowRight, CheckCircle, AlertTriangle, AlertCircle, HelpCircle, Info, X, Loader2, Shield, Bot, Settings, RotateCcw, Play, Pause, Calendar, Bell, Clock, FileText, User, Zap, Eye, RefreshCw, Check } from "@/lib/pfIcons";
+import {
+  AiExperienceIcon,
+  ExternalLink,
+  Sparkles,
+  ArrowRight,
+  CheckCircle,
+  AlertTriangle,
+  AlertCircle,
+  HelpCircle,
+  Info,
+  X,
+  Loader2,
+  Shield,
+  Settings,
+  RotateCcw,
+  Play,
+  Pause,
+  Calendar,
+  Bell,
+  Clock,
+  User,
+  Zap,
+  Eye,
+  RefreshCw,
+  Check,
+} from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import { AiAssessmentSection } from "../../components/AiAssessmentSection";
 import { OlsChatbot } from "../../components/OlsChatbot";
+import { AiGeneratedPlanMarker, AI_GENERATED_PLAN_HEADING } from "../../components/lightspeed/LightspeedLegalCopy";
 import { useClusterUpdateDemoVariant } from "../../contexts/ClusterUpdateDemoContext";
 
 /** Disclosure (displaySize lg) — strip secondary panel chrome inside glass surfaces; see cluster-update-layout.css */
@@ -119,46 +151,42 @@ export const channelVersions: Record<string, { groups: VersionGroup[]; banner?: 
         versions: [
           {
             version: "5.1.10", recommended: true, risk: "Low Risk", riskColor: "#3e8635", features: 4, bugFixes: 12, date: "Mar 22, 2026",
-            operatorIssues: [
-              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
-              { name: "CloudCredentialIAMUpdate", slug: "CloudCredentialIAMUpdate", severity: "warning", message: "cloudcredential.operator.openshift.io/cluster object needs updating before upgrade. The IAM configuration created for 5.0 is missing permissions required by 5.1. See Manually Creating IAM.", url: "https://docs.openshift.com/container-platform/latest/authentication/managing_cloud_provider_credentials/about-cloud-credential-operator.html", resolution: { type: "accept-only", description: "No automated fix. Manually update IAM configuration per the linked documentation, then accept this risk." } },
-            ],
           },
           { version: "5.1.9", recommended: false, risk: "Low Risk", riskColor: "#3e8635", features: 2, bugFixes: 8, date: "Mar 16, 2026",
             operatorIssues: [
-              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
+              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
             ],
           },
           { version: "5.1.8", recommended: false, risk: "Medium Risk", riskColor: "#c58c00", features: 3, bugFixes: 15, date: "Mar 8, 2026",
             operatorIssues: [
-              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
+              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
               { name: "OLMIncompatible", slug: "OLMIncompatible", severity: "critical", message: "Incompatible operator-lifecycle-manager version detected. OLM 4.21.0 does not support 5.1 workload APIs. Update to 4.22.0 or higher.", url: "https://docs.openshift.com/container-platform/latest/operators/admin/olm-upgrading-operators.html", resolution: { type: "update-operator", description: "Update OLM from v4.21.0 to v4.22.0+.", actionAvailable: true } },
-              { name: "CloudCredentialIAMUpdate", slug: "CloudCredentialIAMUpdate", severity: "warning", message: "cloudcredential.operator.openshift.io/cluster object needs updating before upgrade. See Manually Creating IAM.", resolution: { type: "accept-only", description: "No automated fix. Manually update IAM configuration per documentation, then accept this risk." } },
+              { name: "CloudCredentialIAMUpdate", slug: "CloudCredentialIAMUpdate", severity: "warning", message: "cloudcredential.operator.openshift.io/cluster object needs updating before update. See Manually Creating IAM.", resolution: { type: "accept-only", description: "No automated fix. Manually update IAM configuration per documentation, then accept this risk." } },
             ],
           },
           { version: "5.1.7", recommended: false, risk: "Low Risk", riskColor: "#3e8635", features: 1, bugFixes: 6, date: "Feb 28, 2026",
             operatorIssues: [
-              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
+              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
             ],
           },
           { version: "5.1.6", recommended: false, risk: "Low Risk", riskColor: "#3e8635", features: 2, bugFixes: 9, date: "Feb 18, 2026",
             operatorIssues: [
-              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
+              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
             ],
           },
           { version: "5.1.5", recommended: false, risk: "Low Risk", riskColor: "#3e8635", features: 1, bugFixes: 4, date: "Feb 8, 2026",
             operatorIssues: [
-              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
+              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
             ],
           },
           { version: "5.1.4", recommended: false, risk: "Low Risk", riskColor: "#3e8635", features: 0, bugFixes: 5, date: "Jan 28, 2026",
             operatorIssues: [
-              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
+              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
             ],
           },
           { version: "5.1.3", recommended: false, risk: "Low Risk", riskColor: "#3e8635", features: 0, bugFixes: 3, date: "Jan 18, 2026",
             operatorIssues: [
-              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
+              { name: "ClusterLoggingMaxVersion", slug: "ClusterLoggingMaxVersion", severity: "critical", message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html", resolution: { type: "update-operator", description: "Update cluster-logging operator from v6.4.3 to v6.5.1+.", actionAvailable: true } },
             ],
           },
         ],
@@ -190,8 +218,8 @@ export const channelVersions: Record<string, { groups: VersionGroup[]; banner?: 
     banner: { title: "OpenShift 5.1 is available!", description: "Stable channel releases are production-ready and fully tested.", link: "See what's new in 5.1" },
     groups: [
       { label: "5.1", versions: [
-          { version: "5.1.9", recommended: true, risk: "Low Risk", riskColor: "#3e8635", features: 2, bugFixes: 8, date: "Mar 16, 2026", operatorIssues: [{ name: "cluster-logging", slug: "cluster-logging-6.4.3-max-ocp-5.0", severity: "critical" as const, message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" }] },
-          { version: "5.1.7", recommended: false, risk: "Low Risk", riskColor: "#3e8635", features: 1, bugFixes: 10, date: "Feb 28, 2026", operatorIssues: [{ name: "cluster-logging", slug: "cluster-logging-6.4.3-max-ocp-5.0", severity: "critical" as const, message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" }] },
+          { version: "5.1.9", recommended: true, risk: "Low Risk", riskColor: "#3e8635", features: 2, bugFixes: 8, date: "Mar 16, 2026", operatorIssues: [{ name: "cluster-logging", slug: "cluster-logging-6.4.3-max-ocp-5.0", severity: "critical" as const, message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" }] },
+          { version: "5.1.7", recommended: false, risk: "Low Risk", riskColor: "#3e8635", features: 1, bugFixes: 10, date: "Feb 28, 2026", operatorIssues: [{ name: "cluster-logging", slug: "cluster-logging-6.4.3-max-ocp-5.0", severity: "critical" as const, message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" }] },
         ] },
       { label: "5.0", versions: [
           { version: "5.0.8", recommended: false, risk: "Low Risk", riskColor: "#3e8635", features: 0, bugFixes: 6, date: "Mar 18, 2026" },
@@ -208,9 +236,9 @@ export const channelVersions: Record<string, { groups: VersionGroup[]; banner?: 
   },
   "candidate-5.1": {
     groups: [{ label: "5.1", versions: [
-          { version: "5.1.11-rc.2", recommended: false, risk: "High Risk", riskColor: "#c9190b", features: 6, bugFixes: 3, date: "Mar 28, 2026", operatorIssues: [{ name: "cluster-logging", slug: "cluster-logging-6.4.3-max-ocp-5.0", severity: "critical" as const, message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" }, { name: "operator-lifecycle-manager", slug: "olm-candidate-compat", severity: "warning" as const, message: "Candidate channel versions may have incompatible operator dependencies. Review release notes carefully.", url: "https://docs.openshift.com/container-platform/latest/updating/understanding_updates/understanding-update-channels-releases.html" }] },
-          { version: "5.1.11-rc.1", recommended: false, risk: "High Risk", riskColor: "#c9190b", features: 5, bugFixes: 2, date: "Mar 25, 2026", operatorIssues: [{ name: "cluster-logging", slug: "cluster-logging-6.4.3-max-ocp-5.0", severity: "critical" as const, message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" }] },
-          { version: "5.1.10", recommended: true, risk: "Low Risk", riskColor: "#3e8635", features: 4, bugFixes: 12, date: "Mar 22, 2026", operatorIssues: [{ name: "cluster-logging", slug: "cluster-logging-6.4.3-max-ocp-5.0", severity: "critical" as const, message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before upgrading.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" }] },
+          { version: "5.1.11-rc.2", recommended: false, risk: "High Risk", riskColor: "#c9190b", features: 6, bugFixes: 3, date: "Mar 28, 2026", operatorIssues: [{ name: "cluster-logging", slug: "cluster-logging-6.4.3-max-ocp-5.0", severity: "critical" as const, message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" }, { name: "operator-lifecycle-manager", slug: "olm-candidate-compat", severity: "warning" as const, message: "Candidate channel versions may have incompatible operator dependencies. Review release notes carefully.", url: "https://docs.openshift.com/container-platform/latest/updating/understanding_updates/understanding-update-channels-releases.html" }] },
+          { version: "5.1.11-rc.1", recommended: false, risk: "High Risk", riskColor: "#c9190b", features: 5, bugFixes: 2, date: "Mar 25, 2026", operatorIssues: [{ name: "cluster-logging", slug: "cluster-logging-6.4.3-max-ocp-5.0", severity: "critical" as const, message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" }] },
+          { version: "5.1.10", recommended: true, risk: "Low Risk", riskColor: "#3e8635", features: 4, bugFixes: 12, date: "Mar 22, 2026", operatorIssues: [{ name: "cluster-logging", slug: "cluster-logging-6.4.3-max-ocp-5.0", severity: "critical" as const, message: "openshift-logging/cluster-logging v6.4.3 maximum supported OCP version is 5.0. Update to v6.5+ before updating.", url: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" }] },
         ] }],
   },
   "eus-5.0": {
@@ -259,16 +287,16 @@ function getOperatorCompatibility(op: InstalledOperator, targetVersion: string):
   if (!op.maxOcpVersion) return { compatibility: "Compatible" };
   const targetMajorMinor = targetVersion.split(".").slice(0, 2).join(".");
   if (compareVersions(op.maxOcpVersion, targetMajorMinor) < 0) {
-    return { compatibility: "Incompatible", message: `Max supported OCP version is ${op.maxOcpVersion}. ${op.updateAvailable ? `Update to v${op.updateAvailable}+ before upgrading cluster.` : "Update operator before upgrading cluster."}` };
+    return { compatibility: "Incompatible", message: `Max supported OCP version is ${op.maxOcpVersion}. ${op.updateAvailable ? `Update to v${op.updateAvailable}+ before updating cluster.` : "Update operator before updating cluster."}` };
   }
   return { compatibility: "Compatible" };
 }
 
 const installedOperators: InstalledOperator[] = [
-  { name: "Cluster Logging", namespace: "openshift-logging", version: "6.4.3", channel: "stable-6.4", source: "redhat-operators", status: "Running", autoUpdate: false, clusterCompatibility: "Incompatible", compatibilityMessage: "Max supported OCP version is 5.0. Update to v6.5+ before upgrading cluster.", support: "Full", supportEndDate: "Nov 13, 2025", supportBadge: "End of life", supportBadgeType: "danger", updateAvailable: "6.5.1", maxOcpVersion: "5.0", lastUpdated: "Jan 8, 2026, 3:12 PM", managedNamespaces: ["openshift-logging"], requiredBeforeClusterUpdate: true },
-  { name: "Elasticsearch Operator", namespace: "openshift-operators-redhat", version: "5.7.2", channel: "stable-5.7", source: "redhat-operators", status: "Running", autoUpdate: false, clusterCompatibility: "Compatible", support: "Full", supportEndDate: "May 10, 2028", supportBadge: "2 years, 1 month", supportBadgeType: "success", maxOcpVersion: "5.1", lastUpdated: "Feb 12, 2026, 4:32 AM", managedNamespaces: ["openshift-operators-redhat", "openshift-logging"], requiredBeforeClusterUpdate: true },
-  { name: "Cloud Credential Operator", namespace: "openshift-cloud-credential-operator", version: "5.0.0", channel: "stable", source: "Built-in", status: "Running", autoUpdate: true, clusterCompatibility: "Compatible", compatibilityMessage: "IAM configuration may need updating before cluster upgrade.", support: "Full", supportEndDate: "Jun 15, 2028", supportBadge: "2 years, 2 months", supportBadgeType: "success", maxOcpVersion: "5.2", lastUpdated: "Mar 1, 2026, 3:48 AM", managedNamespaces: ["openshift-cloud-credential-operator"] },
-  { name: "Operator Lifecycle Manager", namespace: "openshift-operator-lifecycle-manager", version: "4.21.0", channel: "stable", source: "Built-in", status: "Running", autoUpdate: false, clusterCompatibility: "Incompatible", compatibilityMessage: "Incompatible with OCP 5.1. Update to 4.22.0 or higher.", support: "Full", supportEndDate: "Mar 20, 2027", supportBadge: "11 months", supportBadgeType: "warning", updateAvailable: "4.22.0", maxOcpVersion: "5.0", lastUpdated: "Mar 1, 2026, 3:48 AM", managedNamespaces: ["openshift-operator-lifecycle-manager", "openshift-marketplace"] },
+  { name: "Cluster Logging", namespace: "openshift-logging", version: "6.5.1", channel: "stable-6.5", source: "redhat-operators", status: "Running", autoUpdate: false, clusterCompatibility: "Compatible", support: "Full", supportEndDate: "Nov 13, 2028", supportBadge: "2 years", supportBadgeType: "success", maxOcpVersion: "5.2", lastUpdated: "Jan 8, 2026, 3:12 PM", managedNamespaces: ["openshift-logging"] },
+  { name: "Elasticsearch Operator", namespace: "openshift-operators-redhat", version: "5.8.0", channel: "stable-5.8", source: "redhat-operators", status: "Running", autoUpdate: false, clusterCompatibility: "Compatible", support: "Full", supportEndDate: "May 10, 2028", supportBadge: "2 years, 1 month", supportBadgeType: "success", maxOcpVersion: "5.1", lastUpdated: "Feb 12, 2026, 4:32 AM", managedNamespaces: ["openshift-operators-redhat", "openshift-logging"] },
+  { name: "Cloud Credential Operator", namespace: "openshift-cloud-credential-operator", version: "5.0.0", channel: "stable", source: "Built-in", status: "Running", autoUpdate: true, clusterCompatibility: "Compatible", compatibilityMessage: "IAM configuration may need updating before cluster update.", support: "Full", supportEndDate: "Jun 15, 2028", supportBadge: "2 years, 2 months", supportBadgeType: "success", maxOcpVersion: "5.2", lastUpdated: "Mar 1, 2026, 3:48 AM", managedNamespaces: ["openshift-cloud-credential-operator"] },
+  { name: "Operator Lifecycle Manager", namespace: "openshift-operator-lifecycle-manager", version: "4.22.0", channel: "stable", source: "Built-in", status: "Running", autoUpdate: false, clusterCompatibility: "Compatible", support: "Full", supportEndDate: "Mar 20, 2027", supportBadge: "11 months", supportBadgeType: "success", maxOcpVersion: "5.2", lastUpdated: "Mar 1, 2026, 3:48 AM", managedNamespaces: ["openshift-operator-lifecycle-manager", "openshift-marketplace"] },
   { name: "Cert Manager", namespace: "cert-manager-operator", version: "1.14.0", channel: "stable-v1", source: "redhat-operators", status: "Running", autoUpdate: true, clusterCompatibility: "Compatible", support: "Full", supportEndDate: "Sep 1, 2027", supportBadge: "1 year, 5 months", supportBadgeType: "success", maxOcpVersion: "5.2", lastUpdated: "Mar 18, 2026, 2:05 AM", managedNamespaces: ["cert-manager", "cert-manager-operator"] },
   { name: "OpenShift DNS", namespace: "openshift-dns-operator", version: "5.0.0", channel: "stable", source: "Built-in", status: "Running", autoUpdate: true, clusterCompatibility: "Compatible", support: "Full", supportEndDate: "Jun 15, 2028", supportBadge: "2 years, 2 months", supportBadgeType: "success", maxOcpVersion: "5.2", lastUpdated: "Mar 1, 2026, 3:48 AM", managedNamespaces: ["openshift-dns", "openshift-dns-operator"] },
   { name: "Ingress Operator", namespace: "openshift-ingress-operator", version: "5.0.0", channel: "stable", source: "Built-in", status: "Running", autoUpdate: true, clusterCompatibility: "Compatible", support: "Full", supportEndDate: "Jun 15, 2028", supportBadge: "2 years, 2 months", supportBadgeType: "success", maxOcpVersion: "5.2", lastUpdated: "Mar 1, 2026, 3:48 AM", managedNamespaces: ["openshift-ingress", "openshift-ingress-operator"] },
@@ -308,6 +336,11 @@ export default function ClusterUpdatePlanPage() {
   const isGlass = usePatternFlyGlassActive();
 
   useEffect(() => {
+    /** User chose another Cluster Update tab from the in-progress page — allow viewing those tabs instead of forcing redirect. */
+    const tabFromNav = (location.state as { tab?: TabKey } | null)?.tab;
+    if (tabFromNav === "active-update-plans" || tabFromNav === "update-history") {
+      return;
+    }
     const stored = localStorage.getItem("clusterUpdateInProgress");
     if (stored) {
       try {
@@ -315,14 +348,14 @@ export default function ClusterUpdatePlanPage() {
         navigate("/administration/cluster-update/in-progress", { state: { version: data.version }, replace: true });
       } catch { /* ignore */ }
     }
-  }, [navigate]);
+  }, [navigate, location.state]);
 
   const [selectedChannel, setSelectedChannel] = useState("fast-5.1");
   const [activeTab, setActiveTab] = useState<TabKey>("update-plan");
   const [selectedVersion, setSelectedVersion] = useState<string>("5.1.10");
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ "5.1": true });
   
-  const { demoVariant } = useClusterUpdateDemoVariant();
+  const { demoVariant, clusterUpdateDemoResetEpoch } = useClusterUpdateDemoVariant();
   const [updateMode, setUpdateMode] = useState<"manual" | "agent">(
     () => (demoVariant === "agent-only" ? "agent" : "manual")
   );
@@ -330,6 +363,22 @@ export default function ClusterUpdatePlanPage() {
   const [chatbotContext, setChatbotContext] = useState("");
 
   const [operators, setOperators] = useState<InstalledOperator[]>(() => [...installedOperators]);
+  const [agentTabResetKey, setAgentTabResetKey] = useState(0);
+  const lastAppliedResetEpochRef = useRef(-1);
+
+  useEffect(() => {
+    if (clusterUpdateDemoResetEpoch < 1) return;
+    if (lastAppliedResetEpochRef.current === clusterUpdateDemoResetEpoch) return;
+    lastAppliedResetEpochRef.current = clusterUpdateDemoResetEpoch;
+
+    setSelectedVersion("5.1.10");
+    setSelectedChannel("fast-5.1");
+    setOperators([...installedOperators]);
+    setExpandedGroups({ "5.1": true });
+    setActiveTab("update-plan");
+    setAgentTabResetKey((k) => k + 1);
+    setUpdateMode(demoVariant === "agent-only" ? "agent" : "manual");
+  }, [clusterUpdateDemoResetEpoch, demoVariant]);
 
   useEffect(() => {
     if (location.state?.updatedOperator) {
@@ -446,12 +495,6 @@ export default function ClusterUpdatePlanPage() {
       >
         <Tab eventKey="update-plan" title={<TabTitleText>Update plan</TabTitleText>}>
           <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-          <AiAssessmentSection
-            openChatbot={openChatbot}
-            selectedVersion={selectedVersion}
-            clusterUpdateDemoVariant={demoVariant}
-          />
-
           {/* Update Method — hidden in agent-only demo variant */}
           {demoVariant === "manual-and-agent" && (
             <Card
@@ -494,7 +537,7 @@ export default function ClusterUpdatePlanPage() {
                           >
                             <CardTitle>
                               <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
-                                <Icon size="lg">
+                                <Icon size="lg" iconSize="lg">
                                   <Settings aria-hidden />
                                 </Icon>
                                 <Title headingLevel="h4" size="md">
@@ -532,9 +575,7 @@ export default function ClusterUpdatePlanPage() {
                           >
                             <CardTitle>
                               <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
-                                <Icon size="lg" status="custom">
-                                  <Bot aria-hidden />
-                                </Icon>
+                                <AiExperienceIcon aria-hidden className="ocs-cluster-update-method-agent-icon" />
                                 <Title headingLevel="h4" size="md">
                                   Agent-based updates
                                 </Title>
@@ -559,6 +600,12 @@ export default function ClusterUpdatePlanPage() {
 
           {demoVariant === "manual-and-agent" && updateMode === "manual" ? (
             <>
+              <AiAssessmentSection
+                openChatbot={openChatbot}
+                selectedVersion={selectedVersion}
+                clusterUpdateDemoVariant={demoVariant}
+              />
+
               <AvailableUpdatesSection
                 channelData={channelData}
                 expandedGroups={expandedGroups}
@@ -574,10 +621,11 @@ export default function ClusterUpdatePlanPage() {
 
               <InstalledOperatorsSection selectedVersion={selectedVersion} operators={operators} navigate={navigate} />
 
-              <WorkerNodesSection />
+              <WorkerNodesSection targetClusterVersion={selectedVersion} />
             </>
           ) : (
             <UpdateAgentTab
+              key={agentTabResetKey}
               openChatbot={openChatbot}
               selectedVersion={selectedVersion}
               onSelectedVersionChange={setSelectedVersion}
@@ -721,15 +769,13 @@ function AgentModePanel({ openChatbot, setActiveTab, navigate }: { openChatbot: 
 
   const compatAnalysis = {
     operators: [
-      { name: "Cluster Logging", category: "Platform" as const, slug: "cluster-logging-6.4.3-max-ocp-5.0", currentVersion: "6.4.3", status: "incompatible" as const, maxOCP: "5.0", action: "Update to v6.5.1+", docUrl: "https://docs.openshift.com/container-platform/latest/logging/cluster-logging-upgrading.html" },
-      { name: "Elasticsearch Operator", category: "Catalog" as const, slug: "elasticsearch-5.7.2-max-ocp-5.0", currentVersion: "5.7.2", status: "incompatible" as const, maxOCP: "5.0", action: "Update to v5.8.0+", docUrl: "https://docs.openshift.com/container-platform/latest/logging/log_storage/installing-log-storage.html" },
-      { name: "Cert Manager", category: "Catalog" as const, slug: null, currentVersion: "1.12.0", status: "compatible" as const, maxOCP: "5.1", action: null, docUrl: null },
+      { name: "Cluster Logging", category: "Platform" as const, slug: null, currentVersion: "6.5.1", status: "compatible" as const, maxOCP: "5.2", action: null, docUrl: null },
+      { name: "Elasticsearch Operator", category: "Catalog" as const, slug: null, currentVersion: "5.8.0", status: "compatible" as const, maxOCP: "5.1", action: null, docUrl: null },
+      { name: "Cert Manager", category: "Catalog" as const, slug: null, currentVersion: "1.14.0", status: "compatible" as const, maxOCP: "5.2", action: null, docUrl: null },
       { name: "Ansible Automation Platform", category: "Catalog" as const, slug: null, currentVersion: "3.1.0", status: "compatible" as const, maxOCP: "5.1", action: null, docUrl: null },
-      { name: "Operator Lifecycle Manager", category: "Platform" as const, slug: "olm-4.21-incompatible-5.1", currentVersion: "4.21.0", status: "warning" as const, maxOCP: "5.0", action: "Update to v4.22.0", docUrl: "https://docs.openshift.com/container-platform/latest/operators/admin/olm-upgrading-operators.html" },
+      { name: "Operator Lifecycle Manager", category: "Platform" as const, slug: null, currentVersion: "4.22.0", status: "compatible" as const, maxOCP: "5.2", action: null, docUrl: null },
     ],
-    apiDeprecations: [
-      { api: "flowcontrol.apiserver.k8s.io/v1beta2", replacement: "flowcontrol.apiserver.k8s.io/v1", severity: "warning" as const, docUrl: "https://docs.openshift.com/container-platform/latest/updating/preparing_for_updates/updating-cluster-prepare.html#updating-cluster-prepare-apis" },
-    ],
+    apiDeprecations: [] as { api: string; replacement: string; severity: "warning"; docUrl: string }[],
     crIncompatibilities: [] as { resource: string; detail: string }[],
   };
 
@@ -764,7 +810,7 @@ function AgentModePanel({ openChatbot, setActiveTab, navigate }: { openChatbot: 
               agentStatus === "rolling-back" ? "bg-[#c58c00] animate-pulse" :
               "bg-[#8a8d90]"
             }`} />
-            <Bot className="size-[20px] text-[#6753ac]" />
+            <AiExperienceIcon className="size-[20px] text-[#151515] dark:text-[#e8e8e8]" aria-hidden />
             <span className="text-[15px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white">
               {agentStatus === "active" ? "Update Agent Active" :
                agentStatus === "paused" ? "Update Agent Paused" :
@@ -1050,7 +1096,7 @@ function AgentModePanel({ openChatbot, setActiveTab, navigate }: { openChatbot: 
             </div>
             <span className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0] font-['Red_Hat_Text:Regular',sans-serif]">Generated Mar 30, 2026 02:15 UTC</span>
           </div>
-          <p className="text-[#4d4d4d] dark:text-[#b0b0b0] text-[14px] mb-[16px] font-['Red_Hat_Text:Regular',sans-serif]">AI-generated update plan for your cluster</p>
+          <AiGeneratedPlanMarker className="mb-[16px]" />
 
           <div className="space-y-[20px]">
             {/* Pre-Checks Module */}
@@ -1753,7 +1799,7 @@ function InfoTooltip() {
         <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
           <Content component="p">
             Available updates are determined by your selected channel and the cluster&apos;s current version. Versions are
-            tested for upgrade compatibility and risk is assessed based on known issues.
+            tested for update compatibility and risk is assessed based on known issues.
           </Content>
           <Button
             variant="link"
@@ -1817,11 +1863,12 @@ interface AgentOperator {
   action: "required" | "optional" | "up-to-date";
 }
 
+/** Versions match cluster target compatibility — all rows green for the proposed update storyline. */
 const AGENT_OPERATORS: AgentOperator[] = [
-  { name: "Abot Operator", current: "3.0.0", required: "3.1.0", compatible: false, incompatibleAt: "3.0.0", action: "required" },
-  { name: "Airflow Helm Operator", current: "5.7.2", required: "5.7.3", compatible: false, incompatibleAt: "5.7.2", action: "required" },
-  { name: "Ansible Automation Platform", current: "1.5.0", required: "1.6.0", compatible: true, action: "optional" },
-  { name: "Bare Metal Event Relay", current: "1.1.1", required: "1.2.0", compatible: true, action: "optional" },
+  { name: "Abot Operator", current: "3.1.0", required: null, compatible: true, action: "up-to-date" },
+  { name: "Airflow Helm Operator", current: "5.7.3", required: null, compatible: true, action: "up-to-date" },
+  { name: "Ansible Automation Platform", current: "1.6.0", required: null, compatible: true, action: "up-to-date" },
+  { name: "Bare Metal Event Relay", current: "1.2.0", required: null, compatible: true, action: "up-to-date" },
   { name: "Camel K Operator", current: "2.1.0", required: null, compatible: true, action: "up-to-date" },
 ];
 
@@ -1952,21 +1999,16 @@ function getAgentPlanProfile(version: string): AgentPlanProfile {
   ];
   const risks = [
     { pct: 20, label: "2 / 10 — Low", color: "#3e8635", detail: "AI risk score: 2/10 · No PDB violations or blocking conditions detected" },
-    { pct: 32, label: "3 / 10 — Low", color: "#3e8635", detail: "AI risk score: 3/10 · Minor cordon delay on one node pool" },
+    { pct: 22, label: "2 / 10 — Low", color: "#3e8635", detail: "AI risk score: 2/10 · Minor cordon delay on one node pool" },
     { pct: 45, label: "4 / 10 — Moderate", color: "#f0ab00", detail: "AI risk score: 4/10 · Review PDBs and surge settings before execution" },
-    { pct: 28, label: "3 / 10 — Low", color: "#3e8635", detail: "AI risk score: 3/10 · etcd backup verified within policy" },
+    { pct: 24, label: "2 / 10 — Low", color: "#3e8635", detail: "AI risk score: 2/10 · etcd backup verified within policy" },
   ];
   const storageDetails = [
     "Sufficient capacity (68% used)",
     "Sufficient capacity (72% used)",
     "Sufficient capacity (61% used)",
   ];
-  const compatVariants = [
-    { c: 3, t: 5, r: 2 },
-    { c: 4, t: 5, r: 1 },
-    { c: 2, t: 5, r: 3 },
-  ];
-  const cv = compatVariants[h % compatVariants.length];
+  /** All prototype operators are modeled compatible with the chosen cluster target (aligned worker + catalog versions). */
   const ri = risks[h % risks.length];
   return {
     defaultMaintenance: windows[h % windows.length],
@@ -1977,9 +2019,9 @@ function getAgentPlanProfile(version: string): AgentPlanProfile {
     riskBarColor: ri.color,
     riskDetail: ri.detail,
     tags: tagSets[h % tagSets.length],
-    compatCompatible: cv.c,
-    compatTotal: cv.t,
-    compatRequired: cv.r,
+    compatCompatible: 5,
+    compatTotal: 5,
+    compatRequired: 0,
     storageDetail: storageDetails[h % storageDetails.length],
   };
 }
@@ -2011,9 +2053,7 @@ function UpdateAgentTab({
   });
 
   const [showApproveModal, setShowApproveModal] = useState(false);
-  const [approveAcknowledged, setApproveAcknowledged] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
-  const [rejectAcknowledged, setRejectAcknowledged] = useState(false);
   const [showScheduleModal, setShowScheduleModal] = useState(false);
   const [scheduleDate, setScheduleDate] = useState("2026-04-15");
   const [scheduleTime, setScheduleTime] = useState("02:00");
@@ -2083,10 +2123,13 @@ function UpdateAgentTab({
       { label: "Pre-flight Checks Complete", status: "done", badge: "PASSED", badgeColor: "#3e8635", detail: "All cluster health checks completed successfully" },
       {
         label: "Compatibility Analysis",
-        status: "warning",
-        badge: "ACTION NEEDED",
-        badgeColor: "#f0ab00",
-        detail: `${planProfile.compatCompatible} of ${planProfile.compatTotal} operators compatible with ${targetVersion} · ${planProfile.compatRequired} operators must be updated first`,
+        status: planProfile.compatRequired > 0 ? "warning" : "done",
+        badge: planProfile.compatRequired > 0 ? "ACTION NEEDED" : "PASSED",
+        badgeColor: planProfile.compatRequired > 0 ? "#f0ab00" : "#3e8635",
+        detail:
+          planProfile.compatRequired > 0
+            ? `${planProfile.compatCompatible} of ${planProfile.compatTotal} operators compatible with ${targetVersion} · ${planProfile.compatRequired} operators must be updated first`
+            : `All ${planProfile.compatTotal} operators are compatible with OpenShift ${targetVersion}`,
       },
       { label: "API Deprecations", status: "done", detail: "No deprecated APIs in use" },
       { label: "Custom Resources", status: "done", detail: "All CRDs compatible with new version" },
@@ -2106,15 +2149,18 @@ function UpdateAgentTab({
   const healthChecks = useMemo(
     () => [
       { label: "Cluster Health", detail: "All operators available", ok: true },
-      { label: "Node Status", detail: "6/6 nodes ready", ok: true },
+      {
+        label: "Node Status",
+        detail: `6/6 nodes Ready on ${AGENT_CLUSTER_CURRENT_VERSION}; schedulable for cluster update to ${targetVersion}`,
+        ok: true,
+      },
       { label: "Storage", detail: planProfile.storageDetail, ok: true },
       { label: "Network", detail: "All pods reachable", ok: true },
     ],
-    [planProfile.storageDetail]
+    [planProfile.storageDetail, targetVersion]
   );
 
   const confirmApproveAndStart = () => {
-    if (!approveAcknowledged) return;
     recordApproval();
     localStorage.setItem("clusterUpdateInProgress", JSON.stringify({ version: selectedVersion, startedAt: Date.now() }));
     setShowApproveModal(false);
@@ -2122,7 +2168,6 @@ function UpdateAgentTab({
   };
 
   const confirmRejectPlan = () => {
-    if (!rejectAcknowledged) return;
     setPlanDecision("rejected");
     setShowRejectModal(false);
   };
@@ -2147,18 +2192,13 @@ function UpdateAgentTab({
       <Card id="ai-update-agent-card" isGlass={isGlass}>
         <CardBody>
           <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-            <Flex gap={{ default: "gapMd" }} alignItems={{ default: "alignItemsFlexStart" }}>
-              <Icon size="lg" status="custom">
-                <Bot />
-              </Icon>
-              <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                <Title headingLevel="h2" size="xl">
-                  AI Update Agent
-                </Title>
-                <Content component="p">
-                  Activity summary and the current proposed plan · {selectedChannel} channel
-                </Content>
-              </Flex>
+            <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
+              <Title headingLevel="h2" size="xl">
+                AI Update Agent
+              </Title>
+              <Content component="p">
+                Activity summary and the current proposed plan · {selectedChannel} channel
+              </Content>
             </Flex>
 
             <Panel variant="bordered">
@@ -2236,7 +2276,7 @@ function UpdateAgentTab({
                             isPlanLoading ? (
                               <Spinner size="sm" aria-label="Generating plan" />
                             ) : (
-                              <RefreshCw aria-hidden />
+                              <Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />
                             )
                           }
                         >
@@ -2309,10 +2349,12 @@ function UpdateAgentTab({
           >
             <FlexItem>
               <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
+                <AiGeneratedPlanMarker />
                 <Content
                   component="p"
                   style={{
                     margin: 0,
+                    marginBottom: "var(--pf-t--global--spacer--md)",
                     fontSize: "var(--pf-t--global--FontSize--xs)",
                     color: "var(--pf-t--global--text--Color--200)",
                   }}
@@ -2349,7 +2391,7 @@ function UpdateAgentTab({
                   <Content component="p" style={{ margin: 0, fontWeight: 500 }}>
                     {planProfile.compatRequired > 0 ? (
                       <>
-                        {planProfile.compatRequired} operator {planProfile.compatRequired === 1 ? "update" : "updates"} required before this cluster upgrade
+                        {planProfile.compatRequired} operator {planProfile.compatRequired === 1 ? "update" : "updates"} required before this cluster update
                       </>
                     ) : (
                       <>No operator blockers — review steps below to approve or schedule</>
@@ -2426,32 +2468,18 @@ function UpdateAgentTab({
 
                 {i === 2 && (
                   <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-                    <Flex
-                      justifyContent={{ default: "justifyContentSpaceBetween" }}
-                      alignItems={{ default: "alignItemsCenter" }}
-                      gap={{ default: "gapSm" }}
-                      flexWrap={{ default: "wrap" }}
-                      style={{ width: "100%" }}
-                    >
-                      <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
-                        <Icon status="warning" iconSize="sm">
-                          <AlertTriangle />
-                        </Icon>
-                        <Title headingLevel="h4" size="md">
-                          Operator compatibility
-                        </Title>
-                      </Flex>
-                      <Flex gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
-                        <Label isCompact color="green" variant="outline">
-                          {planProfile.compatCompatible} compatible
-                        </Label>
-                        <Label isCompact color="orange" variant="outline">
-                          {planProfile.compatRequired} require update
-                        </Label>
-                      </Flex>
+                    <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }} style={{ width: "100%" }}>
+                      <Icon status={planProfile.compatRequired > 0 ? "warning" : "success"} iconSize="sm">
+                        {planProfile.compatRequired > 0 ? <AlertTriangle /> : <CheckCircle />}
+                      </Icon>
+                      <Title headingLevel="h4" size="md">
+                        Operator compatibility
+                      </Title>
                     </Flex>
                     <Content component="p" style={{ margin: 0 }}>
-                      {planProfile.compatRequired} operators must be updated before upgrading to {targetVersion}
+                      {planProfile.compatRequired > 0
+                        ? `${planProfile.compatRequired} operators must be updated before updating to ${targetVersion}`
+                        : `All operators meet requirements for OpenShift ${targetVersion}`}
                     </Content>
                     <Table aria-label="Operator compatibility with target version" variant="compact" borders>
                           <Thead>
@@ -2544,8 +2572,8 @@ function UpdateAgentTab({
                                 </Td>
                                 <Td dataLabel="Action needed">
                                   {op.action === "required" ? (
-                                    <Label color="orange" variant="filled" isCompact>
-                                      Update required before OCP upgrade
+                                    <Label color="orange" variant="outline" isCompact>
+                                      Update required before OCP update
                                     </Label>
                                   ) : op.action === "optional" ? (
                                     <Label color="green" variant="outline" isCompact>
@@ -2627,10 +2655,7 @@ function UpdateAgentTab({
                     variant="primary"
                     isDisabled={isPlanLoading}
                     icon={<Check aria-hidden />}
-                    onClick={() => {
-                      setApproveAcknowledged(false);
-                      setShowApproveModal(true);
-                    }}
+                    onClick={() => setShowApproveModal(true)}
                   >
                     Approve plan
                   </Button>
@@ -2658,10 +2683,7 @@ function UpdateAgentTab({
                     isDanger
                     isDisabled={isPlanLoading}
                     icon={<X aria-hidden />}
-                    onClick={() => {
-                      setRejectAcknowledged(false);
-                      setShowRejectModal(true);
-                    }}
+                    onClick={() => setShowRejectModal(true)}
                   >
                     Reject plan
                   </Button>
@@ -2721,222 +2743,170 @@ function UpdateAgentTab({
       </Card>
     </Flex>
 
-      {showApproveModal && createPortal(
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-[16px]" onClick={() => setShowApproveModal(false)}>
-          <div
-            className="bg-white dark:bg-[#1a1a1a] rounded-[12px] shadow-[0_8px_32px_rgba(0,0,0,0.2)] max-w-[520px] w-full"
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="agent-approve-title"
+      <Modal
+        className="ocs-cluster-update-modal"
+        variant="medium"
+        isOpen={showApproveModal}
+        onClose={() => setShowApproveModal(false)}
+        aria-labelledby="agent-approve-title"
+        aria-describedby="agent-approve-desc"
+      >
+        <ModalHeader labelId="agent-approve-title" title="Approve and start update" />
+        <ModalBody id="agent-approve-desc">
+          <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
+            <Content component="p" style={{ margin: 0 }}>
+              You are about to approve the {AI_GENERATED_PLAN_HEADING} and start the cluster update from{" "}
+              <code>{AGENT_CLUSTER_CURRENT_VERSION}</code> to <code>{selectedVersion}</code> on channel{" "}
+              <strong>{selectedChannel}</strong>.
+            </Content>
+            <Content component="p" style={{ margin: 0 }}>
+              By clicking &quot;Start update,&quot; you are confirming that you have reviewed the plan and understand its
+              potential outcomes.
+            </Content>
+          </Flex>
+        </ModalBody>
+        <ModalFooter>
+          <Flex
+            justifyContent={{ default: "justifyContentFlexEnd" }}
+            flexWrap={{ default: "wrap" }}
+            gap={{ default: "gapMd" }}
           >
-            <div className="flex items-center justify-between px-[24px] py-[16px] border-b border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)]">
-              <h3 id="agent-approve-title" className="text-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white">
-                Approve and start update
-              </h3>
-              <button type="button" onClick={() => setShowApproveModal(false)} className="bg-transparent border-0 cursor-pointer text-[#6a6e73] hover:text-[#151515] dark:hover:text-white p-[4px]" aria-label="Close">
-                <X className="size-[16px]" />
-              </button>
-            </div>
-            <div className="px-[24px] py-[16px] space-y-[12px]">
-              <p className="text-[14px] text-[#151515] dark:text-white font-['Red_Hat_Text:Regular',sans-serif]">
-                You are about to approve the agent plan and <span className="font-medium">start the cluster update</span> from{" "}
-                <span className="font-mono font-semibold">{AGENT_CLUSTER_CURRENT_VERSION}</span> to{" "}
-                <span className="font-mono font-semibold">{selectedVersion}</span> on channel <span className="font-medium">{selectedChannel}</span>.
-              </p>
-              <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0] font-['Red_Hat_Text:Regular',sans-serif]">
-                The console will open the in-progress update experience. Ensure maintenance is communicated and workloads are ready.
-              </p>
-              <label className="flex items-start gap-[10px] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={approveAcknowledged}
-                  onChange={(e) => setApproveAcknowledged(e.target.checked)}
-                  className="mt-[3px] size-[16px] shrink-0 accent-[#0066cc]"
-                />
-                <span className="text-[13px] text-[#151515] dark:text-white font-['Red_Hat_Text:Regular',sans-serif]">
-                  I have reviewed this plan and authorize the cluster update to proceed for target version {selectedVersion}.
-                </span>
-              </label>
-            </div>
-            <div className="flex items-center justify-end gap-[10px] px-[24px] py-[16px] border-t border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)]">
-              <button
-                type="button"
-                onClick={() => setShowApproveModal(false)}
-                className="text-[14px] px-[16px] py-[8px] rounded-[999px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.2)] bg-transparent text-[#151515] dark:text-white cursor-pointer hover:bg-[rgba(0,0,0,0.03)] transition-colors font-['Red_Hat_Text:Regular',sans-serif]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!approveAcknowledged}
-                onClick={confirmApproveAndStart}
-                className="flex items-center gap-[6px] text-[14px] px-[16px] py-[8px] rounded-[999px] border-0 bg-[var(--pf-color-blue-50)] hover:bg-[var(--pf-color-blue-60)] dark:bg-[var(--pf-color-blue-50)] dark:hover:bg-[var(--pf-color-blue-60)] text-white !text-white [&_svg]:text-white cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-['Red_Hat_Text:Regular',sans-serif] font-medium"
-              >
-                <Play className="size-[14px]" aria-hidden /> Start update
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+            <Button variant="link" onClick={() => setShowApproveModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" icon={<Play aria-hidden />} onClick={confirmApproveAndStart}>
+              Start update
+            </Button>
+          </Flex>
+        </ModalFooter>
+      </Modal>
 
-      {showRejectModal && createPortal(
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-[16px]" onClick={() => setShowRejectModal(false)}>
-          <div
-            className="bg-white dark:bg-[#1a1a1a] rounded-[12px] shadow-[0_8px_32px_rgba(0,0,0,0.2)] max-w-[480px] w-full"
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="agent-reject-title"
-          >
-            <div className="flex items-center justify-between px-[24px] py-[16px] border-b border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)]">
-              <h3 id="agent-reject-title" className="text-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#c9190b]">
-                Reject this plan?
-              </h3>
-              <button type="button" onClick={() => setShowRejectModal(false)} className="bg-transparent border-0 cursor-pointer text-[#6a6e73] hover:text-[#151515] dark:hover:text-white p-[4px]" aria-label="Close">
-                <X className="size-[16px]" />
-              </button>
-            </div>
-            <div className="px-[24px] py-[16px] space-y-[12px]">
-              <p className="text-[14px] text-[#151515] dark:text-white font-['Red_Hat_Text:Regular',sans-serif]">
-                Rejecting stops this proposed update for <span className="font-mono font-semibold">{selectedVersion}</span>. No changes will be applied until you approve a new plan.
-              </p>
-              <label className="flex items-start gap-[10px] cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rejectAcknowledged}
-                  onChange={(e) => setRejectAcknowledged(e.target.checked)}
-                  className="mt-[3px] size-[16px] shrink-0 accent-[#0066cc]"
-                />
-                <span className="text-[13px] text-[#151515] dark:text-white font-['Red_Hat_Text:Regular',sans-serif]">
-                  I understand this plan will be rejected and no update will run for this approval request.
-                </span>
-              </label>
-            </div>
-            <div className="flex items-center justify-end gap-[10px] px-[24px] py-[16px] border-t border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)]">
-              <button
-                type="button"
-                onClick={() => setShowRejectModal(false)}
-                className="text-[14px] px-[16px] py-[8px] rounded-[999px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.2)] bg-transparent text-[#151515] dark:text-white cursor-pointer hover:bg-[rgba(0,0,0,0.03)] transition-colors font-['Red_Hat_Text:Regular',sans-serif]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                disabled={!rejectAcknowledged}
-                onClick={confirmRejectPlan}
-                className="text-[14px] px-[16px] py-[8px] rounded-[999px] border border-[#c9190b] text-[#c9190b] hover:bg-[rgba(201,25,11,0.06)] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed transition-colors font-['Red_Hat_Text:Regular',sans-serif] font-medium"
-              >
-                Reject plan
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+      <Modal
+        className="ocs-cluster-update-modal"
+        variant="medium"
+        isOpen={showRejectModal}
+        onClose={() => setShowRejectModal(false)}
+        aria-labelledby="agent-reject-title"
+        aria-describedby="agent-reject-desc"
+      >
+        <ModalHeader labelId="agent-reject-title" title="Reject this plan?" />
+        <ModalBody id="agent-reject-desc">
+          <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
+            <Content component="p" style={{ margin: 0 }}>
+              Rejecting stops this proposed update for <code>{selectedVersion}</code>. No changes will be applied until you approve a new plan.
+            </Content>
+          </Flex>
+        </ModalBody>
+        <ModalFooter>
+          <Flex justifyContent={{ default: "justifyContentFlexEnd" }} gap={{ default: "gapMd" }}>
+            <Button variant="link" onClick={() => setShowRejectModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="danger" onClick={confirmRejectPlan}>
+              Reject plan
+            </Button>
+          </Flex>
+        </ModalFooter>
+      </Modal>
 
-      {showScheduleModal && createPortal(
-        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 p-[16px]" onClick={() => setShowScheduleModal(false)}>
-          <div
-            className="bg-white dark:bg-[#1a1a1a] rounded-[12px] shadow-[0_8px_32px_rgba(0,0,0,0.2)] max-w-[520px] w-full max-h-[90vh] overflow-y-auto"
-            onClick={(e: React.MouseEvent) => e.stopPropagation()}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="agent-schedule-title"
-          >
-            <div className="flex items-center justify-between px-[24px] py-[16px] border-b border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)]">
-              <h3 id="agent-schedule-title" className="text-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white">
-                Schedule update window
-              </h3>
-              <button type="button" onClick={() => setShowScheduleModal(false)} className="bg-transparent border-0 cursor-pointer text-[#6a6e73] hover:text-[#151515] dark:hover:text-white p-[4px]" aria-label="Close">
-                <X className="size-[16px]" />
-              </button>
-            </div>
-            <div className="px-[24px] py-[16px] space-y-[16px]">
-              <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0] font-['Red_Hat_Text:Regular',sans-serif]">
-                Choose when the agent should target execution. You can pick a preset or set a custom date and time.
-              </p>
-              <div className="flex flex-wrap gap-[8px]">
-                <button
-                  type="button"
-                  onClick={() => applySchedulePreset("2026-04-15", "02:00", "Eastern Time (ET)")}
-                  className="text-[12px] px-[12px] py-[6px] rounded-[999px] border border-[#0066cc] dark:border-[#4dabf7] text-[#0066cc] dark:text-[#4dabf7] bg-transparent hover:bg-[rgba(0,102,204,0.06)] font-['Red_Hat_Text:Regular',sans-serif]"
-                >
-                  Agent recommendation
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applySchedulePreset("2026-04-12", "23:00", "Eastern Time (ET)")}
-                  className="text-[12px] px-[12px] py-[6px] rounded-[999px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.2)] text-[#151515] dark:text-white bg-transparent hover:bg-[rgba(0,0,0,0.04)] font-['Red_Hat_Text:Regular',sans-serif]"
-                >
-                  This weekend · 11:00 PM
-                </button>
-                <button
-                  type="button"
-                  onClick={() => applySchedulePreset("2026-04-18", "06:00", "UTC")}
-                  className="text-[12px] px-[12px] py-[6px] rounded-[999px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.2)] text-[#151515] dark:text-white bg-transparent hover:bg-[rgba(0,0,0,0.04)] font-['Red_Hat_Text:Regular',sans-serif]"
-                >
-                  Next week · 6:00 AM UTC
-                </button>
-              </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-[12px]">
-                <label className="flex flex-col gap-[4px]">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#6a6e73] dark:text-[#8a8d90] font-['Red_Hat_Text:Regular',sans-serif]">Date</span>
-                  <input
-                    type="date"
+      <Modal
+        className="ocs-cluster-update-modal"
+        variant="large"
+        isOpen={showScheduleModal}
+        onClose={() => setShowScheduleModal(false)}
+        aria-labelledby="agent-schedule-title"
+        aria-describedby="agent-schedule-desc"
+      >
+        <ModalHeader labelId="agent-schedule-title" title="Schedule update window" />
+        <ModalBody id="agent-schedule-desc">
+          <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
+            <Content component="p" style={{ margin: 0 }}>
+              Choose when the agent should target execution. You can pick a preset or set a custom date and time.
+            </Content>
+            <Flex gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
+              <Button
+                variant="secondary"
+                onClick={() => applySchedulePreset("2026-04-15", "02:00", "Eastern Time (ET)")}
+              >
+                Agent recommendation
+              </Button>
+              <Button
+                variant="secondary"
+                onClick={() => applySchedulePreset("2026-04-12", "23:00", "Eastern Time (ET)")}
+              >
+                This weekend · 11:00 PM
+              </Button>
+              <Button variant="secondary" onClick={() => applySchedulePreset("2026-04-18", "06:00", "UTC")}>
+                Next week · 6:00 AM UTC
+              </Button>
+            </Flex>
+            <Flex
+              direction={{ default: "column", md: "row" }}
+              gap={{ default: "gapMd", md: "gapLg" }}
+              alignItems={{ default: "alignItemsFlexStart" }}
+              flexWrap={{ default: "wrap" }}
+              className="ocs-schedule-modal-fields"
+            >
+              <FlexItem className="ocs-schedule-modal-field">
+                <FormGroup label="Date" fieldId="schedule-date">
+                  <DatePicker
                     value={scheduleDate}
-                    onChange={(e) => setScheduleDate(e.target.value)}
-                    className="rounded-[6px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.2)] bg-white dark:bg-[#1a1a1a] text-[#151515] dark:text-white text-[14px] px-[10px] py-[8px] font-['Red_Hat_Text:Regular',sans-serif]"
+                    onChange={(_event, value) => {
+                      if (value) setScheduleDate(value);
+                    }}
+                    placeholder="YYYY-MM-DD"
+                    aria-label="Schedule date"
+                    appendTo={() => document.body}
+                    inputProps={{ id: "schedule-date" }}
                   />
-                </label>
-                <label className="flex flex-col gap-[4px]">
-                  <span className="text-[11px] font-semibold uppercase tracking-wide text-[#6a6e73] dark:text-[#8a8d90] font-['Red_Hat_Text:Regular',sans-serif]">Time</span>
-                  <input
-                    type="time"
-                    value={scheduleTime}
-                    onChange={(e) => setScheduleTime(e.target.value)}
-                    className="rounded-[6px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.2)] bg-white dark:bg-[#1a1a1a] text-[#151515] dark:text-white text-[14px] px-[10px] py-[8px] font-['Red_Hat_Text:Regular',sans-serif]"
+                </FormGroup>
+              </FlexItem>
+              <FlexItem className="ocs-schedule-modal-field">
+                <FormGroup label="Time" fieldId="schedule-time">
+                  <TimePicker
+                    time={scheduleTime}
+                    onChange={(_event, time) => setScheduleTime(time)}
+                    is24Hour
+                    placeholder="HH:MM"
+                    aria-label="Schedule time"
+                    menuAppendTo={() => document.body}
+                    width="10rem"
+                    inputProps={{ id: "schedule-time" }}
                   />
-                </label>
-              </div>
-              <label className="flex flex-col gap-[4px]">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-[#6a6e73] dark:text-[#8a8d90] font-['Red_Hat_Text:Regular',sans-serif]">Timezone</span>
-                <select
-                  value={scheduleTzLabel}
-                  onChange={(e) => setScheduleTzLabel(e.target.value)}
-                  className="rounded-[6px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.2)] bg-white dark:bg-[#1a1a1a] text-[#151515] dark:text-white text-[14px] px-[10px] py-[8px] font-['Red_Hat_Text:Regular',sans-serif]"
-                >
-                  <option>Eastern Time (ET)</option>
-                  <option>Central Time (CT)</option>
-                  <option>Pacific Time (PT)</option>
-                  <option>UTC</option>
-                </select>
-              </label>
-              <p className="text-[12px] text-[#6a6e73] dark:text-[#8a8d90] font-['Red_Hat_Text:Regular',sans-serif]">
-                Preview: <span className="text-[#151515] dark:text-white font-medium">{formatAgentScheduleLine(scheduleDate, scheduleTime, scheduleTzLabel)}</span>
-              </p>
-            </div>
-            <div className="flex items-center justify-end gap-[10px] px-[24px] py-[16px] border-t border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)]">
-              <button
-                type="button"
-                onClick={() => setShowScheduleModal(false)}
-                className="text-[14px] px-[16px] py-[8px] rounded-[999px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.2)] bg-transparent text-[#151515] dark:text-white cursor-pointer hover:bg-[rgba(0,0,0,0.03)] transition-colors font-['Red_Hat_Text:Regular',sans-serif]"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={confirmScheduleWindow}
-                className="flex items-center gap-[6px] text-[14px] px-[16px] py-[8px] rounded-[999px] border-0 bg-[var(--pf-color-blue-50)] hover:bg-[var(--pf-color-blue-60)] dark:bg-[var(--pf-color-blue-50)] dark:hover:bg-[var(--pf-color-blue-60)] text-white !text-white [&_svg]:text-white cursor-pointer transition-colors font-['Red_Hat_Text:Regular',sans-serif] font-medium"
-              >
-                <Calendar className="size-[14px]" aria-hidden /> Save schedule
-              </button>
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
+                </FormGroup>
+              </FlexItem>
+              <FlexItem className="ocs-schedule-modal-field ocs-schedule-modal-field--timezone">
+                <FormGroup label="Timezone" fieldId="schedule-tz">
+                  <FormSelect
+                    id="schedule-tz"
+                    value={scheduleTzLabel}
+                    onChange={(_e, value) => setScheduleTzLabel(value)}
+                    aria-label="Timezone"
+                  >
+                    <option value="Eastern Time (ET)">Eastern Time (ET)</option>
+                    <option value="Central Time (CT)">Central Time (CT)</option>
+                    <option value="Pacific Time (PT)">Pacific Time (PT)</option>
+                    <option value="UTC">UTC</option>
+                  </FormSelect>
+                </FormGroup>
+              </FlexItem>
+            </Flex>
+            <Content component="p" style={{ margin: 0 }}>
+              Preview: <strong>{formatAgentScheduleLine(scheduleDate, scheduleTime, scheduleTzLabel)}</strong>
+            </Content>
+          </Flex>
+        </ModalBody>
+        <ModalFooter>
+          <Flex justifyContent={{ default: "justifyContentFlexEnd" }} gap={{ default: "gapMd" }}>
+            <Button variant="link" onClick={() => setShowScheduleModal(false)}>
+              Cancel
+            </Button>
+            <Button variant="primary" icon={<Calendar aria-hidden />} onClick={confirmScheduleWindow}>
+              Save schedule
+            </Button>
+          </Flex>
+        </ModalFooter>
+      </Modal>
     </>
   );
 }
@@ -3008,16 +2978,47 @@ function OperatorsOnClusterSection({ selectedVersion, operators, navigate }: { s
 }
 
 /* ─── Worker Nodes on this cluster ─── */
-const WORKER_NODE_POOLS = [
-  { pool: "worker", status: "Update required", version: "5.0.0", targetVersion: "5.1.10", compatibility: "compatible" as const, nodes: 4, readyNodes: 4 },
-  { pool: "infra", status: "Up to date", version: "5.0.0", targetVersion: null, compatibility: "compatible" as const, nodes: 2, readyNodes: 2 },
-];
+type WorkerPoolRow = {
+  pool: string;
+  status: "Update required" | "Up to date";
+  version: string;
+  targetVersion: string | null;
+  compatibility: "compatible";
+  nodes: number;
+  readyNodes: number;
+};
 
-function WorkerNodesSection() {
+function WorkerNodesSection({ targetClusterVersion }: { targetClusterVersion: string }) {
   const [sectionExpanded, setSectionExpanded] = useState(true);
   const [updateAll, setUpdateAll] = useState(false);
-  const poolsNeedingUpdate = WORKER_NODE_POOLS.filter((p) => p.status === "Update required").length;
   const isGlass = usePatternFlyGlassActive();
+
+  const workerPools: WorkerPoolRow[] = useMemo(() => {
+    const current = AGENT_CLUSTER_CURRENT_VERSION;
+    const needsUpdate = targetClusterVersion !== current;
+    return [
+      {
+        pool: "worker",
+        status: needsUpdate ? ("Update required" as const) : ("Up to date" as const),
+        version: current,
+        targetVersion: needsUpdate ? targetClusterVersion : null,
+        compatibility: "compatible" as const,
+        nodes: 4,
+        readyNodes: 4,
+      },
+      {
+        pool: "infra",
+        status: needsUpdate ? ("Update required" as const) : ("Up to date" as const),
+        version: current,
+        targetVersion: needsUpdate ? targetClusterVersion : null,
+        compatibility: "compatible" as const,
+        nodes: 2,
+        readyNodes: 2,
+      },
+    ];
+  }, [targetClusterVersion]);
+
+  const poolsNeedingUpdate = workerPools.filter((p) => p.status === "Update required").length;
 
   return (
     <Card
@@ -3064,7 +3065,7 @@ function WorkerNodesSection() {
                   </Tr>
                 </Thead>
                 <Tbody>
-                  {WORKER_NODE_POOLS.map((pool) => (
+                  {workerPools.map((pool) => (
                     <Tr key={pool.pool}>
                       <Td dataLabel="Pool">
                         <Content component="p">
@@ -3089,9 +3090,23 @@ function WorkerNodesSection() {
                         )}
                       </Td>
                       <Td dataLabel="Version">
-                        <Content component="small">
-                          <code>{pool.version}</code>
-                        </Content>
+                        <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }}>
+                          <Content component="small" style={{ margin: 0 }}>
+                            <code>{pool.version}</code>
+                            {pool.targetVersion ? (
+                              <>
+                                {" "}
+                                <span className="text-[#6a6e73] dark:text-[#8a8d90]">→</span>{" "}
+                                <code>{pool.targetVersion}</code>
+                              </>
+                            ) : null}
+                          </Content>
+                          {pool.targetVersion ? (
+                            <Content component="small" style={{ margin: 0 }} className="pf-v6-u-font-size-xs">
+                              Matches cluster update target
+                            </Content>
+                          ) : null}
+                        </Flex>
                       </Td>
                       <Td dataLabel="Nodes">
                         {pool.readyNodes}/{pool.nodes} ready
@@ -3297,7 +3312,7 @@ function InstalledOperatorsSection({ selectedVersion, operators, navigate }: { s
   });
   const incompatibleCount = operatorsWithCompat.filter((op) => op.clusterCompatibility === "Incompatible").length;
   const updateAvailableCount = operatorsWithCompat.filter((op) => op.updateAvailable).length;
-  const upgradeableFalse = incompatibleCount > 0;
+  const clusterUpdateBlockedByOperators = incompatibleCount > 0;
 
   const navigateToUpdate = (op: (typeof operatorsWithCompat)[0]) => {
     navigate(`/ecosystem/installed-operators/${encodeURIComponent(op.name)}/update`, {
@@ -3380,17 +3395,17 @@ function InstalledOperatorsSection({ selectedVersion, operators, navigate }: { s
               </ToggleGroup>
             </Flex>
 
-            {upgradeableFalse && filterCompat !== "update-available" && (
-              <Alert variant="danger" isInline title="Cluster upgrade blocked" icon={<AlertCircle aria-hidden />}>
+            {clusterUpdateBlockedByOperators && filterCompat !== "update-available" && (
+              <Alert variant="danger" isInline title="Cluster update blocked" icon={<AlertCircle aria-hidden />}>
                 <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
                   <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }} flexWrap={{ default: "wrap" }}>
                     <Content component="p">
                       {incompatibleCount} operator{incompatibleCount !== 1 ? "s are" : " is"} incompatible with the target
                       cluster version. Update these operators or accept the associated risks before proceeding with the
-                      cluster upgrade.
+                      cluster update.
                     </Content>
                     <Label color="red" isCompact>
-                      upgradeable=False
+                      Not eligible to update
                     </Label>
                   </Flex>
                   <List isPlain>
@@ -4256,7 +4271,9 @@ function UpdateHistoryTab() {
                 </span>
                 <span>
                   {entry.method === "Agent" ? (
-                    <span className="flex items-center gap-[3px] text-[11px] text-[#6753ac] font-semibold"><Bot className="size-[11px]" /> Agent</span>
+                    <span className="flex items-center gap-[3px] text-[11px] text-[#151515] dark:text-[#e0e0e0] font-semibold">
+                      <AiExperienceIcon className="size-[11px] shrink-0 opacity-90" aria-hidden /> Agent
+                    </span>
                   ) : (
                     <span className="flex items-center gap-[3px] text-[11px] text-[#4d4d4d] dark:text-[#b0b0b0]"><User className="size-[11px]" /> Manual</span>
                   )}

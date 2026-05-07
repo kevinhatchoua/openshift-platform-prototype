@@ -37,7 +37,7 @@ export default function ClusterUpdateDemoBanner() {
         >
           <ToggleGroupItem
             text={
-              <Content component="span">OCP 5.0</Content>
+              <Content component="span">Agent-led</Content>
             }
             isSelected={demoVariant === "agent-only"}
             onChange={(_event, selected) => {
@@ -48,7 +48,7 @@ export default function ClusterUpdateDemoBanner() {
           />
           <ToggleGroupItem
             text={
-              <Content component="span">OCP 5.1</Content>
+              <Content component="span">Manual updates</Content>
             }
             isSelected={demoVariant === "manual-and-agent"}
             onChange={(_event, selected) => {

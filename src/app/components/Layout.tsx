@@ -32,7 +32,6 @@ import {
   PageSidebarBody,
   PageToggleButton,
   SkipToContent,
-  Switch,
   Toolbar,
   ToolbarContent,
   ToolbarGroup,
@@ -54,6 +53,7 @@ import UserCogIcon from "@patternfly/react-icons/dist/esm/icons/user-cog-icon";
 import UserIcon from "@patternfly/react-icons/dist/esm/icons/user-icon";
 import UsersIcon from "@patternfly/react-icons/dist/esm/icons/users-icon";
 import RhMicronsCaretDownIcon from "@patternfly/react-icons/dist/esm/icons/rh-microns-caret-down-icon";
+import SyncAltIcon from "@patternfly/react-icons/dist/esm/icons/sync-alt-icon";
 import ImpersonateUserModal from "./ImpersonateUserModal";
 import { MastheadFedoraMark } from "./MastheadFedoraMark";
 import { usePermissions } from "../contexts/PermissionsContext";
@@ -91,29 +91,6 @@ const NavItemLink = forwardRef<HTMLAnchorElement, React.ComponentProps<typeof Li
 
 function MastheadIconButton({ label, icon }: { label: string; icon: React.ReactNode }) {
   return <Button variant="plain" type="button" aria-label={label} data-name={label} icon={icon} />;
-}
-
-function ClusterUpdateDemoMastheadSwitch() {
-  const { demoVariant, setDemoVariant } = useClusterUpdateDemoVariant();
-  const isManualAndAgent = demoVariant === "manual-and-agent";
-  return (
-    <Switch
-      className="ocs-masthead-cluster-switch"
-      id="cluster-update-demo-experience-switch"
-      isChecked={isManualAndAgent}
-      onChange={(_e, checked) => setDemoVariant(checked ? "manual-and-agent" : "agent-only")}
-      label={
-        <span className="ocs-masthead-cluster-switch-label">
-          {isManualAndAgent ? "OCP 5.1" : "OCP 5.0"}
-        </span>
-      }
-      aria-label={
-        isManualAndAgent
-          ? "Cluster update demo: Manual and agent mode, OpenShift 5.1"
-          : "Cluster update demo: Agent only mode, OpenShift 5.0"
-      }
-    />
-  );
 }
 
 function subPathMatches(pathname: string, basePath: string): boolean {
@@ -208,6 +185,7 @@ function UserMenu({
   const [isOpen, setIsOpen] = useState(false);
   const [isDark, setIsDark] = useState(() => readThemePreferences().dark);
   const [isGlass, setIsGlass] = useState(() => readThemePreferences().glass);
+  const { performClusterUpdateDemoReset, demoVariant, setDemoVariant } = useClusterUpdateDemoVariant();
 
   const displayName = impersonatedUser ? impersonatedUser.name : "kube:admin";
   const displayEmail = impersonatedUser ? impersonatedUser.email : "kube:admin";
@@ -274,6 +252,34 @@ function UserMenu({
           </Flex>
         }
       >
+        <DropdownItem
+          itemId="reset-demo"
+          icon={<SyncAltIcon aria-hidden />}
+          onClick={() => {
+            performClusterUpdateDemoReset();
+            setIsOpen(false);
+          }}
+        >
+          Reset demo
+        </DropdownItem>
+        <DropdownItem
+          itemId="demo-agent-led"
+          onClick={() => {
+            setDemoVariant("agent-only");
+            setIsOpen(false);
+          }}
+        >
+          {demoVariant === "agent-only" ? "Agent-led update flow (current)" : "Agent-led update flow"}
+        </DropdownItem>
+        <DropdownItem
+          itemId="demo-manual"
+          onClick={() => {
+            setDemoVariant("manual-and-agent");
+            setIsOpen(false);
+          }}
+        >
+          {demoVariant === "manual-and-agent" ? "Manual updates (current)" : "Manual updates"}
+        </DropdownItem>
         <DropdownItem itemId="account" icon={<UserIcon aria-hidden />} onClick={() => setIsOpen(false)}>
           My Account
         </DropdownItem>
@@ -420,9 +426,6 @@ export default function Layout() {
               align={{ default: "alignEnd" }}
               alignItems="center"
             >
-              <ToolbarItem className="ocs-masthead-toolbar-item ocs-masthead-toolbar-cluster-switch">
-                <ClusterUpdateDemoMastheadSwitch />
-              </ToolbarItem>
               <ToolbarItem className="ocs-masthead-toolbar-item">
                 <MastheadIconButton label="Application launcher" icon={<ThIcon aria-hidden />} />
               </ToolbarItem>

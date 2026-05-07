@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   Button,
-  Checkbox,
-  Content,
   Flex,
   MenuToggle,
   Modal,
@@ -89,6 +87,23 @@ function clearKeyInPlace<T extends string>(d: Record<T, string | string[]>, k: T
   }
 }
 
+const VALUE_FIELD_MAX_WIDTH = "18rem";
+
+function formatMultiValueToggleLabel(
+  selected: string[],
+  options: { value: string; label: string }[],
+  placeholder: string
+): string {
+  if (selected.length === 0) {
+    return placeholder;
+  }
+  if (selected.length === 1) {
+    const opt = options.find((o) => o.value === selected[0]);
+    return opt?.label ?? selected[0];
+  }
+  return `${selected.length} selected`;
+}
+
 /**
  * HPUX-1429 / CONSOLE-5091: attribute row + value control + remove; “+” on the last row.
  * Stays in sync with toolbar by saving the same filter shape the Data View hooks use.
@@ -112,6 +127,7 @@ export function ListAdvancedFilterModal<T extends string>({
     () => getEmpty() as unknown as Record<string, string | string[]>
   );
   const [attrSelectOpen, setAttrSelectOpen] = useState<string | null>(null);
+  const [valueMultiOpenRowId, setValueMultiOpenRowId] = useState<string | null>(null);
   const wasOpen = useRef(false);
   const rowBaseId = useId();
 
@@ -128,6 +144,7 @@ export function ListAdvancedFilterModal<T extends string>({
       buildInitialRowsFromSource(merged, spec, defaultAttributeWhenNoRows)
     );
     setAttrSelectOpen(null);
+    setValueMultiOpenRowId(null);
   }, [getEmpty, spec, defaultAttributeWhenNoRows]);
 
   useEffect(() => {
@@ -215,7 +232,7 @@ export function ListAdvancedFilterModal<T extends string>({
 
   return (
     <Modal
-      variant="large"
+      variant="medium"
       isOpen={isOpen}
       onClose={onClose}
       aria-labelledby={headerTitleId}
@@ -250,6 +267,7 @@ export function ListAdvancedFilterModal<T extends string>({
                     isOpen={attrSelectOpen === row.id}
                     onOpenChange={(open) => {
                       if (open) {
+                        setValueMultiOpenRowId(null);
                         setAttrSelectOpen(row.id);
                       } else {
                         setAttrSelectOpen((cur) => (cur === row.id ? null : cur));
@@ -283,7 +301,13 @@ export function ListAdvancedFilterModal<T extends string>({
                     </SelectList>
                   </Select>
                 </div>
-                <Flex grow={{ default: "grow" }} style={{ minWidth: 0, flex: 1, maxWidth: "100%" }}>
+                <Flex
+                  style={{
+                    minWidth: 0,
+                    flex: `1 1 ${VALUE_FIELD_MAX_WIDTH}`,
+                    maxWidth: VALUE_FIELD_MAX_WIDTH,
+                  }}
+                >
                   {vKind === "text" && (
                     <TextInput
                       isRequired={false}
@@ -295,39 +319,67 @@ export function ListAdvancedFilterModal<T extends string>({
                     />
                   )}
                   {vKind === "multi" && (
-                    <div style={{ width: "100%" }}>
-                      {(!draft[row.attr] || (Array.isArray(draft[row.attr]) && (draft[row.attr] as string[]).length === 0)) && (
-                        <Content component="p" className="pf-v6-u-mb-sm pf-v6-u-color-200">
-                          {aSpec.valuePlaceholder}
-                        </Content>
+                    <Select
+                      isOpen={valueMultiOpenRowId === row.id}
+                      onOpenChange={(open) => {
+                        if (open) {
+                          setAttrSelectOpen(null);
+                          setValueMultiOpenRowId(row.id);
+                        } else {
+                          setValueMultiOpenRowId((cur) => (cur === row.id ? null : cur));
+                        }
+                      }}
+                      role="menu"
+                      selected={(draft[row.attr] as string[] | undefined) ?? []}
+                      onSelect={(_e, value) => {
+                        const val = String(value ?? "");
+                        const list = [...((draft[row.attr] as string[] | undefined) ?? [])];
+                        const i = list.indexOf(val);
+                        if (i >= 0) {
+                          list.splice(i, 1);
+                        } else {
+                          list.push(val);
+                        }
+                        setDraftKey(row.attr, list);
+                      }}
+                      toggle={(tRef) => (
+                        <MenuToggle
+                          ref={tRef}
+                          id={`${idPrefix}-multi-${rowBaseId}-${row.id}`}
+                          isFullWidth
+                          onClick={() =>
+                            setValueMultiOpenRowId((cur) =>
+                              cur === row.id ? null : row.id
+                            )
+                          }
+                          isExpanded={valueMultiOpenRowId === row.id}
+                          aria-label={`${aSpec.label}, ${aSpec.valuePlaceholder}`}
+                        >
+                          {formatMultiValueToggleLabel(
+                            (draft[row.attr] as string[] | undefined) ?? [],
+                            aSpec.options ?? [],
+                            aSpec.valuePlaceholder
+                          )}
+                        </MenuToggle>
                       )}
-                      <Flex
-                        flexWrap={{ default: "flexWrapWrap" }}
-                        gap={{ default: "gapMd" }}
-                        style={{ maxWidth: "100%" }}
-                      >
+                    >
+                      <SelectList>
                         {(aSpec.options || []).map((opt) => (
-                          <Checkbox
+                          <SelectOption
                             key={opt.value}
-                            id={`${idPrefix}-cb-${rowBaseId}-${row.id}-${opt.value}`}
-                            label={opt.label}
-                            isChecked={(draft[row.attr] as string[] | undefined)?.includes(opt.value) ?? false}
-                            onChange={(_e, c) => {
-                              const list = (draft[row.attr] as string[] | undefined) ?? [];
-                              if (c) {
-                                if (list.includes(opt.value)) return;
-                                setDraftKey(row.attr, [...list, opt.value]);
-                              } else {
-                                setDraftKey(
-                                  row.attr,
-                                  list.filter((v) => v !== opt.value)
-                                );
-                              }
-                            }}
-                          />
+                            value={opt.value}
+                            hasCheckbox
+                            isSelected={
+                              (draft[row.attr] as string[] | undefined)?.includes(
+                                opt.value
+                              ) ?? false
+                            }
+                          >
+                            {opt.label}
+                          </SelectOption>
                         ))}
-                      </Flex>
-                    </div>
+                      </SelectList>
+                    </Select>
                   )}
                 </Flex>
                 <Button

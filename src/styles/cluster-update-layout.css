@@ -37,3 +37,113 @@ html:not(.no-glass) .pf-v6-c-expandable-section.ocp-cluster-expandable--plain.pf
   border-top: 1px solid var(--pf-t--global--border--color--default);
   padding: var(--pf-t--global--spacer--md);
 }
+
+/**
+ * Cluster Update AI privacy alert: pin custom icon to the title row (not vertical center of title + body).
+ * Agent logs slide-over: tighter inset so the teal frame does not float with excess top padding.
+ */
+.ocs-cluster-update-ai-privacy-alert.pf-v6-c-alert .pf-v6-c-alert__icon {
+  align-self: flex-start;
+  margin-block-start: 0.1875rem; /* optical alignment with title cap-height vs square icon box */
+}
+
+.ocs-update-details-panel .ocs-cluster-update-ai-privacy-alert.pf-v6-c-alert {
+  padding-block-start: var(--pf-t--global--spacer--xs);
+  padding-block-end: var(--pf-t--global--spacer--sm);
+}
+
+/* AI-enabled features: icon size tracks label text (em); color matches adjacent copy via currentColor. */
+.ocs-ai-sparkle-label {
+  color: var(--pf-t--global--text--color--regular);
+  font-size: var(--pf-t--global--FontSize--xl);
+  line-height: var(--pf-t--global--LineHeight--heading);
+}
+
+.ocs-ai-sparkle-label__icon {
+  color: currentColor;
+  width: 1.25em;
+  height: 1.25em;
+  min-width: 1.25em;
+  min-height: 1.25em;
+  flex-shrink: 0;
+}
+
+.ocs-ai-sparkle-label__text {
+  font-size: inherit;
+}
+
+/* Agent logs drawer: Title wraps sparkle row — match heading scale + inherit Title color. */
+.ocs-update-details-panel__title .ocs-ai-sparkle-label {
+  font-size: inherit;
+  color: inherit;
+}
+
+/**
+ * AI sparkle on PatternFly Buttons: readable size and vertical center in the icon slot.
+ * RhAiExperienceIcon defaults to 1em (tiny next to button label); this overrides for CTAs.
+ *
+ * PatternFly `.pf-v6-c-button` uses `align-items: baseline` so label baselines line up.
+ * SVG icons do not share text baselines the same way, so the glyph reads high vs. the label.
+ * Buttons that contain this icon switch to center alignment and a flex icon wrapper.
+ */
+.pf-v6-c-button:has(.ocs-ai-sparkle-cta-icon) {
+  align-items: center;
+}
+
+.pf-v6-c-button:has(.ocs-ai-sparkle-cta-icon) .pf-v6-c-button__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+}
+
+.ocs-ai-sparkle-cta-icon {
+  box-sizing: content-box;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  flex-shrink: 0;
+  display: block;
+  vertical-align: middle;
+}
+
+/* Proposed-plan card: sparkle aligns with agent plan heading Title (h2 xl); see AI_GENERATED_PLAN_HEADING */
+/**
+ * Agent-based updates card: same sparkle scale + color treatment as “Pre-check with AI” (not PF status.teal).
+ * Avoid wrapping in `<Icon status="custom">` — that forces custom/teal; use currentColor with title text.
+ */
+.ocs-cluster-update-method-agent-icon {
+  box-sizing: content-box;
+  width: 1.75rem !important;
+  height: 1.75rem !important;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  flex-shrink: 0;
+  display: block;
+  /* Same as `.pf-v6-c-icon__content` default (manual gear), not `status="custom"` teal */
+  color: var(--pf-t--global--icon--color--regular);
+  vertical-align: middle;
+}
+
+.ocs-ai-plan-marker {
+  color: var(--pf-t--global--text--color--regular);
+}
+
+/* Prevent automatic hyphenation from inserting hyphens inside “AI generated …” */
+.ocs-ai-plan-marker h2 {
+  hyphens: none;
+  -webkit-hyphens: none;
+}
+
+.ocs-ai-plan-marker__icon {
+  width: 1.75rem;
+  height: 1.75rem;
+  min-width: 1.75rem;
+  min-height: 1.75rem;
+  color: currentColor;
+  flex-shrink: 0;
+  align-self: center;
+  display: block;
+}
+

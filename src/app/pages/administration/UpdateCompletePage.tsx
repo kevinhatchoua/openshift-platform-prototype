@@ -1,6 +1,12 @@
-import { useState, useEffect } from "react";
+import { useEffect } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { CheckCircle } from "@/lib/pfIcons";
+import {
+  CLUSTER_CATALOG_OPERATOR_INSTALL_COUNT,
+  CLUSTER_NODE_COUNT_UPDATED,
+  CLUSTER_OPERATOR_UPDATES_TOTAL,
+  CLUSTER_PLATFORM_OPERATOR_COUNT,
+} from "../../constants/clusterUpdateDemoCounts";
 
 export default function UpdateCompletePage() {
   const navigate = useNavigate();
@@ -22,7 +28,7 @@ export default function UpdateCompletePage() {
           Cluster Updated Successfully
         </h1>
         <p className="text-[#4d4d4d] dark:text-[#b0b0b0] text-[16px] font-['Red_Hat_Text:Regular',sans-serif] text-center">
-          Your cluster has been updated to OpenShift {version}. All 15 nodes are healthy.
+          Your cluster has been updated to OpenShift {version}. All {CLUSTER_NODE_COUNT_UPDATED} worker nodes are healthy.
         </p>
       </div>
 
@@ -33,8 +39,22 @@ export default function UpdateCompletePage() {
           <Row label="Previous version" value="5.0.0" />
           <Row label="New version" value={version} valueColor="#3e8635" />
           <Row label="Duration" value="2 hours 12 minutes" />
-          <Row label="Nodes updated" value="15 of 15" />
-          <Row label="Operators updated" value="28 of 28" />
+          <Row
+            label="Nodes updated"
+            value={`${CLUSTER_NODE_COUNT_UPDATED} of ${CLUSTER_NODE_COUNT_UPDATED}`}
+          />
+          <Row
+            label="Cluster operators updated"
+            value={`${CLUSTER_PLATFORM_OPERATOR_COUNT} of ${CLUSTER_PLATFORM_OPERATOR_COUNT}`}
+          />
+          <Row
+            label="Installed operators updated"
+            value={`${CLUSTER_CATALOG_OPERATOR_INSTALL_COUNT} of ${CLUSTER_CATALOG_OPERATOR_INSTALL_COUNT}`}
+          />
+          <Row
+            label="Operators updated (total)"
+            value={`${CLUSTER_OPERATOR_UPDATES_TOTAL} of ${CLUSTER_OPERATOR_UPDATES_TOTAL}`}
+          />
           <Row label="Downtime" value="Zero (rolling update)" valueColor="#3e8635" />
         </div>
       </div>

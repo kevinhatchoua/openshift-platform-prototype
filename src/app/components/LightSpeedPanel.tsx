@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { X, Send, ThumbsUp, ThumbsDown, Copy, Bookmark, Volume2, Paperclip, Sparkles } from "@/lib/pfIcons";
+import { X, Send, ThumbsUp, ThumbsDown, Copy, Bookmark, Volume2, Paperclip, Bot } from "@/lib/pfIcons";
 import { useChat } from "../contexts/ChatContext";
 import { useNavigate, useLocation } from "react-router";
 import { getAIResponse } from "./LightSpeedPanelResponses";
@@ -247,7 +247,7 @@ export default function LightSpeedPanel({
         <div className="flex items-center justify-between px-[20px] py-[14px] border-b border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)]">
           <div className="flex items-center gap-[10px]">
             <div className="size-[36px] rounded-full bg-[#f5f5f5] dark:bg-[rgba(255,255,255,0.08)] flex items-center justify-center shrink-0">
-              <Sparkles className="size-[18px] text-[#ee0000]" />
+              <Bot className="size-[20px] text-[#ee0000]" aria-hidden />
             </div>
             <span className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-[#f5f5f5] text-[15px]">
               OpenShift LightSpeed

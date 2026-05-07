@@ -11,7 +11,7 @@ export default function AgentModePage() {
     { time: "09:15", risk: null, riskColor: null, text: "Scanned upstream, found 5.1.10 (recommended)" },
     { time: "Mar 28", risk: "Medium Risk", riskColor: "#c58c00", text: "Evaluated 5.1.8, flagged for manual review" },
     { time: "Mar 25", risk: null, riskColor: null, text: "Health check complete, all nodes healthy" },
-    { time: "Mar 22", risk: null, riskColor: "#3e8635", text: "Successfully upgraded 4.18.6 → 5.0.0, 1h 48m, zero downtime", success: true },
+    { time: "Mar 22", risk: null, riskColor: "#3e8635", text: "Successfully updated 4.18.6 → 5.0.0, 1h 48m, zero downtime", success: true },
   ];
 
   return (

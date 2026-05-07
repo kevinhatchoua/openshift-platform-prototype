@@ -121,6 +121,190 @@ html.no-glass.dark .app-glass-panel.app-glass-panel--edge-right {
   box-shadow: -4px 0 24px 0 rgba(0, 0, 0, 0.35);
 }
 
+/**
+ * Cluster Update — “Agent logs” slide-over: always opaque (no glass blur / no rgba shell).
+ * Matches solid LightSpeed surfaces for transcript readability and WCAG contrast.
+ */
+.ocs-update-details-panel {
+  /* Flexbox: allow column children with flex-1 + overflow-auto to scroll (default min-height: auto prevents this). */
+  min-height: 0;
+  max-height: 100dvh;
+  border-radius: var(--pf-t--global--border--radius--glass--default) 0 0
+    var(--pf-t--global--border--radius--glass--default);
+  border-width: var(--pf-t--global--border--width--glass--default);
+  border-style: solid;
+  box-shadow: -4px 0 24px 0 rgba(0, 0, 0, 0.35);
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
+html:not(.dark) .ocs-update-details-panel {
+  background-color: var(--pf-color-white);
+  border-color: var(--pf-color-gray-30);
+}
+
+html.dark .ocs-update-details-panel {
+  background-color: var(--pf-color-gray-80);
+  border-color: var(--pf-color-gray-60);
+}
+
+/** Inset log stream (terminal-style) — opaque layer inside the panel shell. */
+.ocs-update-details-panel__log-well {
+  overflow-anchor: none;
+  background-color: var(--pf-color-gray-10);
+  color: #151515;
+  font-size: var(--pf-t--global--FontSize--sm);
+  line-height: 1.5;
+}
+
+html.dark .ocs-update-details-panel__log-well {
+  /* Explicit light-on-dark for WCAG contrast on near-black (inverse token can read too dim). */
+  background-color: #0f0f0f;
+  color: #e8e8e8;
+}
+
+html.dark .ocs-update-details-panel__log-well .ocs-update-details-panel__log-ts {
+  color: #a8a8a8;
+}
+
+html:not(.dark) .ocs-update-details-panel__log-well .ocs-update-details-panel__log-ts {
+  color: #6a6e73;
+}
+
+/** Log level token matches body (single readable white / dark gray). */
+html.dark .ocs-update-details-panel__log-well .ocs-update-details-panel__log-level {
+  color: #e8e8e8;
+}
+
+html:not(.dark) .ocs-update-details-panel__log-well .ocs-update-details-panel__log-level {
+  color: #151515;
+}
+
+/** Panel chrome — title + subtitle + toolbar match (white on dark shell). */
+html.dark .ocs-update-details-panel .ocs-update-details-panel__title {
+  color: #fff !important;
+}
+
+html.dark .ocs-update-details-panel .ocs-update-details-panel__subtitle {
+  color: #e0e0e0 !important;
+}
+
+html.dark .ocs-update-details-panel .ocs-update-details-panel__toolbar-label {
+  color: #fff;
+}
+
+/** Agent still streaming — no spinner; subtle animated dots (a11y-friendly motion). */
+html.dark .ocs-update-details-panel__agent-status {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  font-family: var(--pf-t--global--FontFamily--text);
+  font-size: var(--pf-t--global--FontSize--sm);
+  color: #e8e8e8;
+}
+
+html:not(.dark) .ocs-update-details-panel__agent-status {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm);
+  font-family: var(--pf-t--global--FontFamily--text);
+  font-size: var(--pf-t--global--FontSize--sm);
+  color: #151515;
+}
+
+html.dark .ocs-update-details-panel__agent-status {
+  border-top: 1px solid rgba(255, 255, 255, 0.12) !important;
+}
+
+html:not(.dark) .ocs-update-details-panel__agent-status {
+  border-top: 1px solid rgba(0, 0, 0, 0.12) !important;
+}
+
+.ocs-update-details-panel__agent-dots span {
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.35rem;
+  margin: 0 0.1rem;
+  border-radius: 50%;
+  background: currentColor;
+  opacity: 0.35;
+  animation: ocs-agent-dot-pulse 1.2s ease-in-out infinite;
+}
+
+.ocs-update-details-panel__agent-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.ocs-update-details-panel__agent-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes ocs-agent-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ocs-update-details-panel__agent-dots span {
+    animation: none;
+    opacity: 0.85;
+  }
+}
+
+/** Cluster Update agent modals — align title + body copy (white on dark chrome; dark text on light). */
+html.dark .ocs-cluster-update-modal.pf-v6-c-modal-box {
+  background-color: var(--pf-color-gray-80);
+  color: #f5f5f5;
+}
+
+html.dark .ocs-cluster-update-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__title-text {
+  color: #fff !important;
+}
+
+html.dark .ocs-cluster-update-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__body {
+  color: #f5f5f5;
+}
+
+html:not(.dark) .ocs-cluster-update-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__title-text {
+  color: var(--pf-t--global--text--color--regular);
+}
+
+html:not(.dark) .ocs-cluster-update-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__body {
+  color: var(--pf-t--global--text--color--regular);
+}
+
+/** Schedule update window — compact PatternFly DatePicker / TimePicker / FormSelect row. */
+.ocs-schedule-modal-fields {
+  width: 100%;
+}
+
+.ocs-schedule-modal-field {
+  flex: 0 1 auto;
+  max-width: min(100%, 14rem);
+}
+
+.ocs-schedule-modal-field--timezone {
+  max-width: min(100%, 22rem);
+}
+
+/** Agent logs slide-over — light theme chrome matches body copy contrast. */
+html:not(.dark) .ocs-update-details-panel .ocs-update-details-panel__title {
+  color: var(--pf-t--global--text--color--regular) !important;
+}
+
+html:not(.dark) .ocs-update-details-panel .ocs-update-details-panel__subtitle {
+  color: var(--pf-t--global--text--color--subtle) !important;
+}
+
+html:not(.dark) .ocs-update-details-panel .ocs-update-details-panel__toolbar-label {
+  color: var(--pf-t--global--text--color--regular);
+}
+
 /** Compact floating surfaces (menus): smaller radius than default glass token. */
 .app-glass-panel.app-glass-panel--radius-sm {
   border-radius: 8px;
@@ -720,11 +904,26 @@ html.dark .ocs-console-sidebar .pf-v6-c-nav {
   --pf-v6-c-nav__link--m-current--Color: var(--pf-color-white);
   --pf-v6-c-nav__link--m-current--BackgroundColor: rgba(255, 255, 255, 0.14);
   --pf-v6-c-nav__section-title--Color: rgba(255, 255, 255, 0.65);
+  /**
+   * Left accent bar is `.pf-v6-c-nav__item::before` using `--pf-v6-c-nav__item--accent--color`.
+   * PF maps that to `--pf-t--global--color--brand--accent--default`, which is Red Hat red in dark — not the cyan tab underline.
+   * Align with primary interactive / tab emphasis via link color.
+   */
+  --pf-v6-c-nav__item--accent--color: var(--pf-t--global--text--color--link--default);
 }
 
 html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
   /* Let PatternFly nav tokens follow light theme; only ensure section title matches. */
   --pf-v6-c-nav__section-title--Color: var(--pf-t--global--text--color--subtle);
+  --pf-v6-c-nav__item--accent--color: var(--pf-t--global--text--color--link--default);
+}
+
+/**
+ * Active nav link outline (`::after` border): keep consistent with accent bar + tab underline (link token, not RH brand-accent red).
+ */
+.ocs-console-sidebar .pf-v6-c-nav .pf-v6-c-nav__link.pf-m-current,
+.ocs-console-sidebar .pf-v6-c-nav .pf-v6-c-nav__link.pf-m-current:hover {
+  --pf-v6-c-nav__link--BorderColor: var(--pf-t--global--text--color--link--default);
 }
 
 .ocs-console-sidebar .pf-v6-c-nav__section-title {
@@ -762,6 +961,16 @@ html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
   row-gap: var(--pf-t--global--spacer--sm);
   column-gap: var(--pf-t--global--spacer--md);
   align-items: center;
+}
+
+@media (min-width: 75rem) {
+  .ocs-io-dv-toolbar-align.pf-v6-c-toolbar .pf-v6-c-toolbar__content .pf-v6-c-toolbar__content-section {
+    flex-wrap: nowrap;
+  }
+
+  .ocs-io-filters-mid__group.pf-v6-c-toolbar__group {
+    flex-wrap: nowrap;
+  }
 }
 
 /* Align filters left; actions + compact pagination on the right (Data View / list toolbar pattern) */
@@ -844,74 +1053,32 @@ html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
   vertical-align: middle;
 }
 /**
- * Support phase: equal-width purple pills (compact), plain button wraps whole pill = popover trigger;
- * decorative info icon only; date on the same row as the pill.
+ * Cluster extension: sorted pages swap rows with "—" vs "OLM v1 managed" — with `table-layout: auto`
+ * the column’s intrinsic max changes and the whole table shifts. Lock the column to one width.
  */
-.ocs-io-operator-table td.ocs-io-col-support-phase {
-  vertical-align: middle;
-}
-.ocs-io-operator-table td.ocs-io-col-support-phase .ocs-io-support-phase-cell.pf-v6-l-flex {
-  width: fit-content;
-  max-width: 100%;
-}
-/* Plain trigger wraps the Label — no extra chrome; keyboard focus on the button */
-.ocs-io-operator-table .ocs-io-support-phase-popover-btn.pf-v6-c-button.pf-m-plain {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  height: auto;
-  min-height: 0;
-  padding: 0;
-  margin: 0;
-  border: none;
-  background: transparent;
-  box-shadow: none;
-  vertical-align: middle;
-}
-.ocs-io-operator-table .ocs-io-support-phase-popover-btn.pf-v6-c-button.pf-m-plain:is(:hover, :focus) {
-  background: transparent;
-}
-html:not(.dark) .ocs-io-operator-table .ocs-io-support-phase-popover-btn.pf-v6-c-button.pf-m-plain:focus-visible {
-  outline: 2px solid var(--pf-t--global--active--text--on-secondary, #06c);
-  outline-offset: 2px;
-}
-html.dark .ocs-io-operator-table .ocs-io-support-phase-popover-btn.pf-v6-c-button.pf-m-plain:focus-visible {
-  outline: 2px solid var(--pf-t--global--border--color--hover, #a3a3a3);
-  outline-offset: 2px;
-}
-/* Uniform pill width (compact column); longest strings ellipsis inside PF label text */
-.ocs-io-operator-table .ocs-io-support-phase-pill.pf-v6-c-label {
-  --pf-v6-c-label--MaxWidth: 7.5rem;
-  --pf-v6-c-label__content--MaxWidth: 100%;
-  --pf-v6-c-label__text--MaxWidth: 100%;
-  --pf-v6-c-label__content--Gap: 0.125rem;
-  display: inline-flex;
-  width: 7.5rem;
-  min-width: 7.5rem;
-  max-width: 7.5rem;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: flex-start;
+.ocs-io-operator-table th.ocs-io-col-cluster-ext,
+.ocs-io-operator-table td.ocs-io-col-cluster-ext {
+  width: 12.5rem;
+  min-width: 12.5rem;
+  max-width: 12.5rem;
   box-sizing: border-box;
+  vertical-align: middle;
 }
-.ocs-io-operator-table .ocs-io-support-phase-pill.pf-v6-c-label > .pf-v6-c-label__content {
+.ocs-io-operator-table td.ocs-io-col-cluster-ext {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ocs-io-operator-table th.ocs-io-col-cluster-ext .ocs-operator-table-sort.pf-v6-c-button {
+  max-width: 100%;
   justify-content: flex-start;
+}
+.ocs-io-operator-table th.ocs-io-col-cluster-ext .ocs-operator-table-sort.pf-v6-c-button .pf-v6-c-button__text {
   min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  text-align: start;
 }
-.ocs-io-operator-table .ocs-io-support-phase-pill .pf-v6-c-label__icon {
-  display: inline-flex;
-  align-items: center;
-  align-self: center;
-  flex-shrink: 0;
-  line-height: 0;
-}
-.ocs-io-operator-table .ocs-io-support-phase-pill .pf-v6-c-label__text {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-  line-height: var(--pf-t--global--LineHeight--sm, 1.5);
-}
-
 .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-plain {
   --pf-v6-c-button--MinWidth: 0;
   min-width: 0;
@@ -964,6 +1131,74 @@ html.dark .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-pl
     :focus-visible
   ) {
   outline-color: var(--pf-t--global--border--color--hover, #a3a3a3);
+}
+
+/* Support phase pills — text-only outline labels; trigger must not clip outline */
+.ocs-io-support-phase-popover-btn.pf-v6-c-button.pf-m-plain {
+  overflow: visible;
+}
+
+/*
+ * Plain Popover trigger inherits button text color (often primary/on-dark white).
+ * Pin Label outline token so label text matches semantic color.
+ */
+.ocs-io-support-phase-pill.pf-v6-c-label .pf-v6-c-label__text {
+  color: var(--pf-v6-c-label--Color);
+}
+
+/** Off-screen samples for Installed Operators support-phase pill width measurement. */
+.ocs-io-support-phase-pill-measure-shell {
+  position: fixed;
+  left: -10000px;
+  top: 0;
+  visibility: hidden;
+  pointer-events: none;
+  width: max-content;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--xs);
+}
+
+/** Installed Operators: equal pill width = measured max intrinsic width (see `--ocs-io-support-phase-pill-width` on table). */
+.ocs-io-operator-table[data-io-phase-pills-sized] .ocs-io-support-phase-pill.pf-v6-c-label {
+  --pf-v6-c-label--MaxWidth: 100%;
+  --pf-v6-c-label__content--MaxWidth: 100%;
+  --pf-v6-c-label__text--MaxWidth: 100%;
+  --pf-v6-c-label__content--Gap: 0.125rem;
+  display: inline-flex;
+  width: var(--ocs-io-support-phase-pill-width);
+  min-width: var(--ocs-io-support-phase-pill-width);
+  max-width: var(--ocs-io-support-phase-pill-width);
+  box-sizing: border-box;
+  justify-content: flex-start;
+}
+.ocs-io-operator-table[data-io-phase-pills-sized] .ocs-io-support-phase-pill.pf-v6-c-label > .pf-v6-c-label__content {
+  justify-content: flex-start;
+  min-width: 0;
+  width: 100%;
+}
+.ocs-io-operator-table[data-io-phase-pills-sized] .ocs-io-support-phase-pill.pf-v6-c-label .pf-v6-c-label__text {
+  display: inline-flex;
+  align-items: center;
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ocs-io-operator-table[data-io-phase-pills-sized] .ocs-io-support-phase-pill.pf-v6-c-label .pf-v6-c-label__icon {
+  flex-shrink: 0;
+}
+
+/* Support phase column header — inline help + lifecycle doc links */
+.ocs-io-support-phase-col-help-trigger.pf-v6-c-button.pf-m-plain {
+  line-height: 1;
+  color: var(--pf-t--global--text--color--subtle, var(--pf-t--global--text--color--secondary));
+}
+.ocs-io-support-phase-col-help-popover-body .pf-v6-c-button.pf-m-link.pf-m-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--xs);
 }
 
 /**
@@ -1045,4 +1280,72 @@ html.dark .ols-legal-header-notice {
 .ols-legal-header-notice p {
   color: var(--pf-t--global--text--color--subtle) !important;
   line-height: 1.45;
+}
+
+.ols-legal-header-notice .pf-v6-c-title {
+  color: var(--pf-t--global--text--color--regular) !important;
+  margin: 0 !important;
+}
+
+.ols-legal-composer {
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  max-height: 10.5rem;
+  overflow-y: auto;
+  background: var(--pf-t--global--background--color--secondary--default, rgba(0, 0, 0, 0.02));
+}
+
+.ls-composer-notice__title {
+  margin: 0 !important;
+}
+
+html.dark .ols-legal-composer {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+/* LLM accuracy reminder — high-visibility inline banner (legal / summit demo) */
+.ols-legal-ai-accuracy-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  margin: 0;
+  max-width: 100%;
+  padding: 0.5rem 0.75rem;
+  font-size: var(--pf-t--global--font--size--body--default, 0.875rem);
+  line-height: 1.45;
+  font-weight: 500;
+  color: var(--pf-t--global--text--color--regular) !important;
+  background-color: var(
+    --pf-t--global--color--status--warning--200,
+    var(--pf-t--color-yellow-50, #fdf6e0)
+  );
+  border: 1px solid var(--pf-t--global--color--status--warning--100, #f0ab00);
+  border-left-width: 4px;
+  border-radius: 4px;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.06);
+}
+
+.ols-legal-ai-accuracy-banner--compact {
+  padding: 0.35rem 0.55rem;
+  font-size: var(--pf-t--global--font--size--body--sm, 0.8125rem);
+  line-height: 1.4;
+}
+
+.ols-legal-ai-accuracy-banner__icon {
+  flex-shrink: 0;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: 0.1em;
+  color: var(--pf-t--global--icon--color--status--warning--default, #c58c00) !important;
+  fill: currentColor;
+}
+
+.ols-legal-ai-accuracy-banner__text {
+  flex: 1;
+  min-width: 0;
+}
+
+html.dark .ols-legal-ai-accuracy-banner {
+  background-color: rgba(197, 140, 0, 0.18) !important;
+  border-color: rgba(240, 171, 0, 0.55) !important;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
 }

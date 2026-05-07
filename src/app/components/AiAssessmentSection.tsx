@@ -10,7 +10,8 @@ import {
   Content,
   Flex,
 } from "@patternfly/react-core";
-import { Sparkles, ArrowRight } from "@/lib/pfIcons";
+import { Sparkles } from "@/lib/pfIcons";
+import { AiSparkleLabel } from "./lightspeed/LightspeedLegalCopy";
 import { usePatternFlyGlassActive } from "@/lib/usePatternFlyGlassActive";
 
 export type AiAssessmentVariant = "cluster-update" | "installed-operators";
@@ -50,13 +51,12 @@ export function AiAssessmentSection({
     setExpanded((v) => !v);
   };
 
-  const releaseNotesHref =
-    "https://docs.redhat.com/en/documentation/openshift_container_platform/5.1/html/release_notes/index";
-
   return (
     <Card id="ai-assessment-section-card" isExpanded={expanded} isGlass={isGlass}>
       <CardHeader onExpand={onExpand}>
-        <CardTitle component="h2">AI Assessment</CardTitle>
+        <CardTitle component="h2">
+          <AiSparkleLabel aria-label="AI Assessment">AI Assessment</AiSparkleLabel>
+        </CardTitle>
       </CardHeader>
       <CardExpandableContent>
         <CardBody>
@@ -104,45 +104,13 @@ export function AiAssessmentSection({
                     </>
                   )}
                 </Content>
-
-                <Alert
-                  variant="info"
-                  isInline
-                  title={
-                    clusterUpdateDemoVariant === "agent-only" ? (
-                      <>
-                        Version <code>{selectedVersion}</code> available
-                      </>
-                    ) : (
-                      <>
-                        Version {selectedVersion} available
-                        <Content component="small"> · OCP 5.1 (manual + agent demo)</Content>
-                      </>
-                    )
-                  }
-                  actionLinks={
-                    <Button
-                      variant="link"
-                      component="a"
-                      href={releaseNotesHref}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      icon={<ArrowRight />}
-                      iconPosition="end"
-                      isInline
-                    >
-                      See what&apos;s new in 5.1
-                    </Button>
-                  }
-                />
               </>
             )}
 
             <Flex>
               <Button
                 variant="secondary"
-                icon={<Sparkles />}
-                iconPosition="end"
+                icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
                 onClick={() => openChatbot(precheckContext)}
               >
                 Pre-check with AI
