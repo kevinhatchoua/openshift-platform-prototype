@@ -1,11 +1,13 @@
 import {
   Children,
+  Fragment,
   cloneElement,
   isValidElement,
   useEffect,
   useMemo,
   useRef,
   useState,
+  type ReactElement,
   type ReactNode,
 } from "react";
 import {
@@ -23,11 +25,29 @@ import { FilterIcon } from "@patternfly/react-icons";
 
 type FilterChildProps = { filterId: string; title: string };
 
+/** Walk filter children; unwrap Fragments so each filter gets `showToolbarItem` from the attribute switcher. */
+function flattenFilterChildren(children: ReactNode): ReactElement[] {
+  const out: ReactElement[] = [];
+  Children.forEach(children, (child) => {
+    if (!isValidElement(child)) return;
+    if (child.type === Fragment) {
+      flattenFilterChildren((child.props as { children?: ReactNode }).children).forEach((c) =>
+        out.push(c)
+      );
+    } else {
+      out.push(child as ReactElement);
+    }
+  });
+  return out;
+}
+
 /**
  * {@link https://github.com/patternfly/react-data-view | @patternfly/react-data-view} `DataViewFilters`
- * with a slot for toolbar actions between the attribute (Name / Status / …) menu and the active
- * value control. Used for Installed Operators: advanced filter, manage columns, catalog
- * link sit to the left of the search field while the attribute control stays on the left.
+ * Installed Operators: the active filter’s **value** control sits immediately after the attribute
+ * menu; advanced filter, manage columns, and Browse Software Catalog follow **after** that pair.
+ *
+ * Unlike stock `DataViewFilters`, filter children may be grouped with `<>...</>`; fragments are
+ * flattened so every `DataViewTextFilter` / `DataViewCheckboxFilter` receives `showToolbarItem`.
  */
 export function IoDataViewFiltersWithMidActions<T extends Record<string, unknown>>({
   children,
@@ -40,7 +60,7 @@ export function IoDataViewFiltersWithMidActions<T extends Record<string, unknown
   ...rest
 }: {
   children: ReactNode;
-  /** Rendered after the filter-attribute menu, before the active filter’s value field. */
+  /** Rendered after the attribute menu + active filter value control (e.g. toolbar actions). */
   midContent: ReactNode;
   values: T;
   onChange: (filterId: string, partial: Partial<Record<keyof T, unknown>>) => void;
@@ -53,10 +73,10 @@ export function IoDataViewFiltersWithMidActions<T extends Record<string, unknown
   const attributeToggleRef = useRef<HTMLButtonElement>(null);
   const attributeMenuRef = useRef<HTMLDivElement>(null);
   const attributeContainerRef = useRef<HTMLDivElement>(null);
-  /** Stable key from filter primitives only — never stringify full `props` (React elements / context are circular). */
+
   const childrenHash = useMemo(
     () =>
-      Children.toArray(children)
+      flattenFilterChildren(children)
         .map((c) => {
           if (isValidElement<FilterChildProps>(c) && c.props?.filterId != null && c.props?.title != null) {
             return `${String(c.props.filterId)}\0${String(c.props.title)}`;
@@ -66,9 +86,10 @@ export function IoDataViewFiltersWithMidActions<T extends Record<string, unknown
         .join("|"),
     [children]
   );
+
   const filterItems = useMemo(
     () =>
-      Children.toArray(children)
+      flattenFilterChildren(children)
         .map((c) => {
           if (isValidElement<FilterChildProps>(c) && c.props?.filterId != null && c.props?.title != null) {
             return { filterId: String(c.props.filterId), title: String(c.props.title) };
@@ -76,13 +97,20 @@ export function IoDataViewFiltersWithMidActions<T extends Record<string, unknown
           return undefined;
         })
         .filter((item): item is { filterId: string; title: string } => item != null),
-    [childrenHash] // eslint-disable-line react-hooks/exhaustive-deps -- same as upstream DataViewFilters
+    [childrenHash] // eslint-disable-line react-hooks/exhaustive-deps -- semantic structure only
   );
+
+  const flatChildren = flattenFilterChildren(children);
+
   useEffect(() => {
     if (filterItems.length > 0) {
-      setActiveAttributeMenu(filterItems[0].title);
+      setActiveAttributeMenu((prev) => {
+        if (prev && filterItems.some((i) => i.title === prev)) return prev;
+        return filterItems[0].title;
+      });
     }
   }, [filterItems]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (!isAttributeMenuOpen) {
@@ -138,6 +166,7 @@ export function IoDataViewFiltersWithMidActions<T extends Record<string, unknown
       </MenuContent>
     </Menu>
   );
+
   return (
     <ToolbarToggleGroup
       data-ouia-component-id={ouiaId}
@@ -156,8 +185,7 @@ export function IoDataViewFiltersWithMidActions<T extends Record<string, unknown
             isVisible={isAttributeMenuOpen}
           />
         </div>
-        {midContent}
-        {Children.map(children, (child) => {
+        {flatChildren.map((child) => {
           if (isValidElement<FilterChildProps & Record<string, unknown>>(child)) {
             return cloneElement(child, {
               ...child.props,
@@ -171,6 +199,7 @@ export function IoDataViewFiltersWithMidActions<T extends Record<string, unknown
           }
           return child;
         })}
+        {midContent}
       </ToolbarGroup>
     </ToolbarToggleGroup>
   );

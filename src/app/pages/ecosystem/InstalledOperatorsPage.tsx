@@ -1524,50 +1524,59 @@ export default function InstalledOperatorsPage() {
                     <DataViewTextFilter
                       title="Name"
                       filterId="name"
-                      placeholder="Filter by name or namespace"
+                      placeholder="Search operators or namespaces"
                       style={{ minWidth: "16rem", maxWidth: "100%" }}
                     />
                     <DataViewCheckboxFilter
                       title="Status"
                       filterId="status"
+                      placeholder="Choose statuses"
+                      showIcon
+                      showBadge
                       options={FILTER_VALUE_OPTIONS.status}
                     />
                     <DataViewTextFilter
                       title="Version"
                       filterId="version"
-                      placeholder="Filter by version"
+                      placeholder="Type to match version"
                       style={{ minWidth: "12rem", maxWidth: "100%" }}
                     />
-                    {showOlmV0ListColumns && (
+                    {showOlmV0ListColumns ? (
                       <>
                         <DataViewCheckboxFilter
                           title="Cluster compatibility"
                           filterId="clusterCompatibility"
+                          placeholder="Choose compatibility"
+                          showIcon
+                          showBadge
                           options={FILTER_VALUE_OPTIONS.clusterCompatibility}
                         />
                         <DataViewCheckboxFilter
                           title="Support phase"
                           filterId="support"
+                          placeholder="Choose lifecycle phases"
+                          showIcon
+                          showBadge
                           options={FILTER_VALUE_OPTIONS.support}
                         />
                         <DataViewTextFilter
                           title="Support phase end date"
                           filterId="supportPhaseEnd"
-                          placeholder="Filter by support phase end date"
+                          placeholder="Match end date text"
                           style={{ minWidth: "14rem", maxWidth: "100%" }}
                         />
                       </>
-                    )}
+                    ) : null}
                     <DataViewTextFilter
                       title="Last updated"
                       filterId="lastUpdated"
-                      placeholder="Filter by last updated"
+                      placeholder="Match updated date or time"
                       style={{ minWidth: "14rem", maxWidth: "100%" }}
                     />
                     <DataViewTextFilter
                       title="Managed namespaces"
                       filterId="managedNamespaces"
-                      placeholder="Filter by managed namespace"
+                      placeholder="Search namespaces"
                       style={{ minWidth: "14rem", maxWidth: "100%" }}
                     />
                   </IoDataViewFiltersWithMidActions>
