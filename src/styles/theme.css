@@ -904,26 +904,11 @@ html.dark .ocs-console-sidebar .pf-v6-c-nav {
   --pf-v6-c-nav__link--m-current--Color: var(--pf-color-white);
   --pf-v6-c-nav__link--m-current--BackgroundColor: rgba(255, 255, 255, 0.14);
   --pf-v6-c-nav__section-title--Color: rgba(255, 255, 255, 0.65);
-  /**
-   * Left accent bar is `.pf-v6-c-nav__item::before` using `--pf-v6-c-nav__item--accent--color`.
-   * PF maps that to `--pf-t--global--color--brand--accent--default`, which is Red Hat red in dark — not the cyan tab underline.
-   * Align with primary interactive / tab emphasis via link color.
-   */
-  --pf-v6-c-nav__item--accent--color: var(--pf-t--global--text--color--link--default);
 }
 
 html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
   /* Let PatternFly nav tokens follow light theme; only ensure section title matches. */
   --pf-v6-c-nav__section-title--Color: var(--pf-t--global--text--color--subtle);
-  --pf-v6-c-nav__item--accent--color: var(--pf-t--global--text--color--link--default);
-}
-
-/**
- * Active nav link outline (`::after` border): keep consistent with accent bar + tab underline (link token, not RH brand-accent red).
- */
-.ocs-console-sidebar .pf-v6-c-nav .pf-v6-c-nav__link.pf-m-current,
-.ocs-console-sidebar .pf-v6-c-nav .pf-v6-c-nav__link.pf-m-current:hover {
-  --pf-v6-c-nav__link--BorderColor: var(--pf-t--global--text--color--link--default);
 }
 
 .ocs-console-sidebar .pf-v6-c-nav__section-title {
@@ -1133,72 +1118,11 @@ html.dark .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-pl
   outline-color: var(--pf-t--global--border--color--hover, #a3a3a3);
 }
 
-/* Support phase pills — text-only outline labels; trigger must not clip outline */
-.ocs-io-support-phase-popover-btn.pf-v6-c-button.pf-m-plain {
+/* Installed Operators — lifecycle popover trigger (icon-only); avoid clipping focus ring */
+.ocs-io-support-phase-lifecycle-info.pf-v6-c-button.pf-m-plain {
   overflow: visible;
-}
-
-/*
- * Plain Popover trigger inherits button text color (often primary/on-dark white).
- * Pin Label outline token so label text matches semantic color.
- */
-.ocs-io-support-phase-pill.pf-v6-c-label .pf-v6-c-label__text {
-  color: var(--pf-v6-c-label--Color);
-}
-
-/** Off-screen samples for Installed Operators support-phase pill width measurement. */
-.ocs-io-support-phase-pill-measure-shell {
-  position: fixed;
-  left: -10000px;
-  top: 0;
-  visibility: hidden;
-  pointer-events: none;
-  width: max-content;
-  display: flex;
-  flex-direction: column;
-  gap: var(--pf-t--global--spacer--xs);
-}
-
-/** Installed Operators: equal pill width = measured max intrinsic width (see `--ocs-io-support-phase-pill-width` on table). */
-.ocs-io-operator-table[data-io-phase-pills-sized] .ocs-io-support-phase-pill.pf-v6-c-label {
-  --pf-v6-c-label--MaxWidth: 100%;
-  --pf-v6-c-label__content--MaxWidth: 100%;
-  --pf-v6-c-label__text--MaxWidth: 100%;
-  --pf-v6-c-label__content--Gap: 0.125rem;
-  display: inline-flex;
-  width: var(--ocs-io-support-phase-pill-width);
-  min-width: var(--ocs-io-support-phase-pill-width);
-  max-width: var(--ocs-io-support-phase-pill-width);
-  box-sizing: border-box;
-  justify-content: flex-start;
-}
-.ocs-io-operator-table[data-io-phase-pills-sized] .ocs-io-support-phase-pill.pf-v6-c-label > .pf-v6-c-label__content {
-  justify-content: flex-start;
-  min-width: 0;
-  width: 100%;
-}
-.ocs-io-operator-table[data-io-phase-pills-sized] .ocs-io-support-phase-pill.pf-v6-c-label .pf-v6-c-label__text {
-  display: inline-flex;
-  align-items: center;
-  min-width: 0;
-  flex: 1 1 auto;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.ocs-io-operator-table[data-io-phase-pills-sized] .ocs-io-support-phase-pill.pf-v6-c-label .pf-v6-c-label__icon {
-  flex-shrink: 0;
-}
-
-/* Support phase column header — inline help + lifecycle doc links */
-.ocs-io-support-phase-col-help-trigger.pf-v6-c-button.pf-m-plain {
   line-height: 1;
   color: var(--pf-t--global--text--color--subtle, var(--pf-t--global--text--color--secondary));
-}
-.ocs-io-support-phase-col-help-popover-body .pf-v6-c-button.pf-m-link.pf-m-inline {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--pf-t--global--spacer--xs);
 }
 
 /**
@@ -1212,14 +1136,6 @@ html .ocs-console-page.pf-v6-c-page {
   --pf-v6-c-page__main-section--m-secondary--BackgroundColor: transparent;
   --pf-v6-c-page__main-tabs--BackgroundColor: transparent;
   --pf-v6-c-page__main-breadcrumb--BackgroundColor: transparent;
-}
-
-/**
- * PF Tabs active underline uses `--pf-t--global--color--brand--accent--default` (RH red) by default.
- * Match sidebar / console tab accent: link token (cyan-blue), not brand-accent red.
- */
-html .ocs-console-page.pf-v6-c-page .pf-v6-c-tabs {
-  --pf-v6-c-tabs__item--m-current__link--after--BorderColor: var(--pf-t--global--text--color--link--default);
 }
 
 /** Home / stub PageSection, or any full-width app section without Breadcrumbs. */

@@ -1,16 +1,13 @@
 import {
   useState,
   useEffect,
-  useLayoutEffect,
   useCallback,
   useMemo,
-  useRef,
   type CSSProperties,
   type ReactNode,
 } from "react";
 import {
   CheckCircle,
-  HelpCircle,
   Info,
   AlertCircle,
   ExternalLink,
@@ -81,12 +78,9 @@ import {
   getCurrentPhaseEndDateRaw,
   getCurrentPhaseEndSortTimestamp,
   getDerivedSupportPhase,
-  getPhaseLabelStatus,
   getSupportLifecycleDateEntries,
   getSupportLifecycleSortTimestamp,
-  RH_OPENSHIFT_CLUSTER_LIFECYCLE_URL,
   RH_OPERATOR_LC_DOC_URL,
-  RH_PRODUCT_LIFE_CYCLES_URL,
   type OperatorSupportLifecycle,
   type SupportPhase,
 } from "@/lib/operatorSupportLifecycle";
@@ -742,62 +736,12 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
   },
 ];
 
-/** Shared caveat for Support phase column popovers (SKU / extended support may differ from displayed phase). */
+/** Shared caveat in lifecycle popovers (SKU / extended support may differ from displayed phase). */
 function SupportPhaseSkuPopoverNote() {
   return (
     <Content component="p" className="pf-v6-u-font-size-sm pf-v6-u-mb-md">
       May not reflect your actual SKU. Check your actual SKU for extended support.
     </Content>
-  );
-}
-
-/** Lifecycle context + docs links — shown from Support phase column header help trigger only. */
-function SupportPhaseColumnContextHelpBody() {
-  return (
-    <div className="ocs-io-support-phase-col-help-popover-body">
-      <Content component="p" className="pf-v6-u-font-size-sm pf-v6-u-mb-md">
-        Review together with your cluster OpenShift version: operator policy and cluster life cycle both affect what is
-        supported.
-      </Content>
-      <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-        <Button
-          variant="link"
-          isInline
-          icon={<ExternalLink />}
-          iconPosition="right"
-          component="a"
-          target="_blank"
-          rel="noopener noreferrer"
-          href={RH_OPERATOR_LC_DOC_URL}
-        >
-          OpenShift Operator life cycles
-        </Button>
-        <Button
-          variant="link"
-          isInline
-          icon={<ExternalLink />}
-          iconPosition="right"
-          component="a"
-          target="_blank"
-          rel="noopener noreferrer"
-          href={RH_OPENSHIFT_CLUSTER_LIFECYCLE_URL}
-        >
-          OpenShift life cycle (cluster version)
-        </Button>
-        <Button
-          variant="link"
-          isInline
-          icon={<ExternalLink />}
-          iconPosition="right"
-          component="a"
-          target="_blank"
-          rel="noopener noreferrer"
-          href={RH_PRODUCT_LIFE_CYCLES_URL}
-        >
-          Red Hat product life cycles
-        </Button>
-      </Flex>
-    </div>
   );
 }
 
@@ -867,109 +811,31 @@ function OlmV1ExtensionSupportPopoverContents() {
   );
 }
 
-function patternFlyPhaseLabelColor(status: ReturnType<typeof getPhaseLabelStatus>): "green" | "orange" | "red" {
-  switch (status) {
-    case "success":
-      return "green";
-    case "warning":
-      return "orange";
-    case "danger":
-      return "red";
-    default:
-      return "green";
-  }
-}
-
-/** Lifecycle phase pill — PatternFly semantic colors (green / orange / red), outline variant. */
-function PhaseStatusLabelPill({ phase }: { phase: SupportPhase }) {
-  const status = getPhaseLabelStatus(phase);
-  const color = patternFlyPhaseLabelColor(status);
-
-  return (
-    <Label className="ocs-io-support-phase-pill" color={color} isCompact variant="outline">
-      {phase}
-    </Label>
+/**
+ * Support phase: plain phase label with an info icon that opens full lifecycle dates (no colored badges).
+ */
+function InstalledOperatorSupportPhaseCell({ op }: { op: OperatorRow }) {
+  const phaseLabel = op.isOlmV1Extension ? "—" : getDerivedSupportPhase(op);
+  const popoverAriaLabel = op.isOlmV1Extension
+    ? "Support phase and OLM v1 extensions"
+    : `Lifecycle dates for ${op.name}`;
+  const bodyContent = op.isOlmV1Extension ? (
+    <OlmV1ExtensionSupportPopoverContents />
+  ) : (
+    <SupportLifecyclePopoverContents op={op} />
   );
-}
-
-/** Samples widest pills off-screen; sets shared pixel width on the operators table (before paint). */
-function SupportPhasePillMeasure({ onMeasuredWidth }: { onMeasuredWidth: (px: number) => void }) {
-  const shellRef = useRef<HTMLDivElement>(null);
-
-  useLayoutEffect(() => {
-    const root = shellRef.current;
-    if (!root) return;
-
-    const measureMax = () => {
-      const labels = root.querySelectorAll<HTMLElement>(".pf-v6-c-label");
-      let max = 0;
-      labels.forEach((el) => {
-        max = Math.max(max, el.getBoundingClientRect().width);
-      });
-      if (max > 0) {
-        onMeasuredWidth(Math.ceil(max));
-      }
-    };
-
-    measureMax();
-
-    const labels = [...root.querySelectorAll<HTMLElement>(".pf-v6-c-label")];
-    if (labels.length === 0) return;
-
-    const ro = new ResizeObserver(() => measureMax());
-    labels.forEach((el) => ro.observe(el));
-    return () => ro.disconnect();
-  }, [onMeasuredWidth]);
-
-  return (
-    <div ref={shellRef} className="ocs-io-support-phase-pill-measure-shell" aria-hidden>
-      <PhaseStatusLabelPill phase="Full Support" />
-      <PhaseStatusLabelPill phase="Maintenance" />
-      <PhaseStatusLabelPill phase="EUS1" />
-      <PhaseStatusLabelPill phase="EUS2" />
-      <PhaseStatusLabelPill phase="EUS3" />
-      <PhaseStatusLabelPill phase="Unsupported" />
-      <PhaseStatusLabelPill phase="End of life" />
-      <Label className="ocs-io-support-phase-pill" color="grey" isCompact variant="outline">
-        —
-      </Label>
-    </div>
-  );
-}
-
-/** Whole label opens the lifecycle popover; OLM v1 placeholder uses neutral styling. */
-function SupportPhaseLabelWithInfo({
-  phase,
-  popoverAriaLabel,
-  headerContent,
-  bodyContent,
-}: {
-  phase: SupportPhase | null;
-  popoverAriaLabel: string;
-  headerContent: ReactNode;
-  bodyContent: ReactNode;
-}) {
-  const pill =
-    phase === null ? (
-      <Label className="ocs-io-support-phase-pill" color="grey" isCompact variant="outline">
-        —
-      </Label>
-    ) : (
-      <PhaseStatusLabelPill phase={phase} />
-    );
 
   return (
     <Flex
-      className="ocs-io-support-phase-cell"
       direction={{ default: "row" }}
       alignItems={{ default: "alignItemsCenter" }}
       gap={{ default: "gapSm" }}
-      flexWrap={{ default: "wrap" }}
-      style={{ minWidth: 0, width: "fit-content", maxWidth: "100%" }}
+      flexWrap={{ default: "nowrap" }}
+      style={{ minWidth: 0 }}
     >
       <Popover
         aria-label={popoverAriaLabel}
-        headerContent={headerContent}
+        headerContent={<Title headingLevel="h6">Lifecycle dates</Title>}
         bodyContent={bodyContent}
         position="auto"
         maxWidth="min(22rem, 90vw)"
@@ -978,62 +844,22 @@ function SupportPhaseLabelWithInfo({
         <Button
           variant="plain"
           type="button"
-          className="ocs-io-support-phase-popover-btn"
+          className="ocs-io-support-phase-lifecycle-info"
           aria-label={popoverAriaLabel}
           hasNoPadding
-        >
-          {pill}
-        </Button>
+          icon={<Info aria-hidden />}
+        />
       </Popover>
+      <Content component="small" style={{ minWidth: 0 }}>
+        {phaseLabel}
+      </Content>
     </Flex>
   );
 }
 
-function InstalledOperatorSupportPhaseCell({ op }: { op: OperatorRow }) {
-  const phase = getDerivedSupportPhase(op);
-
-  if (op.isUnsupported) {
-    return (
-      <SupportPhaseLabelWithInfo
-        phase={phase}
-        popoverAriaLabel={`Support details for ${op.name}`}
-        headerContent={<Title headingLevel="h6">Support</Title>}
-        bodyContent={<SupportLifecyclePopoverContents op={op} />}
-      />
-    );
-  }
-
-  if (op.isOlmV1Extension) {
-    return (
-      <SupportPhaseLabelWithInfo
-        phase={null}
-        popoverAriaLabel="Support phase and OLM v1 extensions"
-        headerContent={<Title headingLevel="h6">Support phase</Title>}
-        bodyContent={<OlmV1ExtensionSupportPopoverContents />}
-      />
-    );
-  }
-
-  return (
-    <SupportPhaseLabelWithInfo
-      phase={phase}
-      popoverAriaLabel={`Lifecycle dates for ${op.name}`}
-      headerContent={<Title headingLevel="h6">Lifecycle dates</Title>}
-      bodyContent={<SupportLifecyclePopoverContents op={op} />}
-    />
-  );
-}
-
 function InstalledOperatorSupportPhaseEndCell({ op }: { op: OperatorRow }) {
-  if (op.isOlmV1Extension) {
-    return (
-      <Tooltip content="Support phase dates apply to OLM v0 managed operators (CSV) only." position="top">
-        <Content component="small">—</Content>
-      </Tooltip>
-    );
-  }
-  if (op.isUnsupported) {
-    return "—";
+  if (op.isOlmV1Extension || op.isUnsupported) {
+    return <Content component="small">—</Content>;
   }
   const raw = getCurrentPhaseEndDateRaw(op);
   const formatted = raw ? formatLifecycleDateShort(raw) : "—";
@@ -1075,11 +901,6 @@ export default function InstalledOperatorsPage() {
     setChatbotContext(context);
     setOlsMountKey((k) => k + 1);
     setChatbotOpen(true);
-  }, []);
-
-  const [supportPhasePillWidthPx, setSupportPhasePillWidthPx] = useState<number | null>(null);
-  const handleSupportPhasePillMeasured = useCallback((px: number) => {
-    setSupportPhasePillWidthPx((prev) => (prev === px ? prev : px));
   }, []);
 
   const handleChatAction = useCallback(
@@ -1235,26 +1056,6 @@ export default function InstalledOperatorsPage() {
     [sortColumn, sortDirection, toggleSort]
   );
 
-  const supportPhaseColumnHelpTrigger = (
-    <Popover
-      aria-label="Support phase lifecycle references"
-      headerContent={<Title headingLevel="h6">Lifecycle references</Title>}
-      bodyContent={<SupportPhaseColumnContextHelpBody />}
-      position="auto"
-      maxWidth="min(22rem, 90vw)"
-      appendTo={() => document.body}
-    >
-      <Button
-        variant="plain"
-        type="button"
-        className="ocs-io-support-phase-col-help-trigger"
-        aria-label="Lifecycle references for support phase"
-        hasNoPadding
-        icon={<HelpCircle aria-hidden />}
-      />
-    </Popover>
-  );
-
   /** Non-sortable headers: same <Button plain isInline> shell as sortable columns for consistent type size. */
   const renderPlainHeader = useCallback((label: string) => {
     return (
@@ -1298,7 +1099,6 @@ export default function InstalledOperatorsPage() {
         onAction={handleChatAction}
       >
       <div className="ocs-app-page-outer flex-1 min-h-0 min-w-0 overflow-y-auto">
-            <SupportPhasePillMeasure onMeasuredWidth={handleSupportPhasePillMeasured} />
             <Breadcrumbs
               items={[
                 { label: "Home", path: "/" },
@@ -1609,20 +1409,7 @@ export default function InstalledOperatorsPage() {
 
             <PageSection aria-label="Installed operators table" padding={{ default: "noPadding" }}>
             <InnerScrollContainer>
-                <Table
-                  aria-label="Installed operators"
-                  borders
-                  variant="compact"
-                  className="ocs-io-operator-table"
-                  data-io-phase-pills-sized={supportPhasePillWidthPx ?? undefined}
-                  {...(supportPhasePillWidthPx != null
-                    ? {
-                        style: {
-                          "--ocs-io-support-phase-pill-width": `${supportPhasePillWidthPx}px`,
-                        } as CSSProperties,
-                      }
-                    : {})}
-                >
+                <Table aria-label="Installed operators" borders variant="compact" className="ocs-io-operator-table">
                   <Thead>
                     <Tr>
                       <Th dataLabel="Operator">
@@ -1640,9 +1427,7 @@ export default function InstalledOperatorsPage() {
                         </Th>
                       )}
                       {showOlmV0ListColumns && visibleColumns.support && (
-                        <Th dataLabel="Support phase">
-                          {renderSortableHeader("Support phase", "support", supportPhaseColumnHelpTrigger)}
-                        </Th>
+                        <Th dataLabel="Support phase">{renderSortableHeader("Support phase", "support")}</Th>
                       )}
                       {showOlmV0ListColumns && visibleColumns.supportPhaseEnd && (
                         <Th dataLabel="Support phase end date">
@@ -1676,19 +1461,14 @@ export default function InstalledOperatorsPage() {
                       pagedOperators.map((op, i) => (
                         <Tr key={op.name}>
                           <Td dataLabel="Operator">
-                            <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }}>
-                              <Button
-                                variant="link"
-                                isInline
-                                component={Link}
-                                to={`/ecosystem/installed-operators/${encodeURIComponent(op.name)}`}
-                              >
-                                {op.name}
-                              </Button>
-                              <Content component="small">
-                                <code>{op.namespace}</code>
-                              </Content>
-                            </Flex>
+                            <Button
+                              variant="link"
+                              isInline
+                              component={Link}
+                              to={`/ecosystem/installed-operators/${encodeURIComponent(op.name)}`}
+                            >
+                              {op.name}
+                            </Button>
                           </Td>
                           {visibleColumns.status && (
                             <Td dataLabel="Status">
@@ -1769,7 +1549,7 @@ export default function InstalledOperatorsPage() {
                             </Td>
                           )}
                           {showOlmV0ListColumns && visibleColumns.support && (
-                            <Td dataLabel="Support phase" className="ocs-io-col-support-phase">
+                            <Td dataLabel="Support phase">
                               <InstalledOperatorSupportPhaseCell op={op} />
                             </Td>
                           )}
