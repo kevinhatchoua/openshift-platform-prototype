@@ -964,14 +964,15 @@ html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
   row-gap: var(--pf-t--global--spacer--sm);
   column-gap: var(--pf-t--global--spacer--md);
 }
-/* With actions embedded in the filter strip, 2nd toolbar child is top pagination. */
-.ocs-io-dv-toolbar-align.pf-v6-c-toolbar .pf-v6-c-toolbar__item:nth-child(2) {
+/* Push top pagination right; undo DataViewToolbar 100% width. Does not affect filter chip rows. */
+.ocs-io-dv-toolbar-align.pf-v6-c-toolbar .pf-v6-c-toolbar__item.pf-m-pagination {
   margin-inline-start: auto;
-  flex: 0 1 auto;
+  flex: 0 0 auto !important;
+  width: auto !important;
+  flex-basis: auto !important;
+  max-width: 100%;
   min-width: 0;
 }
-/* react-data-view DataViewToolbar sets pagination item to 100% width; keep it on the first row, right-aligned */
-.ocs-io-dv-toolbar-align.pf-v6-c-toolbar .pf-v6-c-toolbar__item.pf-m-pagination,
 .ocs-io-dv-toolbar-align.pf-v6-c-toolbar .pf-v6-c-toolbar__item.pf-m-pagination > div {
   flex: 0 0 auto !important;
   width: auto !important;
