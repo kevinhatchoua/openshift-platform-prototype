@@ -1126,6 +1126,44 @@ html.dark .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-pl
   color: var(--pf-t--global--text--color--subtle, var(--pf-t--global--text--color--secondary));
 }
 
+/**
+ * Lifecycle floating panels: PF inline alerts use `--pf-t--global--background--color--primary--default`
+ * (see Alert CSS). On tooltips/popovers that surface differs from the page shell, re-scope primary +
+ * regular text to the panel so variant border/icon/title tokens follow pf-v6-theme-light/dark as documented.
+ * Do not override per-variant title/icon/border — those are set by `.pf-m-warning`, `.pf-m-info`, etc.
+ */
+.pf-v6-c-popover__content .ocs-io-lifecycle-popover-body {
+  --pf-t--global--background--color--primary--default: var(--pf-v6-c-popover__content--BackgroundColor);
+}
+
+.ocs-io-floating-panel-inline-alert.pf-v6-c-alert.pf-m-inline {
+  --pf-v6-c-alert--BoxShadow: none;
+  --pf-v6-c-alert--GridTemplateColumns: minmax(0, 1fr);
+  --pf-v6-c-alert--GridTemplateAreas:
+    "title"
+    "description";
+  box-shadow: none;
+}
+
+/* Icon lives in the title row; hide PF’s separate grid icon column */
+.ocs-io-floating-panel-inline-alert.pf-v6-c-alert .pf-v6-c-alert__icon {
+  display: none;
+}
+
+.ocs-io-floating-panel-inline-alert__title-icon {
+  flex-shrink: 0;
+  line-height: 1;
+  margin-block-start: 0.125rem;
+}
+
+/** Lifecycle popover: full width of popover__body column; keep popover content inline padding. */
+.pf-v6-c-popover__body .ocs-io-lifecycle-popover-body > .ocs-io-floating-panel-inline-alert.pf-v6-c-alert {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: none;
+  margin-inline: 0;
+}
+
 /* PatternFly Progress Stepper — operator lifecycle popover: breathing room from popover edges */
 .ocs-io-lifecycle-stepper-wrap {
   align-self: stretch;
@@ -1168,6 +1206,8 @@ html.dark .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-pl
  * chip so default, hover, active, and focus stay WCAG-readable on frosted/light tooltip surfaces.
  */
 .pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body {
+  --pf-t--global--background--color--primary--default: var(--pf-v6-c-tooltip__content--BackgroundColor);
+  --pf-t--global--text--color--regular: var(--pf-v6-c-tooltip__content--Color);
   --pf-v6-c-content--Color: var(--pf-v6-c-tooltip__content--Color);
   --pf-v6-c-content--small--Color: color-mix(
     in srgb,
@@ -1177,18 +1217,18 @@ html.dark .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-pl
   text-align: start;
   max-width: 22rem;
 }
-.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body .pf-v6-c-content {
+.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body__details .pf-v6-c-content {
   color: var(--pf-v6-c-tooltip__content--Color) !important;
 }
-.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body .pf-v6-c-content.pf-m-small {
+.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body__details .pf-v6-c-content.pf-m-small {
   color: var(--pf-v6-c-content--small--Color) !important;
 }
-.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body .ocs-io-phase-end-date-tooltip-body__heading {
+.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body__details .ocs-io-phase-end-date-tooltip-body__heading {
   color: var(--pf-v6-c-tooltip__content--Color) !important;
   font-weight: var(--pf-t--global--font--weight--heading--bold);
   display: block;
 }
-.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body .pf-v6-c-button.pf-m-link {
+.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body__details .pf-v6-c-button.pf-m-link {
   --pf-v6-c-button--m-link--Color: var(--pf-color-blue-60);
   --pf-v6-c-button--m-link__icon--Color: var(--pf-color-blue-60);
   --pf-v6-c-button--m-link--BackgroundColor: transparent;
@@ -1203,13 +1243,13 @@ html.dark .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-pl
   max-width: 100%;
   text-align: start;
 }
-.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body .pf-v6-c-button.pf-m-link.pf-m-inline {
+.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body__details .pf-v6-c-button.pf-m-link.pf-m-inline {
   --pf-v6-c-button--m-link--m-inline--Color: var(--pf-color-blue-60);
   --pf-v6-c-button--m-link--m-inline__icon--Color: var(--pf-color-blue-60);
   --pf-v6-c-button--m-link--m-inline--hover--Color: #003d73;
   --pf-v6-c-button--m-link--m-inline--hover__icon--Color: #003d73;
 }
-.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body .pf-v6-c-button.pf-m-link:focus-visible {
+.pf-v6-c-tooltip__content .ocs-io-phase-end-date-tooltip-body__details .pf-v6-c-button.pf-m-link:focus-visible {
   outline: 2px solid var(--pf-color-blue-50);
   outline-offset: 2px;
 }
@@ -1232,6 +1272,17 @@ html.dark .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-pl
 .ocs-io-operator-table .ocs-io-phase-end-date-label.pf-v6-c-label {
   --pf-v6-c-label--Color: var(--pf-t--global--text--color--regular);
 }
+
+.ocs-io-phase-end-date-label.pf-v6-c-label .ocs-io-phase-end-date-label__warn-icon {
+  width: 0.875em;
+  height: 0.875em;
+  color: var(--pf-t--global--icon--color--status--warning--default, #f0ab00);
+}
+
+.ocs-io-phase-end-date-label--alignment-mismatch.pf-v6-c-label {
+  --pf-v6-c-label__icon--Color: var(--pf-t--global--icon--color--status--warning--default, #f0ab00);
+}
+
 
 /**
  * All pages: main column aligns with nav; single chrome inset (no top stack); glass gap unchanged.

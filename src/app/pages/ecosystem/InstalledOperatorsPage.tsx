@@ -967,14 +967,20 @@ function PhaseEndDateTooltipBody({
   op,
   urgency,
   entitlement,
+  eusMismatch = false,
 }: {
   op: OperatorRow;
   urgency: PhaseDateLabelUrgency;
   entitlement: SubscriptionEntitlementContext;
+  eusMismatch?: boolean;
 }) {
   const lifecycleOp = getLifecycleEvaluationRow(op, PROTOTYPE_CLUSTER_OCP_LIFECYCLE);
   const phase = getEntitlementAwareSupportPhase(lifecycleOp, entitlement);
   const days = getEntitlementAwareDaysUntilPhaseEnd(lifecycleOp, entitlement);
+
+  const alignmentMismatchNote = eusMismatch ? (
+    <PlatformAlignmentMismatchAlert className="pf-v6-u-mb-sm" />
+  ) : null;
 
   const policyLink = (
     <Button
@@ -1015,7 +1021,13 @@ function PhaseEndDateTooltipBody({
   if (urgency === "danger") {
     return (
       <div className="ocs-io-phase-end-date-tooltip-body">
-        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsStart" }}>
+        {alignmentMismatchNote}
+        <Flex
+          className="ocs-io-phase-end-date-tooltip-body__details"
+          direction={{ default: "column" }}
+          gap={{ default: "gapSm" }}
+          alignItems={{ default: "alignItemsStart" }}
+        >
           <Content component="p" className="pf-v6-u-mb-0">
             {phase === "Unsupported"
               ? "This installation is not represented as entitled Red Hat support in this prototype. Confirm subscription and catalog sources before production upgrades."
@@ -1027,7 +1039,7 @@ function PhaseEndDateTooltipBody({
             alignItems={{ default: "alignItemsStart" }}
             className="pf-v6-u-font-size-sm"
           >
-            <strong className="ocs-io-phase-end-date-tooltip-body__heading">Recommended</strong>
+            <strong className="ocs-io-phase-end-date-tooltip-body__heading">Suggested next steps</strong>
             {operatorUpdateLink ?? (
               <Content component="small">Move to a supported operator version via your catalog or channel.</Content>
             )}
@@ -1044,7 +1056,13 @@ function PhaseEndDateTooltipBody({
       phase === "Maintenance support" ? "maintenance support" : "extended life cycle (published EUS terms)";
     return (
       <div className="ocs-io-phase-end-date-tooltip-body">
-        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsStart" }}>
+        {alignmentMismatchNote}
+        <Flex
+          className="ocs-io-phase-end-date-tooltip-body__details"
+          direction={{ default: "column" }}
+          gap={{ default: "gapSm" }}
+          alignItems={{ default: "alignItemsStart" }}
+        >
           <Content component="p" className="pf-v6-u-mb-0">
             {days !== undefined ? (
               <>
@@ -1061,7 +1079,7 @@ function PhaseEndDateTooltipBody({
             alignItems={{ default: "alignItemsStart" }}
             className="pf-v6-u-font-size-sm"
           >
-            <strong className="ocs-io-phase-end-date-tooltip-body__heading">Recommended</strong>
+            <strong className="ocs-io-phase-end-date-tooltip-body__heading">Suggested next steps</strong>
             {operatorUpdateLink ?? (
               <Content component="small">Check your channel for a newer operator minor.</Content>
             )}
@@ -1076,7 +1094,13 @@ function PhaseEndDateTooltipBody({
   if (urgency === "success") {
     return (
       <div className="ocs-io-phase-end-date-tooltip-body">
-        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsStart" }}>
+        {alignmentMismatchNote}
+        <Flex
+          className="ocs-io-phase-end-date-tooltip-body__details"
+          direction={{ default: "column" }}
+          gap={{ default: "gapSm" }}
+          alignItems={{ default: "alignItemsStart" }}
+        >
           <Content component="p" className="pf-v6-u-mb-0">
             You are in full support for this published version. Use this period to validate newer operator releases and
             align with your cluster update schedule.
@@ -1099,7 +1123,13 @@ function PhaseEndDateTooltipBody({
 
   return (
     <div className="ocs-io-phase-end-date-tooltip-body">
-      <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsStart" }}>
+      {alignmentMismatchNote}
+      <Flex
+        className="ocs-io-phase-end-date-tooltip-body__details"
+        direction={{ default: "column" }}
+        gap={{ default: "gapSm" }}
+        alignItems={{ default: "alignItemsStart" }}
+      >
         <Content component="p" className="pf-v6-u-mb-0">
           You are in {phase === "Maintenance support" ? "maintenance support" : "extended life cycle"} with time before
           the next published milestone. Add operator updates to your change calendar ahead of cluster upgrades.
@@ -1133,16 +1163,64 @@ function phaseDateLabelPfColor(urgency: PhaseDateLabelUrgency): "green" | "orang
   }
 }
 
+const FLOATING_PANEL_INLINE_ALERT_CLASS = "ocs-io-floating-panel-inline-alert";
+
+function FloatingPanelAlertTitle({
+  status,
+  icon,
+  children,
+}: {
+  status: "info" | "warning";
+  icon: ReactNode;
+  children: ReactNode;
+}) {
+  return (
+    <Flex
+      display={{ default: "inlineFlex" }}
+      gap={{ default: "gapSm" }}
+      alignItems={{ default: "alignItemsFlexStart" }}
+    >
+      <FlexItem className="ocs-io-floating-panel-inline-alert__title-icon">
+        <Icon status={status} aria-hidden>
+          {icon}
+        </Icon>
+      </FlexItem>
+      <FlexItem>{children}</FlexItem>
+    </Flex>
+  );
+}
+
 function LifecyclePublicScheduleBanner({ className }: { className?: string }) {
   return (
     <Alert
-      variant="warning"
-      title="Public lifecycle schedules"
-      className={className}
-      isInline={false}
-      customIcon={<ExclamationTriangleIcon aria-hidden />}
+      variant="info"
+      title={
+        <FloatingPanelAlertTitle status="info" icon={<Info aria-hidden />}>
+          Public lifecycle schedules
+        </FloatingPanelAlertTitle>
+      }
+      isInline
+      className={[FLOATING_PANEL_INLINE_ALERT_CLASS, className].filter(Boolean).join(" ")}
     >
       {LIFECYCLE_PUBLIC_SCHEDULE_DISCLAIMER}
+    </Alert>
+  );
+}
+
+/** Inline alert for platform-aligned operator EUS vs cluster date mismatch (popover / tooltip only). */
+function PlatformAlignmentMismatchAlert({ className }: { className?: string }) {
+  return (
+    <Alert
+      variant="warning"
+      title={
+        <FloatingPanelAlertTitle status="warning" icon={<ExclamationTriangleIcon aria-hidden />}>
+          Alignment mismatch
+        </FloatingPanelAlertTitle>
+      }
+      isInline
+      className={[FLOATING_PANEL_INLINE_ALERT_CLASS, className].filter(Boolean).join(" ")}
+    >
+      {PLATFORM_ALIGNED_EUS_MISMATCH_DISCLAIMER}
     </Alert>
   );
 }
@@ -1187,13 +1265,9 @@ function SupportLifecyclePopoverContents({
   }
 
   return (
-    <>
+    <div className="ocs-io-lifecycle-popover-body">
       <LifecyclePublicScheduleBanner className="pf-v6-u-mb-md" />
-      {eusMismatch ? (
-        <Alert variant="warning" title="Alignment mismatch" isInline className="pf-v6-u-mb-md">
-          {PLATFORM_ALIGNED_EUS_MISMATCH_DISCLAIMER}
-        </Alert>
-      ) : null}
+      {eusMismatch ? <PlatformAlignmentMismatchAlert className="pf-v6-u-mb-md" /> : null}
       <SupportLifecycleProgressStepper phase={phase} entitlement={entitlement} />
       <Content component="p" className="pf-v6-u-font-size-sm pf-v6-u-mb-md pf-v6-u-color-200">
         Milestones reflect your selected{" "}
@@ -1230,7 +1304,7 @@ function SupportLifecyclePopoverContents({
       >
         OpenShift Operator life cycles
       </Button>
-    </>
+    </div>
   );
 }
 
@@ -1259,7 +1333,6 @@ function InstalledOperatorSupportPhaseCell({
 }) {
   const lifecycleOp = getLifecycleEvaluationRow(op, PROTOTYPE_CLUSTER_OCP_LIFECYCLE);
   const phaseLabel = op.isOlmV1Extension ? "—" : getEntitlementAwareSupportPhase(lifecycleOp, entitlement);
-  const eusMismatch = hasPlatformAlignedEusMismatch(op, PROTOTYPE_CLUSTER_OCP_LIFECYCLE);
   const popoverAriaLabel = op.isOlmV1Extension
     ? "Support phase and OLM v1 extensions"
     : `Operator lifecycle for ${op.name}`;
@@ -1277,15 +1350,6 @@ function InstalledOperatorSupportPhaseCell({
       flexWrap={{ default: "nowrap" }}
       style={{ minWidth: 0 }}
     >
-      {eusMismatch ? (
-        <Tooltip content={PLATFORM_ALIGNED_EUS_MISMATCH_DISCLAIMER}>
-          <span className="ocs-io-platform-alignment-warning" tabIndex={0}>
-            <Icon status="warning" aria-label="Platform alignment date mismatch">
-              <ExclamationTriangleIcon aria-hidden />
-            </Icon>
-          </span>
-        </Tooltip>
-      ) : null}
       <Popover
         key={`${op.name}-lifecycle`}
         aria-label={popoverAriaLabel}
@@ -1325,48 +1389,57 @@ function InstalledOperatorSupportPhaseEndCell({
   const lifecycleOp = getLifecycleEvaluationRow(op, PROTOTYPE_CLUSTER_OCP_LIFECYCLE);
   const eusMismatch = hasPlatformAlignedEusMismatch(op, PROTOTYPE_CLUSTER_OCP_LIFECYCLE);
   const urgency = getEntitlementAwarePhaseDateLabelUrgency(lifecycleOp, entitlement);
-  const color = phaseDateLabelPfColor(urgency);
+  const color = eusMismatch ? "orange" : phaseDateLabelPfColor(urgency);
 
-  const alignedLabel = `Aligned with OCP ${PROTOTYPE_CLUSTER_OCP_LIFECYCLE.ocpVersionLabel}`;
-  const showAlignedLabel = op.isPlatformAligned && !eusMismatch;
   const raw = getEntitlementAwarePhaseEndDateRaw(lifecycleOp, entitlement);
   const formatted = raw ? formatLifecycleDateShort(raw) : "—";
-  const displayText = showAlignedLabel ? alignedLabel : formatted;
 
-  if (displayText === "—") {
+  if (formatted === "—") {
     return <Content component="small">—</Content>;
   }
 
   const labelNode = (
-    <Label isCompact variant="outline" color={color} className="ocs-io-phase-end-date-label">
-      {displayText}
+    <Label
+      isCompact
+      variant="outline"
+      color={color}
+      className={[
+        "ocs-io-phase-end-date-label",
+        eusMismatch ? "ocs-io-phase-end-date-label--alignment-mismatch" : "",
+      ]
+        .filter(Boolean)
+        .join(" ")}
+      icon={
+        eusMismatch ? (
+          <ExclamationTriangleIcon
+            className="ocs-io-phase-end-date-label__warn-icon"
+            aria-label="Platform alignment date mismatch"
+          />
+        ) : undefined
+      }
+    >
+      {formatted}
     </Label>
   );
 
   return (
-    <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }} flexWrap={{ default: "nowrap" }}>
-      {eusMismatch ? (
-        <Tooltip content={PLATFORM_ALIGNED_EUS_MISMATCH_DISCLAIMER}>
-          <span className="ocs-io-platform-alignment-warning" tabIndex={0}>
-            <Icon status="warning" aria-label="Platform alignment date mismatch">
-              <ExclamationTriangleIcon aria-hidden />
-            </Icon>
-          </span>
-        </Tooltip>
-      ) : null}
-      <Tooltip
-        content={
-          <PhaseEndDateTooltipBody op={op} urgency={urgency} entitlement={entitlement} />
-        }
-        position="top"
-        maxWidth="24rem"
-        isContentLeftAligned
-      >
-        <span className="ocs-io-phase-end-date-tooltip-target" tabIndex={0}>
-          {labelNode}
-        </span>
-      </Tooltip>
-    </Flex>
+    <Tooltip
+      content={
+        <PhaseEndDateTooltipBody
+          op={op}
+          urgency={urgency}
+          entitlement={entitlement}
+          eusMismatch={eusMismatch}
+        />
+      }
+      position="top"
+      maxWidth="28rem"
+      isContentLeftAligned
+    >
+      <span className="ocs-io-phase-end-date-tooltip-target" tabIndex={0}>
+        {labelNode}
+      </span>
+    </Tooltip>
   );
 }
 
@@ -2125,7 +2198,7 @@ export default function InstalledOperatorsPage() {
                             </Td>
                           )}
                           {showOlmV0ListColumns && visibleColumns.supportPhaseEnd && (
-                            <Td dataLabel="Current phase end date" modifier="nowrap">
+                            <Td dataLabel="Current phase end date">
                               <InstalledOperatorSupportPhaseEndCell
                                 op={op}
                                 entitlement={subscriptionEntitlement}
