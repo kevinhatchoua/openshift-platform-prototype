@@ -1321,6 +1321,210 @@ html .ocs-console-page.pf-v6-c-page {
   padding-block-end: 3rem;
 }
 
+/**
+ * Compute → Node details (console-style two-column description lists).
+ */
+.ocs-node-details__panel {
+  padding: var(--pf-t--global--spacer--xl, 1.5rem);
+  border-radius: var(--pf-t--global--border--radius--medium, 0.5rem);
+}
+
+html.no-glass .ocs-node-details__panel {
+  background-color: var(--pf-color-white);
+  border: 1px solid var(--pf-color-gray-30);
+}
+
+html.no-glass.dark .ocs-node-details__panel {
+  background-color: var(--pf-color-gray-80);
+  border-color: var(--pf-color-gray-60);
+}
+
+.ocs-node-details__columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--pf-t--global--spacer--2xl, 2rem);
+  align-items: start;
+}
+
+@media (max-width: 992px) {
+  .ocs-node-details__columns {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.ocs-node-details__dl {
+  --pf-v6-c-description-list__term--FontWeight: var(--pf-t--global--font--weight--body--bold);
+}
+
+.ocs-node-details__nested-dl {
+  margin-block-start: var(--pf-t--global--spacer--xs);
+}
+
+.ocs-node-details__nested-dl .pf-v6-c-description-list__term {
+  font-weight: var(--pf-t--global--font--weight--body--default);
+}
+
+.ocs-node-details__uptime-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--pf-t--global--icon--color--regular);
+  flex-shrink: 0;
+}
+
+.ocs-node-details__labels-heading {
+  font-weight: var(--pf-t--global--font--weight--body--bold);
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-underline-offset: 0.2em;
+}
+
+.ocs-node-details__labels-term-inner {
+  width: 100%;
+  min-width: 12rem;
+}
+
+.ocs-node-details__label-group {
+  max-width: 100%;
+}
+
+.ocs-node-details__label-group .pf-v6-c-label {
+  max-width: 100%;
+  word-break: break-all;
+}
+
+/* Nodes list table */
+.ocs-nodes-list__table-wrap {
+  overflow: hidden;
+  border-radius: var(--pf-t--global--border--radius--medium, 0.5rem);
+}
+
+.ocs-nodes-list__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ocs-nodes-list__table thead {
+  background-color: color-mix(in srgb, var(--pf-t--global--background--color--secondary--default) 40%, transparent);
+}
+
+html.dark .ocs-nodes-list__table thead {
+  background-color: color-mix(in srgb, var(--pf-t--global--text--color--regular) 6%, transparent);
+}
+
+.ocs-nodes-list__table th {
+  text-align: left;
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  font-size: var(--pf-t--global--font--size--body--sm);
+  font-weight: var(--pf-t--global--font--weight--body--bold);
+  color: var(--pf-t--global--text--color--subtle);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.ocs-nodes-list__table td {
+  padding: var(--pf-t--global--spacer--md);
+  font-size: var(--pf-t--global--font--size--body--default);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.ocs-nodes-list__table tbody tr:hover {
+  background-color: color-mix(in srgb, var(--pf-t--global--text--color--regular) 4%, transparent);
+}
+
+/* Resource list panels (Pods, Nodes) — inset toolbar + table */
+.ocs-pods-list__panel {
+  padding: var(--pf-t--global--spacer--xl, 1.5rem);
+  border-radius: var(--pf-t--global--border--radius--medium, 0.5rem);
+}
+
+html.no-glass .ocs-pods-list__panel {
+  background-color: var(--pf-color-white);
+  border: 1px solid var(--pf-color-gray-30);
+}
+
+html.no-glass.dark .ocs-pods-list__panel {
+  background-color: var(--pf-color-gray-80);
+  border-color: var(--pf-color-gray-60);
+}
+
+.ocs-pods-list__toolbar {
+  --pf-v6-c-toolbar--PaddingInlineStart: 0;
+  --pf-v6-c-toolbar--PaddingInlineEnd: 0;
+  --pf-v6-c-toolbar--PaddingBlockStart: 0;
+  --pf-v6-c-toolbar--PaddingBlockEnd: 0;
+}
+
+.ocs-pods-list__panel .ocs-pods-list__table-wrap {
+  margin-block-start: 0;
+}
+
+.ocs-pods-list__dv-toolbar {
+  padding-block-end: var(--pf-t--global--spacer--md);
+}
+
+.ocs-pods-dataview .pf-v6-c-toolbar {
+  padding-inline: 0;
+}
+
+.ocs-pods-list__row {
+  cursor: pointer;
+}
+
+.ocs-pods-list__created-icon {
+  width: 1rem;
+  height: 1rem;
+  color: var(--pf-t--global--icon--color--regular);
+  flex-shrink: 0;
+}
+
+.ocs-resource-label {
+  font-weight: var(--pf-t--global--font--weight--body--bold);
+  min-width: 1.75rem;
+  justify-content: center;
+}
+
+.ocs-pods-list__mono {
+  font-family: var(--pf-t--global--font--family--monospace, monospace);
+}
+
+/* Pod details page */
+.ocs-pod-details-page .ocs-pod-details__title {
+  word-break: break-all;
+}
+
+.ocs-pod-details__section {
+  padding: var(--pf-t--global--spacer--xl, 1.5rem);
+}
+
+.ocs-pod-details__section-title {
+  margin-block-end: var(--pf-t--global--spacer--lg);
+}
+
+.ocs-pod-details__columns {
+  align-items: start;
+}
+
+/* Node details — GPU metrics (between overview and conditions) */
+.ocs-node-gpu-metrics__title {
+  margin-block-end: var(--pf-t--global--spacer--lg);
+}
+
+.ocs-node-gpu-metrics__summary {
+  margin-block-end: var(--pf-t--global--spacer--lg);
+}
+
+.ocs-node-gpu-metrics__table-wrap {
+  margin-block-start: 0;
+}
+
+/* Node details — conditions table */
+.ocs-node-conditions__title {
+  margin-block-end: var(--pf-t--global--spacer--lg);
+}
+
+.ocs-node-conditions__table-wrap {
+  margin-block-start: 0;
+}
+
 .ocs-app-page-outer--pb-0 {
   padding-block-end: 0;
 }

@@ -7,6 +7,7 @@ import FavoritesPage from "./pages/FavoritesPage";
 import EcosystemPage from "./pages/EcosystemPage";
 import WorkloadsPage from "./pages/WorkloadsPage";
 import PodsPage from "./pages/workloads/PodsPage";
+import PodDetailPage from "./pages/workloads/PodDetailPage";
 import DeploymentsPage from "./pages/workloads/DeploymentsPage";
 import StatefulSetsPage from "./pages/workloads/StatefulSetsPage";
 import DaemonSetsPage from "./pages/workloads/DaemonSetsPage";
@@ -85,6 +86,7 @@ export const router = createBrowserRouter([
           { path: "ecosystem/helm", Component: HelmPage },
           { path: "workloads", Component: WorkloadsPage },
           { path: "workloads/pods", Component: PodsPage },
+          { path: "workloads/pods/:namespace/:podName", Component: PodDetailPage },
           { path: "workloads/deployments", Component: DeploymentsPage },
           { path: "workloads/statefulsets", Component: StatefulSetsPage },
           { path: "workloads/daemonsets", Component: DaemonSetsPage },

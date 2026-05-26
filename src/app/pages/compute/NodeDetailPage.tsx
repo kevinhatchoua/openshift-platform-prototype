@@ -1,348 +1,321 @@
 import { useState } from "react";
-import { useParams, useNavigate } from "react-router";
-import { ArrowLeft, Server, Droplet, RotateCw, Trash2, CheckCircle2, Activity } from "@/lib/pfIcons";
+import { useNavigate, useParams } from "react-router";
+import {
+  Button,
+  Content,
+  DescriptionList,
+  DescriptionListDescription,
+  DescriptionListGroup,
+  DescriptionListTerm,
+  Dropdown,
+  DropdownItem,
+  DropdownList,
+  Flex,
+  Icon,
+  Label,
+  MenuToggle,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
+  Title,
+} from "@patternfly/react-core";
+import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
+import EditIcon from "@patternfly/react-icons/dist/esm/icons/edit-icon";
+import GlobeIcon from "@patternfly/react-icons/dist/esm/icons/globe-icon";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { getNodeDetail } from "./nodeDetailData";
+import { getNodeGpuMetrics, nodeHasGpu } from "./nodeGpuMetricsData";
+import NodeDetailsConditions from "./NodeDetailsConditions";
+import NodeDetailsGpuMetrics from "./NodeDetailsGpuMetrics";
+import { getNodeConditions } from "./nodeConditionsData";
+
+function NodeDetailsDescriptionList({ node }: { node: ReturnType<typeof getNodeDetail> }) {
+  return (
+    <DescriptionList
+      isHorizontal
+      isCompact
+      className="ocs-node-details__dl"
+      aria-label="Node properties"
+    >
+      <DescriptionListGroup>
+        <DescriptionListTerm>Node name</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Content component="small">{node.name}</Content>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>Status</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+            <Icon status="success" aria-hidden>
+              <CheckCircleIcon />
+            </Icon>
+            <Content component="small">{node.status}</Content>
+          </Flex>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>External ID</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Content component="small">{node.externalId}</Content>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>Uptime</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+            <GlobeIcon aria-hidden className="ocs-node-details__uptime-icon" />
+            <Content component="small">{node.uptime}</Content>
+          </Flex>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>Node addresses</DescriptionListTerm>
+        <DescriptionListDescription>
+          <DescriptionList isCompact className="ocs-node-details__nested-dl">
+            <DescriptionListGroup>
+              <DescriptionListTerm>Hostname</DescriptionListTerm>
+              <DescriptionListDescription>
+                <Content component="small">{node.addresses.hostname}</Content>
+              </DescriptionListDescription>
+            </DescriptionListGroup>
+            <DescriptionListGroup>
+              <DescriptionListTerm>Internal DNS</DescriptionListTerm>
+              <DescriptionListDescription>
+                <Content component="small">{node.addresses.internalDns}</Content>
+              </DescriptionListDescription>
+            </DescriptionListGroup>
+            <DescriptionListGroup>
+              <DescriptionListTerm>Internal IP</DescriptionListTerm>
+              <DescriptionListDescription>
+                <Content component="small">{node.addresses.internalIp}</Content>
+              </DescriptionListDescription>
+            </DescriptionListGroup>
+          </DescriptionList>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm className="ocs-node-details__labels-term">
+          <Flex
+            alignItems={{ default: "alignItemsCenter" }}
+            justifyContent={{ default: "justifyContentSpaceBetween" }}
+            flexWrap={{ default: "nowrap" }}
+            className="ocs-node-details__labels-term-inner"
+          >
+            <span className="ocs-node-details__labels-heading">Labels</span>
+            <Button variant="link" isInline icon={<EditIcon aria-hidden />}>
+              Edit
+            </Button>
+          </Flex>
+        </DescriptionListTerm>
+        <DescriptionListDescription>
+          <Flex gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }} className="ocs-node-details__label-group">
+            {node.labels.map((label) => (
+              <Label key={label} color="purple" isCompact>
+                {label}
+              </Label>
+            ))}
+          </Flex>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+    </DescriptionList>
+  );
+}
+
+function NodeSystemDescriptionList({ node }: { node: ReturnType<typeof getNodeDetail> }) {
+  return (
+    <DescriptionList
+      isHorizontal
+      isCompact
+      className="ocs-node-details__dl"
+      aria-label="Node system information"
+    >
+      <DescriptionListGroup>
+        <DescriptionListTerm>Operating system</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Content component="small">{node.operatingSystem}</Content>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>OS image</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Content component="small">{node.osImage}</Content>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>Architecture</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Content component="small">{node.architecture}</Content>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>Kernel version</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Content component="small">{node.kernelVersion}</Content>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>Boot ID</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Content component="small">{node.bootId}</Content>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>Container runtime</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Content component="small">{node.containerRuntime}</Content>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>Kubelet version</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Content component="small">{node.kubeletVersion}</Content>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+      <DescriptionListGroup>
+        <DescriptionListTerm>Kube-Proxy version</DescriptionListTerm>
+        <DescriptionListDescription>
+          <Content component="small">{node.kubeProxyVersion}</Content>
+        </DescriptionListDescription>
+      </DescriptionListGroup>
+    </DescriptionList>
+  );
+}
 
 export default function NodeDetailPage() {
   const { nodeName } = useParams();
   const navigate = useNavigate();
+  const decodedName = decodeURIComponent(nodeName || "");
+  const node = getNodeDetail(decodedName);
+  const gpuMetrics = nodeHasGpu(node) ? getNodeGpuMetrics(node.name) : undefined;
+  const nodeConditions = getNodeConditions(node.name);
+
+  const [actionsOpen, setActionsOpen] = useState(false);
   const [showDrainModal, setShowDrainModal] = useState(false);
   const [showRestartModal, setShowRestartModal] = useState(false);
   const [showDeleteModal, setShowDeleteModal] = useState(false);
 
-  // Mock node data - in real app, this would be fetched based on nodeName
-  const nodeData = {
-    "worker-east-01": {
-      name: "worker-east-01",
-      pool: "Worker pool east-1b",
-      status: "Ready",
-      version: "v1.25.0",
-      platform: "AWS",
-      instanceType: "m5.2xlarge",
-      zone: "us-east-1b",
-      ipAddress: "10.0.1.45",
-      cpu: "8 cores",
-      memory: "32 GB",
-      storage: "120 GB",
-      cpuUsage: "45%",
-      memoryUsage: "68%",
-      storageUsage: "85%",
-      pods: "42/110"
-    },
-    "worker-east-02": {
-      name: "worker-east-02",
-      pool: "Worker pool east-1c",
-      status: "Ready",
-      version: "v1.25.0",
-      platform: "AWS",
-      instanceType: "m5.2xlarge",
-      zone: "us-east-1c",
-      ipAddress: "10.0.2.67",
-      cpu: "8 cores",
-      memory: "32 GB",
-      storage: "120 GB",
-      cpuUsage: "38%",
-      memoryUsage: "52%",
-      storageUsage: "62%",
-      pods: "35/110"
-    }
-  };
-
-  const decodedName = decodeURIComponent(nodeName || "");
-  const node = nodeData[decodedName as keyof typeof nodeData] || nodeData["worker-east-01"];
-
-  const handleDrain = () => {
-    setShowDrainModal(false);
-    // Trigger drain workflow
-    navigate('/compute');
-  };
-
-  const handleRestart = () => {
-    setShowRestartModal(false);
-    // Trigger restart workflow
-    navigate('/compute');
-  };
-
-  const handleDelete = () => {
-    setShowDeleteModal(false);
-    // Trigger delete workflow
-    navigate('/compute');
-  };
+  const closeAndReturn = () => navigate("/compute");
 
   return (
-    <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
-        <Breadcrumbs
-          items={[
-            { label: "Home", path: "/" },
-            { label: "Compute", path: "/compute" },
-            { label: "Nodes", path: "/compute" },
-            { label: node.name },
-          ]}
-        >
-
-        {/* Header */}
-        <div className="mb-[24px]">
-          <button
-            onClick={() => navigate('/compute')}
-            className="flex items-center gap-[8px] text-[14px] text-[#0066cc] dark:text-[#4dabf7] hover:underline mb-[16px]"
+    <div className="ocs-app-page-outer ocs-node-details-page h-full min-h-0 overflow-y-auto">
+      <Breadcrumbs
+        items={[
+          { label: "Home", path: "/" },
+          { label: "Compute", path: "/compute" },
+          { label: "Nodes", path: "/compute" },
+          { label: node.name },
+        ]}
+      >
+        <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }} className="ocs-node-details">
+          <Flex
+            alignItems={{ default: "alignItemsCenter" }}
+            justifyContent={{ default: "justifyContentSpaceBetween" }}
+            flexWrap={{ default: "wrap" }}
+            gap={{ default: "gapMd" }}
           >
-            <ArrowLeft className="size-[16px]" />
-            Back to Compute
-          </button>
-
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-[16px]">
-              <div className="size-[64px] bg-gradient-to-br from-[#0066cc] to-[#004080] dark:from-[#4dabf7] dark:to-[#339af0] rounded-[12px] flex items-center justify-center">
-                <Server className="size-[32px] text-white" />
-              </div>
-              <div>
-                <h1 className="font-['Red_Hat_Display_VF:Medium',sans-serif] font-medium text-[28px] text-[#151515] dark:text-white mb-[8px]">
-                  {node.name}
-                </h1>
-                <p className="text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[12px]">
-                  {node.pool} • {node.instanceType}
-                </p>
-                <div className="flex items-center gap-[8px]">
-                  <CheckCircle2 className="size-[16px] text-[#3e8635] dark:text-[#7cc674]" />
-                  <span className="text-[14px] text-[#151515] dark:text-white">
-                    Status: <strong>{node.status}</strong>
-                  </span>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex gap-[12px]">
-              <FavoriteButton name={node.name} path={`/compute/nodes/${nodeName}`} />
-              <button
-                onClick={() => setShowDrainModal(true)}
-                className="flex items-center gap-[8px] px-[16px] py-[10px] bg-white dark:bg-[rgba(255,255,255,0.03)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] text-[#151515] dark:text-white hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] rounded-[8px] font-semibold text-[14px] transition-colors"
+            <Title headingLevel="h1" size="2xl">
+              Node details
+            </Title>
+            <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
+              <FavoriteButton name={node.name} path={`/compute/nodes/${encodeURIComponent(node.name)}`} />
+              <Dropdown
+                isOpen={actionsOpen}
+                onOpenChange={setActionsOpen}
+                onSelect={() => setActionsOpen(false)}
+                popperProps={{ position: "right" }}
+                toggle={(toggleRef) => (
+                  <MenuToggle ref={toggleRef} onClick={() => setActionsOpen((o) => !o)} variant="secondary">
+                    Actions
+                  </MenuToggle>
+                )}
               >
-                <Droplet className="size-[16px]" />
-                Drain node
-              </button>
-              <button
-                onClick={() => setShowRestartModal(true)}
-                className="flex items-center gap-[8px] px-[16px] py-[10px] bg-white dark:bg-[rgba(255,255,255,0.03)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] text-[#151515] dark:text-white hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] rounded-[8px] font-semibold text-[14px] transition-colors"
-              >
-                <RotateCw className="size-[16px]" />
-                Restart
-              </button>
-              <button
-                onClick={() => setShowDeleteModal(true)}
-                className="flex items-center gap-[8px] px-[16px] py-[10px] bg-white dark:bg-[rgba(255,255,255,0.03)] border border-[#c9190b] dark:border-[#ee0000] text-[#c9190b] dark:text-[#ee0000] hover:bg-[rgba(201,25,11,0.05)] dark:hover:bg-[rgba(201,25,11,0.15)] rounded-[8px] font-semibold text-[14px] transition-colors"
-              >
-                <Trash2 className="size-[16px]" />
-                Delete
-              </button>
-            </div>
-          </div>
-        </div>
+                <DropdownList>
+                  <DropdownItem itemId="drain" onClick={() => setShowDrainModal(true)}>
+                    Drain node
+                  </DropdownItem>
+                  <DropdownItem itemId="restart" onClick={() => setShowRestartModal(true)}>
+                    Restart
+                  </DropdownItem>
+                  <DropdownItem itemId="delete" onClick={() => setShowDeleteModal(true)} isDanger>
+                    Delete
+                  </DropdownItem>
+                </DropdownList>
+              </Dropdown>
+            </Flex>
+          </Flex>
 
-        {/* Details Grid */}
-        <div className="grid grid-cols-2 gap-[24px]">
-          {/* Left Column */}
-          <div className="space-y-[24px]">
-            <div className="bg-white dark:bg-[rgba(255,255,255,0.03)] rounded-[12px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] p-[24px]">
-              <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[18px] text-[#151515] dark:text-white mb-[16px]">
-                Node Details
-              </h2>
-              <div className="space-y-[16px]">
-                <div>
-                  <p className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[4px]">Kubernetes Version</p>
-                  <p className="text-[14px] text-[#151515] dark:text-white">{node.version}</p>
-                </div>
-                <div>
-                  <p className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[4px]">Platform</p>
-                  <p className="text-[14px] text-[#151515] dark:text-white">{node.platform}</p>
-                </div>
-                <div>
-                  <p className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[4px]">Availability Zone</p>
-                  <p className="text-[14px] text-[#151515] dark:text-white">{node.zone}</p>
-                </div>
-                <div>
-                  <p className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[4px]">Internal IP</p>
-                  <p className="text-[14px] text-[#151515] dark:text-white font-mono">{node.ipAddress}</p>
-                </div>
+          <div className="ocs-node-details__panel app-glass-panel">
+            <div className="ocs-node-details__columns">
+              <div className="ocs-node-details__column">
+                <NodeDetailsDescriptionList node={node} />
               </div>
-            </div>
-
-            <div className="bg-white dark:bg-[rgba(255,255,255,0.03)] rounded-[12px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] p-[24px]">
-              <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[18px] text-[#151515] dark:text-white mb-[16px]">
-                Resources
-              </h2>
-              <div className="space-y-[16px]">
-                <div>
-                  <p className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[4px]">CPU</p>
-                  <p className="text-[14px] text-[#151515] dark:text-white">{node.cpu}</p>
-                </div>
-                <div>
-                  <p className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[4px]">Memory</p>
-                  <p className="text-[14px] text-[#151515] dark:text-white">{node.memory}</p>
-                </div>
-                <div>
-                  <p className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[4px]">Storage</p>
-                  <p className="text-[14px] text-[#151515] dark:text-white">{node.storage}</p>
-                </div>
-                <div>
-                  <p className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[4px]">Pods</p>
-                  <p className="text-[14px] text-[#151515] dark:text-white">{node.pods}</p>
-                </div>
+              <div className="ocs-node-details__column">
+                <NodeSystemDescriptionList node={node} />
               </div>
             </div>
           </div>
 
-          {/* Right Column */}
-          <div className="space-y-[24px]">
-            <div className="bg-white dark:bg-[rgba(255,255,255,0.03)] rounded-[12px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] p-[24px]">
-              <div className="flex items-center gap-[8px] mb-[16px]">
-                <Activity className="size-[20px] text-[#0066cc] dark:text-[#4dabf7]" />
-                <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[18px] text-[#151515] dark:text-white">
-                  Resource Usage
-                </h2>
-              </div>
-              <div className="space-y-[20px]">
-                <div>
-                  <div className="flex justify-between mb-[8px]">
-                    <p className="text-[14px] text-[#151515] dark:text-white">CPU Usage</p>
-                    <p className="text-[14px] font-semibold text-[#151515] dark:text-white">{node.cpuUsage}</p>
-                  </div>
-                  <div className="h-[8px] bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.05)] rounded-full overflow-hidden">
-                    <div className="h-full bg-[#0066cc] dark:bg-[#4dabf7]" style={{ width: node.cpuUsage }}></div>
-                  </div>
-                </div>
+          {gpuMetrics && <NodeDetailsGpuMetrics metrics={gpuMetrics} />}
 
-                <div>
-                  <div className="flex justify-between mb-[8px]">
-                    <p className="text-[14px] text-[#151515] dark:text-white">Memory Usage</p>
-                    <p className="text-[14px] font-semibold text-[#151515] dark:text-white">{node.memoryUsage}</p>
-                  </div>
-                  <div className="h-[8px] bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.05)] rounded-full overflow-hidden">
-                    <div className="h-full bg-[#ff9800] dark:bg-[#ffb74d]" style={{ width: node.memoryUsage }}></div>
-                  </div>
-                </div>
-
-                <div>
-                  <div className="flex justify-between mb-[8px]">
-                    <p className="text-[14px] text-[#151515] dark:text-white">Storage Usage</p>
-                    <p className="text-[14px] font-semibold text-[#c9190b] dark:text-[#ee0000]">{node.storageUsage}</p>
-                  </div>
-                  <div className="h-[8px] bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.05)] rounded-full overflow-hidden">
-                    <div className="h-full bg-[#c9190b] dark:bg-[#ee0000]" style={{ width: node.storageUsage }}></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {parseFloat(node.storageUsage) > 80 && (
-              <div className="bg-[#fff4e5] dark:bg-[rgba(255,152,0,0.1)] rounded-[12px] border border-[#ff9800] dark:border-[#ffb74d] p-[24px]">
-                <div className="flex items-start gap-[12px]">
-                  <Activity className="size-[20px] text-[#ff9800] dark:text-[#ffb74d] mt-[2px]" />
-                  <div>
-                    <h3 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[16px] text-[#151515] dark:text-white mb-[8px]">
-                      High Storage Usage
-                    </h3>
-                    <p className="text-[14px] text-[#151515] dark:text-white mb-[16px]">
-                      This node is experiencing high storage usage ({node.storageUsage}). Consider draining the node and cleaning up unused resources.
-                    </p>
-                    <button
-                      onClick={() => setShowDrainModal(true)}
-                      className="flex items-center gap-[8px] px-[16px] py-[10px] bg-[#ff9800] hover:bg-[#f57c00] dark:bg-[#ffb74d] dark:hover:bg-[#ff9800] text-white rounded-[8px] font-semibold text-[14px] transition-colors"
-                    >
-                      <Droplet className="size-[16px]" />
-                      Drain node
-                    </button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
+          <NodeDetailsConditions conditions={nodeConditions} />
+        </Flex>
       </Breadcrumbs>
 
-      {/* Drain Modal */}
-      {showDrainModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="app-glass-panel p-[24px] max-w-[500px] w-full mx-[16px]">
-            <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[20px] text-[#151515] dark:text-white mb-[16px]">
-              Drain {node.name}
-            </h2>
-            <p className="text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[24px]">
-              Draining will safely evict all pods from this node. The node will be marked as unschedulable until uncordoned.
-            </p>
-            <div className="flex gap-[12px] justify-end">
-              <button
-                onClick={() => setShowDrainModal(false)}
-                className="px-[16px] py-[10px] bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.1)] dark:hover:bg-[rgba(255,255,255,0.1)] text-[#151515] dark:text-white rounded-[8px] font-semibold text-[14px] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDrain}
-                className="px-[16px] py-[10px] bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white rounded-[8px] font-semibold text-[14px] transition-colors"
-              >
-                Drain node
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal variant="small" isOpen={showDrainModal} onClose={() => setShowDrainModal(false)}>
+        <ModalHeader title={`Drain ${node.name}`} />
+        <ModalBody>
+          <Content component="p">
+            Draining will safely evict all pods from this node. The node will be marked as unschedulable until
+            uncordoned.
+          </Content>
+        </ModalBody>
+        <ModalFooter>
+          <Button key="cancel" variant="link" onClick={() => setShowDrainModal(false)}>
+            Cancel
+          </Button>
+          <Button key="drain" variant="primary" onClick={() => { setShowDrainModal(false); closeAndReturn(); }}>
+            Drain node
+          </Button>
+        </ModalFooter>
+      </Modal>
 
-      {/* Restart Modal */}
-      {showRestartModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="app-glass-panel p-[24px] max-w-[500px] w-full mx-[16px]">
-            <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[20px] text-[#151515] dark:text-white mb-[16px]">
-              Restart {node.name}
-            </h2>
-            <p className="text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[24px]">
-              Restarting the node will cause a brief interruption. All pods will be rescheduled to other available nodes.
-            </p>
-            <div className="flex gap-[12px] justify-end">
-              <button
-                onClick={() => setShowRestartModal(false)}
-                className="px-[16px] py-[10px] bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.1)] dark:hover:bg-[rgba(255,255,255,0.1)] text-[#151515] dark:text-white rounded-[8px] font-semibold text-[14px] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleRestart}
-                className="px-[16px] py-[10px] bg-[#ff9800] hover:bg-[#f57c00] dark:bg-[#ffb74d] dark:hover:bg-[#ff9800] text-white rounded-[8px] font-semibold text-[14px] transition-colors"
-              >
-                Restart node
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal variant="small" isOpen={showRestartModal} onClose={() => setShowRestartModal(false)}>
+        <ModalHeader title={`Restart ${node.name}`} />
+        <ModalBody>
+          <Content component="p">
+            Restarting the node will cause a brief interruption. All pods will be rescheduled to other available nodes.
+          </Content>
+        </ModalBody>
+        <ModalFooter>
+          <Button key="cancel" variant="link" onClick={() => setShowRestartModal(false)}>
+            Cancel
+          </Button>
+          <Button key="restart" variant="primary" onClick={() => { setShowRestartModal(false); closeAndReturn(); }}>
+            Restart node
+          </Button>
+        </ModalFooter>
+      </Modal>
 
-      {/* Delete Modal */}
-      {showDeleteModal && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="app-glass-panel p-[24px] max-w-[500px] w-full mx-[16px]">
-            <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[20px] text-[#151515] dark:text-white mb-[16px]">
-              Delete {node.name}
-            </h2>
-            <p className="text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[24px]">
-              Are you sure you want to delete this node? This action cannot be undone. The node will be permanently removed from the cluster.
-            </p>
-            <div className="flex gap-[12px] justify-end">
-              <button
-                onClick={() => setShowDeleteModal(false)}
-                className="px-[16px] py-[10px] bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.1)] dark:hover:bg-[rgba(255,255,255,0.1)] text-[#151515] dark:text-white rounded-[8px] font-semibold text-[14px] transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleDelete}
-                className="px-[16px] py-[10px] bg-[#c9190b] hover:bg-[#a30000] dark:bg-[#ee0000] dark:hover:bg-[#c9190b] text-white rounded-[8px] font-semibold text-[14px] transition-colors"
-              >
-                Delete node
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <Modal variant="small" isOpen={showDeleteModal} onClose={() => setShowDeleteModal(false)}>
+        <ModalHeader title={`Delete ${node.name}`} />
+        <ModalBody>
+          <Content component="p">
+            Are you sure you want to delete this node? This action cannot be undone. The node will be permanently removed
+            from the cluster.
+          </Content>
+        </ModalBody>
+        <ModalFooter>
+          <Button key="cancel" variant="link" onClick={() => setShowDeleteModal(false)}>
+            Cancel
+          </Button>
+          <Button key="delete" variant="danger" onClick={() => { setShowDeleteModal(false); closeAndReturn(); }}>
+            Delete node
+          </Button>
+        </ModalFooter>
+      </Modal>
     </div>
   );
 }
