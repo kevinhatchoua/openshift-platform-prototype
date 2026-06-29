@@ -14,7 +14,15 @@ import DaemonSetsPage from "./pages/workloads/DaemonSetsPage";
 import JobsPage from "./pages/workloads/JobsPage";
 import CronJobsPage from "./pages/workloads/CronJobsPage";
 import TopologyPage from "./pages/workloads/TopologyPage";
-import NetworkingPage from "./pages/NetworkingPage";
+import ServicesPage from "./pages/networking/ServicesPage";
+import RoutesPage from "./pages/networking/RoutesPage";
+import IngressesPage from "./pages/networking/IngressesPage";
+import PhysicalNetworksPage from "./pages/networking/PhysicalNetworksPage";
+import NetworkPoliciesPage from "./pages/networking/NetworkPoliciesPage";
+import NodeNetworkConfigurationPolicyPage from "./pages/networking/NodeNetworkConfigurationPolicyPage";
+import NetworkAttachmentDefinitionsPage from "./pages/networking/NetworkAttachmentDefinitionsPage";
+import UserDefinedNetworksPage from "./pages/networking/UserDefinedNetworksPage";
+import NodeNetworkConfigurationPage from "./pages/networking/NodeNetworkConfigurationPage";
 import StoragePage from "./pages/StoragePage";
 import BuildsPage from "./pages/BuildsPage";
 import ObservePage from "./pages/ObservePage";
@@ -93,7 +101,15 @@ export const router = createBrowserRouter([
           { path: "workloads/jobs", Component: JobsPage },
           { path: "workloads/cronjobs", Component: CronJobsPage },
           { path: "workloads/topology", Component: TopologyPage },
-          { path: "networking", Component: NetworkingPage },
+          { path: "networking", Component: ServicesPage },
+          { path: "networking/routes", Component: RoutesPage },
+          { path: "networking/ingresses", Component: IngressesPage },
+          { path: "networking/physical-networks", Component: PhysicalNetworksPage },
+          { path: "networking/networkpolicies", Component: NetworkPoliciesPage },
+          { path: "networking/nodenetworkconfigurationpolicy", Component: NodeNetworkConfigurationPolicyPage },
+          { path: "networking/networkattachmentdefinitions", Component: NetworkAttachmentDefinitionsPage },
+          { path: "networking/userdefinednetworks", Component: UserDefinedNetworksPage },
+          { path: "networking/node-network-configuration", Component: NodeNetworkConfigurationPage },
           { path: "storage", Component: StoragePage },
           { path: "builds", Component: BuildsPage },
           { path: "observe", Component: ObservePage },

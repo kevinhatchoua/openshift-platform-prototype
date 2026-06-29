@@ -1,9 +1,45 @@
-import { useState } from "react";
-import { Search, RefreshCw, MoreVertical, HardDrive, Database, Folder, CheckCircle, XCircle, Clock } from "@/lib/pfIcons";
+import { useEffect, useMemo } from "react";
+import {
+  Button,
+  Content,
+  Flex,
+  Icon,
+  Label,
+  Pagination,
+  PaginationVariant,
+  Title,
+  ToolbarGroup,
+  ToolbarItem,
+} from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewCheckboxFilter,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
+import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
+import ClockIcon from "@patternfly/react-icons/dist/esm/icons/clock-icon";
+import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
+import CubesIcon from "@patternfly/react-icons/dist/esm/icons/cubes-icon";
+import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
+import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
+import TimesCircleIcon from "@patternfly/react-icons/dist/esm/icons/times-circle-icon";
+import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../components/Breadcrumbs";
 import FavoriteButton from "../components/FavoriteButton";
-
-type ResourceType = "all" | "pv" | "pvc" | "storageclass";
+import { IoDataViewFiltersWithMidActions } from "../components/dataView/IoDataViewFiltersWithMidActions";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../components/dataView/OcsPrototypeListTable";
 
 interface StorageResource {
   name: string;
@@ -19,297 +55,310 @@ interface StorageResource {
   age: string;
 }
 
-export default function StoragePage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [resourceFilter, setResourceFilter] = useState<ResourceType>("all");
-  const [selectedNamespace, setSelectedNamespace] = useState("all");
+type StorageFilters = {
+  name: string;
+  namespace: string;
+  type: string[];
+};
 
-  const resources: StorageResource[] = [
-    // Persistent Volumes
-    { name: "pv-postgres-data-0", type: "PersistentVolume", status: "Bound", capacity: "100Gi", accessMode: "RWO", storageClass: "gp3-encrypted", reclaim: "Retain", age: "89d" },
-    { name: "pv-postgres-data-1", type: "PersistentVolume", status: "Bound", capacity: "100Gi", accessMode: "RWO", storageClass: "gp3-encrypted", reclaim: "Retain", age: "89d" },
-    { name: "pv-elasticsearch-0", type: "PersistentVolume", status: "Bound", capacity: "500Gi", accessMode: "RWO", storageClass: "gp3-standard", reclaim: "Delete", age: "156d" },
-    { name: "pv-elasticsearch-1", type: "PersistentVolume", status: "Bound", capacity: "500Gi", accessMode: "RWO", storageClass: "gp3-standard", reclaim: "Delete", age: "156d" },
-    { name: "pv-prometheus-data", type: "PersistentVolume", status: "Bound", capacity: "250Gi", accessMode: "RWO", storageClass: "gp3-standard", reclaim: "Retain", age: "67d" },
-    { name: "pv-backup-storage", type: "PersistentVolume", status: "Available", capacity: "1Ti", accessMode: "RWX", storageClass: "efs-standard", reclaim: "Retain", age: "120d" },
-    { name: "pv-shared-assets", type: "PersistentVolume", status: "Bound", capacity: "200Gi", accessMode: "RWX", storageClass: "efs-standard", reclaim: "Delete", age: "45d" },
-    { name: "pv-redis-data", type: "PersistentVolume", status: "Bound", capacity: "50Gi", accessMode: "RWO", storageClass: "gp3-standard", reclaim: "Delete", age: "45d" },
-    
-    // Persistent Volume Claims
-    { name: "postgres-data-0", namespace: "production", type: "PersistentVolumeClaim", status: "Bound", capacity: "100Gi", accessMode: "RWO", storageClass: "gp3-encrypted", volumeMode: "Filesystem", age: "89d" },
-    { name: "postgres-data-1", namespace: "production", type: "PersistentVolumeClaim", status: "Bound", capacity: "100Gi", accessMode: "RWO", storageClass: "gp3-encrypted", volumeMode: "Filesystem", age: "89d" },
-    { name: "elasticsearch-data-0", namespace: "logging", type: "PersistentVolumeClaim", status: "Bound", capacity: "500Gi", accessMode: "RWO", storageClass: "gp3-standard", volumeMode: "Filesystem", age: "156d" },
-    { name: "elasticsearch-data-1", namespace: "logging", type: "PersistentVolumeClaim", status: "Bound", capacity: "500Gi", accessMode: "RWO", storageClass: "gp3-standard", volumeMode: "Filesystem", age: "156d" },
-    { name: "prometheus-data", namespace: "monitoring", type: "PersistentVolumeClaim", status: "Bound", capacity: "250Gi", accessMode: "RWO", storageClass: "gp3-standard", volumeMode: "Filesystem", age: "67d" },
-    { name: "shared-assets", namespace: "production", type: "PersistentVolumeClaim", status: "Bound", capacity: "200Gi", accessMode: "RWX", storageClass: "efs-standard", volumeMode: "Filesystem", age: "45d" },
-    { name: "redis-data", namespace: "production", type: "PersistentVolumeClaim", status: "Bound", capacity: "50Gi", accessMode: "RWO", storageClass: "gp3-standard", volumeMode: "Filesystem", age: "45d" },
-    { name: "temp-storage", namespace: "development", type: "PersistentVolumeClaim", status: "Pending", capacity: "10Gi", accessMode: "RWO", storageClass: "gp3-standard", volumeMode: "Filesystem", age: "5m" },
-    
-    // Storage Classes
-    { name: "gp3-encrypted", type: "StorageClass", status: "Available", provisioner: "ebs.csi.aws.com", reclaim: "Retain", age: "234d" },
-    { name: "gp3-standard", type: "StorageClass", status: "Available", provisioner: "ebs.csi.aws.com", reclaim: "Delete", age: "234d" },
-    { name: "efs-standard", type: "StorageClass", status: "Available", provisioner: "efs.csi.aws.com", reclaim: "Delete", age: "234d" },
-    { name: "io2-high-performance", type: "StorageClass", status: "Available", provisioner: "ebs.csi.aws.com", reclaim: "Delete", age: "234d" },
-  ];
+type SortColumn = "name" | "namespace" | "type" | "status" | "capacity" | "storageClass" | "age";
 
-  const namespaces = ["all", "production", "development", "logging", "monitoring"];
+const RESOURCES: StorageResource[] = [
+  { name: "pv-postgres-data-0", type: "PersistentVolume", status: "Bound", capacity: "100Gi", accessMode: "RWO", storageClass: "gp3-encrypted", reclaim: "Retain", age: "89d" },
+  { name: "pv-postgres-data-1", type: "PersistentVolume", status: "Bound", capacity: "100Gi", accessMode: "RWO", storageClass: "gp3-encrypted", reclaim: "Retain", age: "89d" },
+  { name: "pv-elasticsearch-0", type: "PersistentVolume", status: "Bound", capacity: "500Gi", accessMode: "RWO", storageClass: "gp3-standard", reclaim: "Delete", age: "156d" },
+  { name: "pv-elasticsearch-1", type: "PersistentVolume", status: "Bound", capacity: "500Gi", accessMode: "RWO", storageClass: "gp3-standard", reclaim: "Delete", age: "156d" },
+  { name: "pv-prometheus-data", type: "PersistentVolume", status: "Bound", capacity: "250Gi", accessMode: "RWO", storageClass: "gp3-standard", reclaim: "Retain", age: "67d" },
+  { name: "pv-backup-storage", type: "PersistentVolume", status: "Available", capacity: "1Ti", accessMode: "RWX", storageClass: "efs-standard", reclaim: "Retain", age: "120d" },
+  { name: "pv-shared-assets", type: "PersistentVolume", status: "Bound", capacity: "200Gi", accessMode: "RWX", storageClass: "efs-standard", reclaim: "Delete", age: "45d" },
+  { name: "pv-redis-data", type: "PersistentVolume", status: "Bound", capacity: "50Gi", accessMode: "RWO", storageClass: "gp3-standard", reclaim: "Delete", age: "45d" },
+  { name: "postgres-data-0", namespace: "production", type: "PersistentVolumeClaim", status: "Bound", capacity: "100Gi", accessMode: "RWO", storageClass: "gp3-encrypted", volumeMode: "Filesystem", age: "89d" },
+  { name: "postgres-data-1", namespace: "production", type: "PersistentVolumeClaim", status: "Bound", capacity: "100Gi", accessMode: "RWO", storageClass: "gp3-encrypted", volumeMode: "Filesystem", age: "89d" },
+  { name: "elasticsearch-data-0", namespace: "logging", type: "PersistentVolumeClaim", status: "Bound", capacity: "500Gi", accessMode: "RWO", storageClass: "gp3-standard", volumeMode: "Filesystem", age: "156d" },
+  { name: "elasticsearch-data-1", namespace: "logging", type: "PersistentVolumeClaim", status: "Bound", capacity: "500Gi", accessMode: "RWO", storageClass: "gp3-standard", volumeMode: "Filesystem", age: "156d" },
+  { name: "prometheus-data", namespace: "monitoring", type: "PersistentVolumeClaim", status: "Bound", capacity: "250Gi", accessMode: "RWO", storageClass: "gp3-standard", volumeMode: "Filesystem", age: "67d" },
+  { name: "shared-assets", namespace: "production", type: "PersistentVolumeClaim", status: "Bound", capacity: "200Gi", accessMode: "RWX", storageClass: "efs-standard", volumeMode: "Filesystem", age: "45d" },
+  { name: "redis-data", namespace: "production", type: "PersistentVolumeClaim", status: "Bound", capacity: "50Gi", accessMode: "RWO", storageClass: "gp3-standard", volumeMode: "Filesystem", age: "45d" },
+  { name: "temp-storage", namespace: "development", type: "PersistentVolumeClaim", status: "Pending", capacity: "10Gi", accessMode: "RWO", storageClass: "gp3-standard", volumeMode: "Filesystem", age: "5m" },
+  { name: "gp3-encrypted", type: "StorageClass", status: "Available", provisioner: "ebs.csi.aws.com", reclaim: "Retain", age: "234d" },
+  { name: "gp3-standard", type: "StorageClass", status: "Available", provisioner: "ebs.csi.aws.com", reclaim: "Delete", age: "234d" },
+  { name: "efs-standard", type: "StorageClass", status: "Available", provisioner: "efs.csi.aws.com", reclaim: "Delete", age: "234d" },
+  { name: "io2-high-performance", type: "StorageClass", status: "Available", provisioner: "ebs.csi.aws.com", reclaim: "Delete", age: "234d" },
+];
 
-  const getStatusIcon = (status: string) => {
-    switch (status) {
-      case "Bound":
-      case "Available":
-        return <CheckCircle className="size-[16px] text-[#3e8635] dark:text-[#81c784]" />;
-      case "Pending":
-        return <Clock className="size-[16px] text-[#ff9800] dark:text-[#ffb74d]" />;
-      case "Failed":
-      case "Released":
-        return <XCircle className="size-[16px] text-[#d32f2f] dark:text-[#ef5350]" />;
+const TYPE_OPTIONS = [
+  { value: "PersistentVolume", label: "PersistentVolume" },
+  { value: "PersistentVolumeClaim", label: "PersistentVolumeClaim" },
+  { value: "StorageClass", label: "StorageClass" },
+];
+
+function StorageStatusCell({ status }: { status: StorageResource["status"] }) {
+  switch (status) {
+    case "Bound":
+    case "Available":
+      return (
+        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+          <Icon status="success" aria-hidden>
+            <CheckCircleIcon />
+          </Icon>
+          <Label color="green" isCompact>
+            {status}
+          </Label>
+        </Flex>
+      );
+    case "Pending":
+      return (
+        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+          <Icon status="warning" aria-hidden>
+            <ClockIcon />
+          </Icon>
+          <Label color="orange" isCompact>
+            {status}
+          </Label>
+        </Flex>
+      );
+    case "Failed":
+    case "Released":
+      return (
+        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+          <Icon status="danger" aria-hidden>
+            <TimesCircleIcon />
+          </Icon>
+          <Label color="red" isCompact>
+            {status}
+          </Label>
+        </Flex>
+      );
+    default:
+      return <Content component="small">{status}</Content>;
+  }
+}
+
+function rowMatchesFilters(row: StorageResource, filters: StorageFilters): boolean {
+  const nameQ = (filters.name ?? "").trim().toLowerCase();
+  const nsQ = (filters.namespace ?? "").trim().toLowerCase();
+  if (nameQ && !row.name.toLowerCase().includes(nameQ)) return false;
+  if (nsQ && row.namespace && !row.namespace.toLowerCase().includes(nsQ)) return false;
+  if (filters.type.length > 0 && !filters.type.includes(row.type)) return false;
+  return true;
+}
+
+function sortResources(rows: StorageResource[], column: SortColumn, direction: SortDirection): StorageResource[] {
+  return [...rows].sort((a, b) => {
+    switch (column) {
+      case "name":
+        return compareStrings(a.name, b.name, direction);
+      case "namespace":
+        return compareStrings(a.namespace ?? "", b.namespace ?? "", direction);
+      case "type":
+        return compareStrings(a.type, b.type, direction);
+      case "status":
+        return compareStrings(a.status, b.status, direction);
+      case "capacity":
+        return compareStrings(a.capacity ?? "", b.capacity ?? "", direction);
+      case "storageClass":
+        return compareStrings(a.storageClass ?? a.provisioner ?? "", b.storageClass ?? b.provisioner ?? "", direction);
+      case "age":
+        return compareStrings(a.age, b.age, direction);
       default:
-        return <HardDrive className="size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />;
+        return 0;
     }
-  };
-
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "Bound":
-      case "Available":
-        return "text-[#3e8635] dark:text-[#81c784] bg-[#e8f5e9] dark:bg-[rgba(62,134,53,0.15)]";
-      case "Pending":
-        return "text-[#ff9800] dark:text-[#ffb74d] bg-[#fff4e5] dark:bg-[rgba(255,152,0,0.15)]";
-      case "Failed":
-      case "Released":
-        return "text-[#d32f2f] dark:text-[#ef5350] bg-[#ffebee] dark:bg-[rgba(211,47,47,0.15)]";
-      default:
-        return "text-[#4d4d4d] dark:text-[#b0b0b0] bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.05)]";
-    }
-  };
-
-  const getTypeIcon = (type: string) => {
-    switch (type) {
-      case "PersistentVolume":
-        return <HardDrive className="size-[16px] text-[#0066cc] dark:text-[#4dabf7]" />;
-      case "PersistentVolumeClaim":
-        return <Database className="size-[16px] text-[#3e8635] dark:text-[#81c784]" />;
-      case "StorageClass":
-        return <Folder className="size-[16px] text-[#ff9800] dark:text-[#ffb74d]" />;
-      default:
-        return <HardDrive className="size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />;
-    }
-  };
-
-  const filteredResources = resources.filter((resource) => {
-    const matchesSearch = resource.name.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesType = 
-      resourceFilter === "all" || 
-      (resourceFilter === "pv" && resource.type === "PersistentVolume") ||
-      (resourceFilter === "pvc" && resource.type === "PersistentVolumeClaim") ||
-      (resourceFilter === "storageclass" && resource.type === "StorageClass");
-    const matchesNamespace = 
-      selectedNamespace === "all" || 
-      !resource.namespace || 
-      resource.namespace === selectedNamespace;
-    return matchesSearch && matchesType && matchesNamespace;
   });
+}
 
-  const stats = {
-    pv: resources.filter(r => r.type === "PersistentVolume").length,
-    pvc: resources.filter(r => r.type === "PersistentVolumeClaim").length,
-    storageClasses: resources.filter(r => r.type === "StorageClass").length,
-    totalCapacity: "2.5Ti",
-  };
+export default function StoragePage() {
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<StorageFilters>({
+    filters: { name: "", namespace: "", type: [] },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
+
+  const filteredRows = useMemo(
+    () => RESOURCES.filter((row) => rowMatchesFilters(row, filters)),
+    [filters]
+  );
+  const sortedRows = useMemo(
+    () => sortResources(filteredRows, sortColumn, sortDirection),
+    [filteredRows, sortColumn, sortDirection]
+  );
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(sortedRows, [filters], 20);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.name, filters.namespace, filters.type, perPage, setPage]);
+
+  const colSpan = 8;
 
   return (
-    <div className="ocs-app-page-outer">
+    <div className="ocs-app-page-outer w-full">
       <Breadcrumbs
         items={[
           { label: "Home", path: "/" },
           { label: "Storage", path: "/storage" },
         ]}
       >
-
-      <div className="flex items-center justify-between mb-[24px]">
-        <div>
-          <h1 className="font-['Red_Hat_Display_VF:Medium',sans-serif] font-medium leading-[36.4px] text-[#151515] dark:text-white text-[28px] mb-[8px]">
-            Storage
-          </h1>
-          <p className="text-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-            Manage PersistentVolumes, PersistentVolumeClaims, and StorageClasses
-          </p>
-        </div>
-        <div className="flex items-center gap-[12px]">
-          <FavoriteButton name="Storage" path="/storage" />
-          <button className="bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white px-[20px] py-[10px] rounded-[8px] font-semibold text-[14px] transition-colors flex items-center gap-[8px]">
-            <HardDrive className="size-[16px]" />
-            Create Volume
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-[16px] mb-[24px]">
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <HardDrive className="size-[20px] text-[#0066cc] dark:text-[#4dabf7]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Persistent Volumes</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.pv}</p>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <Database className="size-[20px] text-[#3e8635] dark:text-[#81c784]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Volume Claims</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.pvc}</p>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <Folder className="size-[20px] text-[#ff9800] dark:text-[#ffb74d]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Storage Classes</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.storageClasses}</p>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <HardDrive className="size-[20px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Total Capacity</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.totalCapacity}</p>
-        </div>
-      </div>
-
-      {/* Filters */}
-      <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[16px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] mb-[24px]">
-        <div className="flex items-center gap-[16px]">
-          <div className="flex-1 relative">
-            <Search className="absolute left-[12px] top-1/2 -translate-y-1/2 size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-            <input
-              type="text"
-              placeholder="Search storage resources..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-[40px] pr-[16px] py-[10px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] text-[#151515] dark:text-white text-[14px] focus:outline-none focus:border-[#0066cc] dark:focus:border-[#4dabf7]"
-            />
-          </div>
-          <select
-            value={selectedNamespace}
-            onChange={(e) => setSelectedNamespace(e.target.value)}
-            className="px-[16px] py-[10px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] text-[#151515] dark:text-white text-[14px] cursor-pointer"
+        <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
+          <Flex
+            alignItems={{ default: "alignItemsCenter" }}
+            justifyContent={{ default: "justifyContentSpaceBetween" }}
+            flexWrap={{ default: "wrap" }}
+            gap={{ default: "gapMd" }}
           >
-            {namespaces.map((ns) => (
-              <option key={ns} value={ns}>
-                {ns === "all" ? "All Namespaces" : ns}
-              </option>
-            ))}
-          </select>
-          <select
-            value={resourceFilter}
-            onChange={(e) => setResourceFilter(e.target.value as ResourceType)}
-            className="px-[16px] py-[10px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] text-[#151515] dark:text-white text-[14px] cursor-pointer"
-          >
-            <option value="all">All Types</option>
-            <option value="pv">Persistent Volumes</option>
-            <option value="pvc">Volume Claims</option>
-            <option value="storageclass">Storage Classes</option>
-          </select>
-          <button className="p-[10px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.08)] transition-colors">
-            <RefreshCw className="size-[16px] text-[#151515] dark:text-white" />
-          </button>
-        </div>
-      </div>
+            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+              <Title headingLevel="h1" size="2xl">
+                Storage
+              </Title>
+              <FavoriteButton name="Storage" path="/storage" />
+            </Flex>
+            <Button variant="primary" icon={<CubesIcon />}>
+              Create Volume
+            </Button>
+          </Flex>
 
-      {/* Resources Table */}
-      <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[16px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead className="bg-[rgba(0,0,0,0.03)] dark:bg-[rgba(255,255,255,0.03)] border-b border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-              <tr>
-                <th className="text-left px-[20px] py-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[13px] text-[#151515] dark:text-white uppercase tracking-wide">
-                  Name
-                </th>
-                <th className="text-left px-[20px] py-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[13px] text-[#151515] dark:text-white uppercase tracking-wide">
-                  Namespace
-                </th>
-                <th className="text-left px-[20px] py-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[13px] text-[#151515] dark:text-white uppercase tracking-wide">
-                  Type
-                </th>
-                <th className="text-left px-[20px] py-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[13px] text-[#151515] dark:text-white uppercase tracking-wide">
-                  Status
-                </th>
-                <th className="text-left px-[20px] py-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[13px] text-[#151515] dark:text-white uppercase tracking-wide">
-                  Capacity
-                </th>
-                <th className="text-left px-[20px] py-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[13px] text-[#151515] dark:text-white uppercase tracking-wide">
-                  Storage Class
-                </th>
-                <th className="text-left px-[20px] py-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[13px] text-[#151515] dark:text-white uppercase tracking-wide">
-                  Age
-                </th>
-                <th className="text-left px-[20px] py-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[13px] text-[#151515] dark:text-white uppercase tracking-wide">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredResources.map((resource, index) => (
-                <tr
-                  key={index}
-                  className="border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors cursor-pointer"
-                >
-                  <td className="px-[20px] py-[16px]">
-                    <div className="flex items-center gap-[8px]">
-                      {getTypeIcon(resource.type)}
-                      <span className="font-mono text-[13px] text-[#151515] dark:text-white">{resource.name}</span>
-                    </div>
-                  </td>
-                  <td className="px-[20px] py-[16px]">
-                    {resource.namespace ? (
-                      <span className="px-[10px] py-[4px] bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.05)] rounded-[999px] text-[12px] text-[#151515] dark:text-white font-mono">
-                        {resource.namespace}
-                      </span>
-                    ) : (
-                      <span className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">—</span>
-                    )}
-                  </td>
-                  <td className="px-[20px] py-[16px] text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-                    {resource.type === "PersistentVolume" ? "PV" : resource.type === "PersistentVolumeClaim" ? "PVC" : "SC"}
-                  </td>
-                  <td className="px-[20px] py-[16px]">
-                    <div className="flex items-center gap-[6px]">
-                      {getStatusIcon(resource.status)}
-                      <span className={`px-[10px] py-[4px] rounded-[999px] text-[12px] font-semibold ${getStatusColor(resource.status)}`}>
-                        {resource.status}
-                      </span>
-                    </div>
-                  </td>
-                  <td className="px-[20px] py-[16px] text-[13px] text-[#151515] dark:text-white font-mono">
-                    {resource.capacity || "—"}
-                  </td>
-                  <td className="px-[20px] py-[16px] text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0] font-mono">
-                    {resource.storageClass || resource.provisioner || "—"}
-                  </td>
-                  <td className="px-[20px] py-[16px] text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-                    {resource.age}
-                  </td>
-                  <td className="px-[20px] py-[16px]">
-                    <button className="p-[6px] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.08)] rounded-[999px] transition-colors">
-                      <MoreVertical className="size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+          <div className="ocs-pods-list__panel app-glass-panel">
+            <DataView ouiaId="storage-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+              <DataViewToolbar
+                ouiaId="storage-dv-toolbar"
+                id="storage-dv-toolbar"
+                className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+                clearAllFilters={clearAllFilters}
+                collapseListedFiltersBreakpoint="xl"
+                filters={
+                  <IoDataViewFiltersWithMidActions<StorageFilters>
+                    values={filters}
+                    onChange={(_filterId, partial) => onSetFilters(partial)}
+                    breakpoint="xl"
+                    midContent={
+                      <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }}>
+                        <ToolbarItem>
+                          <Button variant="plain" aria-label="List view" isAriaPressed icon={<ListIcon />} />
+                        </ToolbarItem>
+                        <ToolbarItem>
+                          <Button variant="plain" aria-label="Refresh" icon={<SyncIcon />} />
+                        </ToolbarItem>
+                      </ToolbarGroup>
+                    }
+                  >
+                    <DataViewTextFilter
+                      title="Name"
+                      filterId="name"
+                      placeholder="Filter by name..."
+                      style={{ minWidth: "16rem", maxWidth: "100%" }}
+                    />
+                    <DataViewTextFilter
+                      title="Namespace"
+                      filterId="namespace"
+                      placeholder="Filter by namespace..."
+                      style={{ minWidth: "14rem", maxWidth: "100%" }}
+                    />
+                    <DataViewCheckboxFilter title="Type" filterId="type" options={TYPE_OPTIONS} />
+                  </IoDataViewFiltersWithMidActions>
+                }
+                pagination={
+                  <Pagination
+                    perPageOptions={[
+                      { title: "10", value: 10 },
+                      { title: "20", value: 20 },
+                      { title: "50", value: 50 },
+                    ]}
+                    itemCount={itemCount}
+                    page={page}
+                    perPage={perPage}
+                    onSetPage={(_e, p) => setPage(p)}
+                    onPerPageSelect={(_e, pp) => {
+                      setPerPage(pp);
+                      setPage(1);
+                    }}
+                    variant={PaginationVariant.top}
+                    isCompact
+                    ouiaId="storage-pagination"
+                    widgetId="storage-pagination"
+                    titles={{ items: "resources" }}
+                    paginationAriaLabel="Storage pagination"
+                  />
+                }
+              />
 
-        {filteredResources.length === 0 && (
-          <div className="p-[48px] text-center">
-            <HardDrive className="size-[48px] text-[#4d4d4d] dark:text-[#b0b0b0] mx-auto mb-[16px]" />
-            <p className="text-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-              No storage resources found matching your filters
-            </p>
+              <OcsPrototypeListTable ariaLabel="Storage">
+                <Thead>
+                  <Tr>
+                    <Th dataLabel="Name">
+                      <SortableTableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Namespace">
+                      <SortableTableHeader label="Namespace" column="namespace" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Type">
+                      <SortableTableHeader label="Type" column="type" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Status">
+                      <SortableTableHeader label="Status" column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Capacity">
+                      <SortableTableHeader label="Capacity" column="capacity" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Storage class">
+                      <SortableTableHeader label="Storage class" column="storageClass" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Age">
+                      <SortableTableHeader label="Age" column="age" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th modifier="fitContent" dataLabel="Actions">
+                      <PlainTableHeader label="Actions" />
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {paginated.length === 0 ? (
+                    <Tr>
+                      <Td colSpan={colSpan} dataLabel="Empty state">
+                        <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                          No storage resources match your filters.
+                        </Content>
+                      </Td>
+                    </Tr>
+                  ) : (
+                    paginated.map((resource) => (
+                      <Tr key={`${resource.type}/${resource.namespace ?? ""}/${resource.name}`}>
+                        <Td dataLabel="Name">
+                          <Button variant="link" isInline>
+                            {resource.name}
+                          </Button>
+                        </Td>
+                        <Td dataLabel="Namespace">
+                          <Content component="small">{resource.namespace ?? "—"}</Content>
+                        </Td>
+                        <Td dataLabel="Type">
+                          <Content component="small">
+                            {resource.type === "PersistentVolume"
+                              ? "PV"
+                              : resource.type === "PersistentVolumeClaim"
+                                ? "PVC"
+                                : "SC"}
+                          </Content>
+                        </Td>
+                        <Td dataLabel="Status">
+                          <StorageStatusCell status={resource.status} />
+                        </Td>
+                        <Td dataLabel="Capacity">
+                          <Content component="small">{resource.capacity ?? "—"}</Content>
+                        </Td>
+                        <Td dataLabel="Storage class">
+                          <Content component="small">{resource.storageClass ?? resource.provisioner ?? "—"}</Content>
+                        </Td>
+                        <Td dataLabel="Age">
+                          <Content component="small">{resource.age}</Content>
+                        </Td>
+                        <Td dataLabel="Actions" isActionCell hasAction>
+                          <Button variant="plain" aria-label={`Actions for ${resource.name}`} icon={<EllipsisVIcon />} />
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </Tbody>
+              </OcsPrototypeListTable>
+            </DataView>
           </div>
-        )}
-      </div>
+        </Flex>
       </Breadcrumbs>
     </div>
   );

@@ -1,7 +1,33 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
-import { AlertTriangle, Info, CheckCircle } from "@/lib/pfIcons";
+import {
+  Button,
+  Content,
+  Label,
+  Pagination,
+  PaginationVariant,
+} from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
+import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import { AlertTriangle, CheckCircle } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../../components/dataView/OcsPrototypeListTable";
 
 export default function SoftwareLifecycleManagementPage() {
   const [selectedTab, setSelectedTab] = useState<"operators" | "cluster">("operators");
@@ -56,6 +82,50 @@ export default function SoftwareLifecycleManagementPage() {
     status: "available",
     blockedByOperators: ["Abot Operator", "Airflow Helm Operator"],
   };
+
+  type OperatorUpdateFilters = { name: string };
+  type OperatorUpdateSortColumn = "name" | "currentVersion" | "targetVersion" | "updatePlan" | "compatibility";
+
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<OperatorUpdateFilters>({
+    filters: { name: "" },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<OperatorUpdateSortColumn>("name");
+
+  const filteredOperatorUpdates = useMemo(() => {
+    const nameQ = (filters.name ?? "").trim().toLowerCase();
+    return operatorUpdates.filter((op) => !nameQ || op.name.toLowerCase().includes(nameQ));
+  }, [filters.name]);
+
+  const sortedOperatorUpdates = useMemo(() => {
+    return [...filteredOperatorUpdates].sort((a, b) => {
+      switch (sortColumn) {
+        case "name":
+          return compareStrings(a.name, b.name, sortDirection);
+        case "currentVersion":
+          return compareStrings(a.currentVersion, b.currentVersion, sortDirection);
+        case "targetVersion":
+          return compareStrings(a.targetVersion, b.targetVersion, sortDirection);
+        case "updatePlan":
+          return compareStrings(a.updatePlan, b.updatePlan, sortDirection);
+        case "compatibility":
+          return compareStrings(a.clusterCompatibility, b.clusterCompatibility, sortDirection);
+        default:
+          return 0;
+      }
+    });
+  }, [filteredOperatorUpdates, sortColumn, sortDirection]);
+
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(
+    sortedOperatorUpdates,
+    [filters],
+    20
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.name, perPage, setPage]);
+
+  const operatorColSpan = 6;
 
   return (
     <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
@@ -149,80 +219,131 @@ export default function SoftwareLifecycleManagementPage() {
               </p>
             </div>
 
-            <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[24px] shadow-[0px_8px_24px_0px_rgba(0,0,0,0.08)] overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b-2 border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-                    <th className="text-left py-[16px] px-[20px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[13px]">
-                      Name ↕
-                    </th>
-                    <th className="text-left py-[16px] px-[12px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[13px]">
-                      Current Version
-                    </th>
-                    <th className="text-left py-[16px] px-[12px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[13px]">
-                      Target Version
-                    </th>
-                    <th className="text-left py-[16px] px-[12px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[13px]">
-                      Update Plan
-                    </th>
-                    <th className="text-left py-[16px] px-[12px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[13px]">
-                      Compatibility
-                    </th>
-                    <th className="text-left py-[16px] px-[12px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[13px]">
-                      Actions
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {operatorUpdates.map((op, index) => (
-                    <tr
-                      key={op.id}
-                      className={`border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors ${
-                        index === operatorUpdates.length - 1 ? "border-b-0" : ""
-                      }`}
+            <div className="ocs-pods-list__panel app-glass-panel">
+              <DataView ouiaId="operator-updates-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+                <DataViewToolbar
+                  ouiaId="operator-updates-dv-toolbar"
+                  id="operator-updates-dv-toolbar"
+                  className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+                  clearAllFilters={clearAllFilters}
+                  collapseListedFiltersBreakpoint="xl"
+                  filters={
+                    <IoDataViewFiltersWithMidActions<OperatorUpdateFilters>
+                      values={filters}
+                      onChange={(_filterId, partial) => onSetFilters(partial)}
+                      breakpoint="xl"
                     >
-                      <td className="py-[16px] px-[20px]">
-                        <div className="flex items-center gap-[8px]">
-                          <Link
-                            to={`/ecosystem/installed-operators/${op.id}`}
-                            className="font-['Red_Hat_Text:Medium',sans-serif] font-medium text-[#0066cc] dark:text-[#4dabf7] text-[14px] hover:underline no-underline"
-                          >
-                            {op.name}
-                          </Link>
-                          {op.requiredByClusterUpdate && (
-                            <span className="px-[8px] py-[2px] bg-[#f0ab00] dark:bg-[rgba(240,171,0,0.15)] text-white dark:text-[#f4c145] rounded-[4px] text-[11px] font-semibold">
-                              Required
+                      <DataViewTextFilter
+                        title="Name"
+                        filterId="name"
+                        placeholder="Filter by name..."
+                        style={{ minWidth: "16rem", maxWidth: "100%" }}
+                      />
+                    </IoDataViewFiltersWithMidActions>
+                  }
+                  pagination={
+                    <Pagination
+                      perPageOptions={[
+                        { title: "10", value: 10 },
+                        { title: "20", value: 20 },
+                        { title: "50", value: 50 },
+                      ]}
+                      itemCount={itemCount}
+                      page={page}
+                      perPage={perPage}
+                      onSetPage={(_e, p) => setPage(p)}
+                      onPerPageSelect={(_e, pp) => {
+                        setPerPage(pp);
+                        setPage(1);
+                      }}
+                      variant={PaginationVariant.top}
+                      isCompact
+                      ouiaId="operator-updates-pagination"
+                      widgetId="operator-updates-pagination"
+                      titles={{ items: "operator updates" }}
+                      paginationAriaLabel="Operator updates pagination"
+                    />
+                  }
+                />
+
+                <OcsPrototypeListTable ariaLabel="Pending operator updates">
+                  <Thead>
+                    <Tr>
+                      <Th dataLabel="Name">
+                        <SortableTableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                      </Th>
+                      <Th dataLabel="Current Version">
+                        <SortableTableHeader label="Current Version" column="currentVersion" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                      </Th>
+                      <Th dataLabel="Target Version">
+                        <SortableTableHeader label="Target Version" column="targetVersion" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                      </Th>
+                      <Th dataLabel="Update Plan">
+                        <SortableTableHeader label="Update Plan" column="updatePlan" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                      </Th>
+                      <Th dataLabel="Compatibility">
+                        <SortableTableHeader label="Compatibility" column="compatibility" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                      </Th>
+                      <Th modifier="fitContent" dataLabel="Actions">
+                        <PlainTableHeader label="Actions" />
+                      </Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {paginated.length === 0 ? (
+                      <Tr>
+                        <Td colSpan={operatorColSpan} dataLabel="Empty state">
+                          <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                            No operator updates match your filters.
+                          </Content>
+                        </Td>
+                      </Tr>
+                    ) : (
+                      paginated.map((op) => (
+                        <Tr key={op.id}>
+                          <Td dataLabel="Name">
+                            <div className="flex items-center gap-[8px]">
+                              <Button
+                                component={Link}
+                                variant="link"
+                                isInline
+                                to={`/ecosystem/installed-operators/${op.id}`}
+                              >
+                                {op.name}
+                              </Button>
+                              {op.requiredByClusterUpdate && (
+                                <Label color="orange" isCompact>
+                                  Required
+                                </Label>
+                              )}
+                            </div>
+                          </Td>
+                          <Td dataLabel="Current Version">
+                            <Content component="small">{op.currentVersion}</Content>
+                          </Td>
+                          <Td dataLabel="Target Version">
+                            <Content component="small">{op.targetVersion}</Content>
+                          </Td>
+                          <Td dataLabel="Update Plan">
+                            <Content component="small">{op.updatePlan}</Content>
+                          </Td>
+                          <Td dataLabel="Compatibility">
+                            <span className="flex items-center gap-[6px] text-[13px] text-[#3e8635] dark:text-[#5ba352]">
+                              <CheckCircle className="size-[14px]" />
+                              {op.clusterCompatibility}
                             </span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="py-[16px] px-[12px] text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-                        {op.currentVersion}
-                      </td>
-                      <td className="py-[16px] px-[12px] text-[14px] text-[#0066cc] dark:text-[#4dabf7] font-semibold">
-                        {op.targetVersion}
-                      </td>
-                      <td className="py-[16px] px-[12px] text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-                        {op.updatePlan}
-                      </td>
-                      <td className="py-[16px] px-[12px]">
-                        <span className="flex items-center gap-[6px] text-[13px] text-[#3e8635] dark:text-[#5ba352]">
-                          <CheckCircle className="size-[14px]" />
-                          {op.clusterCompatibility}
-                        </span>
-                      </td>
-                      <td className="py-[16px] px-[12px]">
-                        <Link
-                          to={`/ecosystem/installed-operators/${op.id}/update`}
-                          className="px-[16px] py-[8px] bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white rounded-[8px] font-semibold text-[13px] transition-colors inline-block"
-                        >
-                          Update
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+                          </Td>
+                          <Td dataLabel="Actions">
+                            <Button component={Link} variant="primary" size="sm" to={`/ecosystem/installed-operators/${op.id}/update`}>
+                              Update
+                            </Button>
+                          </Td>
+                        </Tr>
+                      ))
+                    )}
+                  </Tbody>
+                </OcsPrototypeListTable>
+              </DataView>
             </div>
           </>
         )}

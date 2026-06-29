@@ -1,67 +1,239 @@
-import { useState } from "react";
+import { useEffect, useMemo } from "react";
+import {
+  Button,
+  Content,
+  Flex,
+  Pagination,
+  PaginationVariant,
+  Title,
+} from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
+import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import FavoriteButton from "../../components/FavoriteButton";
+import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../../components/dataView/OcsPrototypeListTable";
+
+interface ResourceQuota {
+  name: string;
+  namespace: string;
+  cpu: string;
+  memory: string;
+  pods: string;
+}
+
+type ResourceQuotaFilters = { name: string; namespace: string };
+type ResourceQuotaSortColumn = "name" | "namespace" | "cpu" | "memory" | "pods";
+
+const QUOTAS: ResourceQuota[] = [
+  { name: "compute-quota", namespace: "default", cpu: "10 cores", memory: "20Gi", pods: "50" },
+  { name: "storage-quota", namespace: "my-application", cpu: "5 cores", memory: "10Gi", pods: "25" },
+  { name: "dev-quota", namespace: "development", cpu: "8 cores", memory: "16Gi", pods: "40" },
+];
+
+function rowMatchesFilters(row: ResourceQuota, filters: ResourceQuotaFilters): boolean {
+  const nameQ = (filters.name ?? "").trim().toLowerCase();
+  const nsQ = (filters.namespace ?? "").trim().toLowerCase();
+  if (nameQ && !row.name.toLowerCase().includes(nameQ)) return false;
+  if (nsQ && !row.namespace.toLowerCase().includes(nsQ)) return false;
+  return true;
+}
+
+function sortQuotas(rows: ResourceQuota[], column: ResourceQuotaSortColumn, direction: SortDirection): ResourceQuota[] {
+  return [...rows].sort((a, b) => {
+    switch (column) {
+      case "name":
+        return compareStrings(a.name, b.name, direction);
+      case "namespace":
+        return compareStrings(a.namespace, b.namespace, direction);
+      case "cpu":
+        return compareStrings(a.cpu, b.cpu, direction);
+      case "memory":
+        return compareStrings(a.memory, b.memory, direction);
+      case "pods":
+        return compareStrings(a.pods, b.pods, direction);
+      default:
+        return 0;
+    }
+  });
+}
 
 export default function ResourceQuotasPage() {
-  const quotas = [
-    { name: "compute-quota", namespace: "default", cpu: "10 cores", memory: "20Gi", pods: "50" },
-    { name: "storage-quota", namespace: "my-application", cpu: "5 cores", memory: "10Gi", pods: "25" },
-    { name: "dev-quota", namespace: "development", cpu: "8 cores", memory: "16Gi", pods: "40" },
-  ];
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<ResourceQuotaFilters>({
+    filters: { name: "", namespace: "" },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<ResourceQuotaSortColumn>("name");
+
+  const filteredRows = useMemo(
+    () => QUOTAS.filter((row) => rowMatchesFilters(row, filters)),
+    [filters]
+  );
+  const sortedRows = useMemo(
+    () => sortQuotas(filteredRows, sortColumn, sortDirection),
+    [filteredRows, sortColumn, sortDirection]
+  );
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(sortedRows, [filters], 20);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.name, filters.namespace, perPage, setPage]);
+
+  const colSpan = 6;
 
   return (
-    <div className="ocs-app-page-outer">
-      <div className="flex items-center justify-between mb-[24px]">
-        <h1 className="font-['Red_Hat_Display_VF:Medium',sans-serif] font-medium leading-[36.4px] text-[#151515] dark:text-white text-[28px]">
-          ResourceQuotas
-        </h1>
-        <div className="flex items-center gap-[12px]">
-          <FavoriteButton name="ResourceQuotas" path="/administration/resource-quotas" />
-          <button className="bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white px-[20px] py-[10px] rounded-[8px] font-semibold transition-colors">
-            Create ResourceQuota
-          </button>
-        </div>
-      </div>
-      <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[24px] shadow-[0px_8px_24px_0px_rgba(0,0,0,0.08)] p-[48px]">
-        <p className="font-['Red_Hat_Text:Regular',sans-serif] font-normal text-[#4d4d4d] dark:text-[#b0b0b0] text-[16px] mb-[24px]">
+    <div className="ocs-app-page-outer w-full">
+      <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
+        <Flex
+          alignItems={{ default: "alignItemsCenter" }}
+          justifyContent={{ default: "justifyContentSpaceBetween" }}
+          flexWrap={{ default: "wrap" }}
+          gap={{ default: "gapMd" }}
+        >
+          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+            <Title headingLevel="h1" size="2xl">
+              ResourceQuotas
+            </Title>
+            <FavoriteButton name="ResourceQuotas" path="/administration/resource-quotas" />
+          </Flex>
+          <Button variant="primary">Create ResourceQuota</Button>
+        </Flex>
+
+        <Content component="p">
           ResourceQuotas provide constraints that limit aggregate resource consumption per namespace.
-        </p>
-        <div className="space-y-[16px]">
-          {quotas.map((quota) => (
-            <div
-              key={quota.name}
-              className="bg-white dark:bg-[rgba(255,255,255,0.03)] rounded-[16px] p-[24px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]"
-            >
-              <div className="flex items-start justify-between mb-[16px]">
-                <div>
-                  <h3 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[18px] mb-[4px]">
-                    {quota.name}
-                  </h3>
-                  <p className="text-[#4d4d4d] dark:text-[#b0b0b0] text-[14px]">
-                    Namespace: <span className="font-semibold">{quota.namespace}</span>
-                  </p>
-                </div>
-                <button className="text-[#0066cc] dark:text-[#4dabf7] hover:underline font-semibold text-[14px]">
-                  Edit
-                </button>
-              </div>
-              <div className="grid grid-cols-3 gap-[16px]">
-                <div className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.05)] rounded-[8px] p-[16px]">
-                  <p className="text-[#4d4d4d] dark:text-[#b0b0b0] text-[12px] mb-[4px]">CPU Limit</p>
-                  <p className="font-semibold text-[#151515] dark:text-white text-[16px]">{quota.cpu}</p>
-                </div>
-                <div className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.05)] rounded-[8px] p-[16px]">
-                  <p className="text-[#4d4d4d] dark:text-[#b0b0b0] text-[12px] mb-[4px]">Memory Limit</p>
-                  <p className="font-semibold text-[#151515] dark:text-white text-[16px]">{quota.memory}</p>
-                </div>
-                <div className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.05)] rounded-[8px] p-[16px]">
-                  <p className="text-[#4d4d4d] dark:text-[#b0b0b0] text-[12px] mb-[4px]">Max Pods</p>
-                  <p className="font-semibold text-[#151515] dark:text-white text-[16px]">{quota.pods}</p>
-                </div>
-              </div>
-            </div>
-          ))}
+        </Content>
+
+        <div className="ocs-pods-list__panel app-glass-panel">
+          <DataView ouiaId="resource-quotas-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+            <DataViewToolbar
+              ouiaId="resource-quotas-dv-toolbar"
+              id="resource-quotas-dv-toolbar"
+              className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+              clearAllFilters={clearAllFilters}
+              collapseListedFiltersBreakpoint="xl"
+              filters={
+                <IoDataViewFiltersWithMidActions<ResourceQuotaFilters>
+                  values={filters}
+                  onChange={(_filterId, partial) => onSetFilters(partial)}
+                  breakpoint="xl"
+                >
+                  <DataViewTextFilter
+                    title="Name"
+                    filterId="name"
+                    placeholder="Filter by name..."
+                    style={{ minWidth: "16rem", maxWidth: "100%" }}
+                  />
+                  <DataViewTextFilter
+                    title="Namespace"
+                    filterId="namespace"
+                    placeholder="Filter by namespace..."
+                    style={{ minWidth: "14rem", maxWidth: "100%" }}
+                  />
+                </IoDataViewFiltersWithMidActions>
+              }
+              pagination={
+                <Pagination
+                  perPageOptions={[
+                    { title: "10", value: 10 },
+                    { title: "20", value: 20 },
+                    { title: "50", value: 50 },
+                  ]}
+                  itemCount={itemCount}
+                  page={page}
+                  perPage={perPage}
+                  onSetPage={(_e, p) => setPage(p)}
+                  onPerPageSelect={(_e, pp) => {
+                    setPerPage(pp);
+                    setPage(1);
+                  }}
+                  variant={PaginationVariant.top}
+                  isCompact
+                  ouiaId="resource-quotas-pagination"
+                  widgetId="resource-quotas-pagination"
+                  titles={{ items: "resource quotas" }}
+                  paginationAriaLabel="Resource quotas pagination"
+                />
+              }
+            />
+
+            <OcsPrototypeListTable ariaLabel="Resource quotas">
+              <Thead>
+                <Tr>
+                  <Th dataLabel="Name">
+                    <SortableTableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                  </Th>
+                  <Th dataLabel="Namespace">
+                    <SortableTableHeader label="Namespace" column="namespace" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                  </Th>
+                  <Th dataLabel="CPU Limit">
+                    <SortableTableHeader label="CPU Limit" column="cpu" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                  </Th>
+                  <Th dataLabel="Memory Limit">
+                    <SortableTableHeader label="Memory Limit" column="memory" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                  </Th>
+                  <Th dataLabel="Max Pods">
+                    <SortableTableHeader label="Max Pods" column="pods" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                  </Th>
+                  <Th modifier="fitContent" dataLabel="Actions">
+                    <PlainTableHeader label="Actions" />
+                  </Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {paginated.length === 0 ? (
+                  <Tr>
+                    <Td colSpan={colSpan} dataLabel="Empty state">
+                      <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                        No resource quotas match your filters.
+                      </Content>
+                    </Td>
+                  </Tr>
+                ) : (
+                  paginated.map((quota) => (
+                    <Tr key={quota.name}>
+                      <Td dataLabel="Name">
+                        <Button variant="link" isInline>
+                          {quota.name}
+                        </Button>
+                      </Td>
+                      <Td dataLabel="Namespace">
+                        <Content component="small">{quota.namespace}</Content>
+                      </Td>
+                      <Td dataLabel="CPU Limit">
+                        <Content component="small">{quota.cpu}</Content>
+                      </Td>
+                      <Td dataLabel="Memory Limit">
+                        <Content component="small">{quota.memory}</Content>
+                      </Td>
+                      <Td dataLabel="Max Pods">
+                        <Content component="small">{quota.pods}</Content>
+                      </Td>
+                      <Td dataLabel="Actions">
+                        <Button variant="link" isInline>
+                          Edit
+                        </Button>
+                      </Td>
+                    </Tr>
+                  ))
+                )}
+              </Tbody>
+            </OcsPrototypeListTable>
+          </DataView>
         </div>
-      </div>
+      </Flex>
     </div>
   );
 }

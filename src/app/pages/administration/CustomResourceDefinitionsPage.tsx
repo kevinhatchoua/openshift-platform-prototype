@@ -1,116 +1,255 @@
-import { useState } from "react";
+import { useEffect, useMemo } from "react";
+import {
+  Button,
+  Content,
+  Flex,
+  Label,
+  Pagination,
+  PaginationVariant,
+  Title,
+  ToolbarGroup,
+  ToolbarItem,
+} from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
+import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
+import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
+import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
+import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../../components/dataView/OcsPrototypeListTable";
+
+interface Crd {
+  name: string;
+  group: string;
+  version: string;
+  scope: string;
+  kind: string;
+}
+
+type CrdFilters = { name: string };
+
+type SortColumn = "name" | "group" | "version" | "scope" | "kind";
+
+const CRDS: Crd[] = [
+  { name: "deployments.apps", group: "apps", version: "v1", scope: "Namespaced", kind: "Deployment" },
+  { name: "services.core", group: "core", version: "v1", scope: "Namespaced", kind: "Service" },
+  { name: "routes.route.openshift.io", group: "route.openshift.io", version: "v1", scope: "Namespaced", kind: "Route" },
+  { name: "clusterserviceversions.operators.coreos.com", group: "operators.coreos.com", version: "v1alpha1", scope: "Namespaced", kind: "ClusterServiceVersion" },
+  { name: "prometheuses.monitoring.coreos.com", group: "monitoring.coreos.com", version: "v1", scope: "Namespaced", kind: "Prometheus" },
+];
+
+function rowMatchesFilters(row: Crd, filters: CrdFilters): boolean {
+  const q = (filters.name ?? "").trim().toLowerCase();
+  return !q || row.name.toLowerCase().includes(q);
+}
+
+function sortCrds(rows: Crd[], column: SortColumn, direction: SortDirection): Crd[] {
+  return [...rows].sort((a, b) => {
+    switch (column) {
+      case "name":
+        return compareStrings(a.name, b.name, direction);
+      case "group":
+        return compareStrings(a.group, b.group, direction);
+      case "version":
+        return compareStrings(a.version, b.version, direction);
+      case "scope":
+        return compareStrings(a.scope, b.scope, direction);
+      case "kind":
+        return compareStrings(a.kind, b.kind, direction);
+      default:
+        return 0;
+    }
+  });
+}
 
 export default function CustomResourceDefinitionsPage() {
-  const crds = [
-    {
-      name: "deployments.apps",
-      group: "apps",
-      version: "v1",
-      scope: "Namespaced",
-      kind: "Deployment",
-    },
-    {
-      name: "services.core",
-      group: "core",
-      version: "v1",
-      scope: "Namespaced",
-      kind: "Service",
-    },
-    {
-      name: "routes.route.openshift.io",
-      group: "route.openshift.io",
-      version: "v1",
-      scope: "Namespaced",
-      kind: "Route",
-    },
-    {
-      name: "clusterserviceversions.operators.coreos.com",
-      group: "operators.coreos.com",
-      version: "v1alpha1",
-      scope: "Namespaced",
-      kind: "ClusterServiceVersion",
-    },
-    {
-      name: "prometheuses.monitoring.coreos.com",
-      group: "monitoring.coreos.com",
-      version: "v1",
-      scope: "Namespaced",
-      kind: "Prometheus",
-    },
-  ];
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<CrdFilters>({
+    filters: { name: "" },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
+
+  const filtered = useMemo(() => CRDS.filter((c) => rowMatchesFilters(c, filters)), [filters]);
+  const sorted = useMemo(
+    () => sortCrds(filtered, sortColumn, sortDirection),
+    [filtered, sortColumn, sortDirection]
+  );
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(sorted, [filters], 20);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.name, perPage, setPage]);
+
+  const colSpan = 6;
 
   return (
-    <div className="ocs-app-page-outer">
-      <div className="flex items-center justify-between mb-[24px]">
-        <h1 className="font-['Red_Hat_Display_VF:Medium',sans-serif] font-medium leading-[36.4px] text-[#151515] dark:text-white text-[28px]">
-          CustomResourceDefinitions
-        </h1>
-        <div className="flex items-center gap-[12px]">
-          <FavoriteButton name="CustomResourceDefinitions" path="/administration/custom-resource-definitions" />
-          <button className="bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white px-[20px] py-[10px] rounded-[8px] font-semibold transition-colors">
-            Create CRD
-          </button>
-        </div>
-      </div>
-      <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[24px] shadow-[0px_8px_24px_0px_rgba(0,0,0,0.08)] p-[32px]">
-        <p className="font-['Red_Hat_Text:Regular',sans-serif] font-normal text-[#4d4d4d] dark:text-[#b0b0b0] text-[16px] mb-[24px]">
-          CustomResourceDefinitions extend the Kubernetes API to support custom resource types.
-        </p>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Name
-                </th>
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Group
-                </th>
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Version
-                </th>
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Scope
-                </th>
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Kind
-                </th>
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {crds.map((crd, index) => (
-                <tr
-                  key={crd.name}
-                  className={`border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors ${
-                    index === crds.length - 1 ? "border-b-0" : ""
-                  }`}
-                >
-                  <td className="py-[16px] px-[16px] font-['Red_Hat_Text:Medium',sans-serif] font-medium text-[#151515] dark:text-white">
-                    {crd.name}
-                  </td>
-                  <td className="py-[16px] px-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]">{crd.group}</td>
-                  <td className="py-[16px] px-[16px]">
-                    <span className="bg-[rgba(0,0,0,0.06)] dark:bg-[rgba(255,255,255,0.1)] px-[8px] py-[4px] rounded-[999px] text-[13px] font-semibold text-[#151515] dark:text-white">
-                      {crd.version}
-                    </span>
-                  </td>
-                  <td className="py-[16px] px-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]">{crd.scope}</td>
-                  <td className="py-[16px] px-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]">{crd.kind}</td>
-                  <td className="py-[16px] px-[16px]">
-                    <button className="text-[#0066cc] dark:text-[#4dabf7] hover:underline font-semibold text-[14px]">
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div className="ocs-app-page-outer w-full">
+      <Breadcrumbs
+        items={[
+          { label: "Home", path: "/" },
+          { label: "Administration", path: "/administration" },
+          { label: "CustomResourceDefinitions", path: "/administration/custom-resource-definitions" },
+        ]}
+      >
+        <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
+          <Flex
+            alignItems={{ default: "alignItemsCenter" }}
+            justifyContent={{ default: "justifyContentSpaceBetween" }}
+            flexWrap={{ default: "wrap" }}
+            gap={{ default: "gapMd" }}
+          >
+            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+              <Title headingLevel="h1" size="2xl">
+                CustomResourceDefinitions
+              </Title>
+              <FavoriteButton name="CustomResourceDefinitions" path="/administration/custom-resource-definitions" />
+            </Flex>
+            <Button variant="primary">Create CRD</Button>
+          </Flex>
+
+          <Content component="p">
+            CustomResourceDefinitions extend the Kubernetes API to support custom resource types.
+          </Content>
+
+          <div className="ocs-pods-list__panel app-glass-panel">
+            <DataView ouiaId="crds-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+              <DataViewToolbar
+                ouiaId="crds-dv-toolbar"
+                id="crds-dv-toolbar"
+                className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+                clearAllFilters={clearAllFilters}
+                collapseListedFiltersBreakpoint="xl"
+                filters={
+                  <IoDataViewFiltersWithMidActions<CrdFilters>
+                    values={filters}
+                    onChange={(_id, partial) => onSetFilters(partial)}
+                    breakpoint="xl"
+                    midContent={
+                      <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }}>
+                        <ToolbarItem>
+                          <Button variant="plain" aria-label="List view" isAriaPressed icon={<ListIcon />} />
+                        </ToolbarItem>
+                        <ToolbarItem>
+                          <Button variant="plain" aria-label="Refresh" icon={<SyncIcon />} />
+                        </ToolbarItem>
+                      </ToolbarGroup>
+                    }
+                  >
+                    <DataViewTextFilter
+                      title="Name"
+                      filterId="name"
+                      placeholder="Filter by name..."
+                      style={{ minWidth: "16rem", maxWidth: "100%" }}
+                    />
+                  </IoDataViewFiltersWithMidActions>
+                }
+                pagination={
+                  <Pagination
+                    perPageOptions={[
+                      { title: "10", value: 10 },
+                      { title: "20", value: 20 },
+                      { title: "50", value: 50 },
+                    ]}
+                    itemCount={itemCount}
+                    page={page}
+                    perPage={perPage}
+                    onSetPage={(_e, p) => setPage(p)}
+                    onPerPageSelect={(_e, pp) => {
+                      setPerPage(pp);
+                      setPage(1);
+                    }}
+                    variant={PaginationVariant.top}
+                    isCompact
+                    ouiaId="crds-pagination"
+                    widgetId="crds-pagination"
+                    titles={{ items: "definitions" }}
+                    paginationAriaLabel="CustomResourceDefinitions pagination"
+                  />
+                }
+              />
+
+              <OcsPrototypeListTable ariaLabel="CustomResourceDefinitions">
+                <Thead>
+                  <Tr>
+                    <Th dataLabel="Name">
+                      <SortableTableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Group">
+                      <SortableTableHeader label="Group" column="group" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Version">
+                      <SortableTableHeader label="Version" column="version" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Scope">
+                      <SortableTableHeader label="Scope" column="scope" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Kind">
+                      <SortableTableHeader label="Kind" column="kind" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th modifier="fitContent" dataLabel="Actions">
+                      <PlainTableHeader label="Actions" />
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {paginated.length === 0 ? (
+                    <Tr>
+                      <Td colSpan={colSpan} dataLabel="Empty state">
+                        <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                          No custom resource definitions match your filters.
+                        </Content>
+                      </Td>
+                    </Tr>
+                  ) : (
+                    paginated.map((crd) => (
+                      <Tr key={crd.name}>
+                        <Td dataLabel="Name">
+                          <Button variant="link" isInline>
+                            {crd.name}
+                          </Button>
+                        </Td>
+                        <Td dataLabel="Group">
+                          <Content component="small">{crd.group}</Content>
+                        </Td>
+                        <Td dataLabel="Version">
+                          <Label color="grey" isCompact>
+                            {crd.version}
+                          </Label>
+                        </Td>
+                        <Td dataLabel="Scope">
+                          <Content component="small">{crd.scope}</Content>
+                        </Td>
+                        <Td dataLabel="Kind">
+                          <Content component="small">{crd.kind}</Content>
+                        </Td>
+                        <Td dataLabel="Actions" isActionCell hasAction>
+                          <Button variant="plain" aria-label={`Actions for ${crd.name}`} icon={<EllipsisVIcon />} />
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </Tbody>
+              </OcsPrototypeListTable>
+            </DataView>
+          </div>
+        </Flex>
+      </Breadcrumbs>
     </div>
   );
 }

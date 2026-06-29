@@ -1,9 +1,42 @@
-import { useState } from "react";
-import { Users, UserCog, Search, RefreshCw } from "@/lib/pfIcons";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Alert,
+  Button,
+  Content,
+  Flex,
+  Label,
+  Pagination,
+  PaginationVariant,
+  Title,
+  ToolbarGroup,
+  ToolbarItem,
+} from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewCheckboxFilter,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
+import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
+import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
+import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../components/Breadcrumbs";
 import FavoriteButton from "../components/FavoriteButton";
-import { usePermissions } from "../contexts/PermissionsContext";
 import ImpersonateUserModal from "../components/ImpersonateUserModal";
+import { IoDataViewFiltersWithMidActions } from "../components/dataView/IoDataViewFiltersWithMidActions";
+import { usePermissions } from "../contexts/PermissionsContext";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../components/dataView/OcsPrototypeListTable";
 
 interface User {
   id: string;
@@ -15,43 +48,101 @@ interface User {
   status: "Active" | "Inactive";
 }
 
+type UserFilters = {
+  name: string;
+  status: string[];
+};
+
+type SortColumn = "name" | "role" | "department" | "lastLogin" | "status";
+
+const USERS: User[] = [
+  { id: "1", name: "Sarah Johnson", email: "sarah.johnson@redhat.com", role: "Cluster Admin", department: "Platform Engineering", lastLogin: "2 hours ago", status: "Active" },
+  { id: "2", name: "Michael Chen", email: "michael.chen@redhat.com", role: "Developer", department: "Application Development", lastLogin: "5 hours ago", status: "Active" },
+  { id: "3", name: "Emily Rodriguez", email: "emily.rodriguez@redhat.com", role: "Viewer", department: "Quality Assurance", lastLogin: "1 day ago", status: "Active" },
+  { id: "4", name: "David Kim", email: "david.kim@redhat.com", role: "Developer", department: "Application Development", lastLogin: "3 hours ago", status: "Active" },
+  { id: "5", name: "Lisa Anderson", email: "lisa.anderson@redhat.com", role: "Cluster Admin", department: "Platform Engineering", lastLogin: "30 minutes ago", status: "Active" },
+  { id: "6", name: "James Wilson", email: "james.wilson@redhat.com", role: "Viewer", department: "Business Analysis", lastLogin: "2 days ago", status: "Active" },
+];
+
+const STATUS_OPTIONS = [
+  { value: "Active", label: "Active" },
+  { value: "Inactive", label: "Inactive" },
+];
+
+function roleLabelColor(role: string): "red" | "green" | "orange" | "grey" {
+  if (role === "Cluster Admin") return "red";
+  if (role === "Developer") return "green";
+  if (role === "Viewer") return "orange";
+  return "grey";
+}
+
+function rowMatchesFilters(row: User, filters: UserFilters): boolean {
+  const nameQ = (filters.name ?? "").trim().toLowerCase();
+  if (nameQ) {
+    const haystack = `${row.name} ${row.email} ${row.role}`.toLowerCase();
+    if (!haystack.includes(nameQ)) return false;
+  }
+  if (filters.status.length > 0 && !filters.status.includes(row.status)) return false;
+  return true;
+}
+
+function sortUsers(rows: User[], column: SortColumn, direction: SortDirection): User[] {
+  return [...rows].sort((a, b) => {
+    switch (column) {
+      case "name":
+        return compareStrings(a.name, b.name, direction);
+      case "role":
+        return compareStrings(a.role, b.role, direction);
+      case "department":
+        return compareStrings(a.department, b.department, direction);
+      case "lastLogin":
+        return compareStrings(a.lastLogin, b.lastLogin, direction);
+      case "status":
+        return compareStrings(a.status, b.status, direction);
+      default:
+        return 0;
+    }
+  });
+}
+
 export default function UserManagementPage() {
-  const [searchTerm, setSearchTerm] = useState("");
   const [isImpersonateModalOpen, setIsImpersonateModalOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const { impersonatedUser, setImpersonatedUser } = usePermissions();
 
-  const users: User[] = [
-    { id: "1", name: "Sarah Johnson", email: "sarah.johnson@redhat.com", role: "Cluster Admin", department: "Platform Engineering", lastLogin: "2 hours ago", status: "Active" },
-    { id: "2", name: "Michael Chen", email: "michael.chen@redhat.com", role: "Developer", department: "Application Development", lastLogin: "5 hours ago", status: "Active" },
-    { id: "3", name: "Emily Rodriguez", email: "emily.rodriguez@redhat.com", role: "Viewer", department: "Quality Assurance", lastLogin: "1 day ago", status: "Active" },
-    { id: "4", name: "David Kim", email: "david.kim@redhat.com", role: "Developer", department: "Application Development", lastLogin: "3 hours ago", status: "Active" },
-    { id: "5", name: "Lisa Anderson", email: "lisa.anderson@redhat.com", role: "Cluster Admin", department: "Platform Engineering", lastLogin: "30 minutes ago", status: "Active" },
-    { id: "6", name: "James Wilson", email: "james.wilson@redhat.com", role: "Viewer", department: "Business Analysis", lastLogin: "2 days ago", status: "Active" },
-  ];
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<UserFilters>({
+    filters: { name: "", status: [] },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
 
-  const filteredUsers = users.filter((user) =>
-    user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    user.role.toLowerCase().includes(searchTerm.toLowerCase())
+  const filteredRows = useMemo(() => USERS.filter((row) => rowMatchesFilters(row, filters)), [filters]);
+  const sortedRows = useMemo(
+    () => sortUsers(filteredRows, sortColumn, sortDirection),
+    [filteredRows, sortColumn, sortDirection]
   );
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(sortedRows, [filters], 20);
 
-  const stats = {
-    total: users.length,
-    admins: users.filter((u) => u.role === "Cluster Admin").length,
-    developers: users.filter((u) => u.role === "Developer").length,
-    viewers: users.filter((u) => u.role === "Viewer").length,
-  };
+  useEffect(() => {
+    setPage(1);
+  }, [filters.name, filters.status, perPage, setPage]);
 
   const handleImpersonate = (user: User) => {
     setSelectedUser(user);
     setIsImpersonateModalOpen(true);
   };
 
-  const confirmImpersonate = (user: { id: string; name: string; email: string; role: string; department: string }) => {
+  const confirmImpersonate = (user: {
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    department: string;
+  }) => {
     setImpersonatedUser(user);
     setIsImpersonateModalOpen(false);
   };
+
+  const colSpan = 6;
 
   return (
     <div className="ocs-app-page-outer w-full">
@@ -61,166 +152,186 @@ export default function UserManagementPage() {
           { label: "User Management", path: "/user-management" },
         ]}
       >
+        <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
+          <Flex
+            alignItems={{ default: "alignItemsCenter" }}
+            justifyContent={{ default: "justifyContentSpaceBetween" }}
+            flexWrap={{ default: "wrap" }}
+            gap={{ default: "gapMd" }}
+          >
+            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+              <Title headingLevel="h1" size="2xl">
+                User Management
+              </Title>
+              <FavoriteButton name="User Management" path="/user-management" />
+            </Flex>
+            <Button variant="primary">Create User</Button>
+          </Flex>
 
-      <div className="flex items-center justify-between mb-[24px]">
-        <div>
-          <h1 className="font-['Red_Hat_Display_VF:Medium',sans-serif] font-medium leading-[36.4px] text-[#151515] dark:text-white text-[28px] mb-[8px]">
-            User Management
-          </h1>
-          <p className="text-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-            Manage users, roles, and permissions across the cluster
-          </p>
-        </div>
-        <div className="flex items-center gap-[12px]">
-          <FavoriteButton name="User Management" path="/user-management" />
-        </div>
-      </div>
-
-      {/* Current Impersonation Banner */}
-      {impersonatedUser && (
-        <div className="bg-[#fff4e5] dark:bg-[rgba(255,152,0,0.15)] border border-[#ff9800] dark:border-[rgba(255,152,0,0.3)] rounded-[12px] p-[16px] mb-[24px]">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-[12px]">
-              <UserCog className="size-[20px] text-[#ff9800] dark:text-[#ffb74d]" />
-              <div>
-                <p className="text-[14px] font-semibold text-[#151515] dark:text-white">
-                  Currently impersonating: {impersonatedUser.name}
-                </p>
-                <p className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-                  {impersonatedUser.role} • {impersonatedUser.department}
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={() => setImpersonatedUser(null)}
-              className="px-[16px] py-[8px] bg-[#d32f2f] hover:bg-[#b71c1c] text-white rounded-[8px] text-[14px] font-semibold transition-colors"
+          {impersonatedUser ? (
+            <Alert
+              variant="warning"
+              isInline
+              title={`Currently impersonating: ${impersonatedUser.name}`}
+              actionClose={
+                <Button variant="danger" onClick={() => setImpersonatedUser(null)}>
+                  Stop impersonation
+                </Button>
+              }
             >
-              Stop Impersonation
-            </button>
-          </div>
-        </div>
-      )}
+              {impersonatedUser.role} • {impersonatedUser.department}
+            </Alert>
+          ) : null}
 
-      {/* Stats Cards */}
-      <div className="grid grid-cols-4 gap-[16px] mb-[24px]">
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <Users className="size-[20px] text-[#0066cc] dark:text-[#4dabf7]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Total Users</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.total}</p>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <UserCog className="size-[20px] text-[#d32f2f] dark:text-[#ef5350]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Cluster Admins</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.admins}</p>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <Users className="size-[20px] text-[#3e8635] dark:text-[#81c784]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Developers</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.developers}</p>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <Users className="size-[20px] text-[#ff9800] dark:text-[#ffb74d]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Viewers</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.viewers}</p>
-        </div>
-      </div>
-
-      {/* Search */}
-      <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] p-[20px] mb-[16px]">
-        <div className="flex items-center gap-[16px]">
-          <div className="flex-1">
-            <div className="relative">
-              <Search className="absolute left-[12px] top-1/2 -translate-y-1/2 size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-              <input
-                type="text"
-                placeholder="Search users by name, email, or role..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-[40px] pr-[12px] py-[10px] bg-white dark:bg-[#1a1a1a] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] rounded-[8px] text-[14px] text-[#151515] dark:text-white placeholder:text-[#4d4d4d] dark:placeholder:text-[#b0b0b0] focus:outline-none focus:ring-2 focus:ring-[#0066cc] dark:focus:ring-[#4dabf7]"
-              />
-            </div>
-          </div>
-          <button className="p-[10px] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] rounded-[8px] transition-colors">
-            <RefreshCw className="size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-          </button>
-        </div>
-      </div>
-
-      {/* Users Table */}
-      <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)] border-b border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-            <tr>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">USER</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">ROLE</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">DEPARTMENT</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">LAST LOGIN</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">STATUS</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">ACTIONS</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredUsers.map((user) => (
-              <tr
-                key={user.id}
-                className="border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors"
-              >
-                <td className="px-[20px] py-[16px]">
-                  <div>
-                    <p className="text-[14px] text-[#151515] dark:text-white font-semibold">{user.name}</p>
-                    <p className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0]">{user.email}</p>
-                  </div>
-                </td>
-                <td className="px-[20px] py-[16px]">
-                  <span className={`px-[10px] py-[4px] rounded-[999px] text-[12px] font-semibold ${
-                    user.role === "Cluster Admin"
-                      ? "text-[#d32f2f] dark:text-[#ef5350] bg-[#ffebee] dark:bg-[rgba(211,47,47,0.15)]"
-                      : user.role === "Developer"
-                      ? "text-[#3e8635] dark:text-[#81c784] bg-[#e8f5e9] dark:bg-[rgba(62,134,53,0.15)]"
-                      : "text-[#ff9800] dark:text-[#ffb74d] bg-[#fff4e5] dark:bg-[rgba(255,152,0,0.15)]"
-                  }`}>
-                    {user.role}
-                  </span>
-                </td>
-                <td className="px-[20px] py-[16px] text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0]">{user.department}</td>
-                <td className="px-[20px] py-[16px] text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0]">{user.lastLogin}</td>
-                <td className="px-[20px] py-[16px]">
-                  <span className="px-[10px] py-[4px] rounded-[999px] text-[12px] font-semibold text-[#3e8635] dark:text-[#81c784] bg-[#e8f5e9] dark:bg-[rgba(62,134,53,0.15)]">
-                    {user.status}
-                  </span>
-                </td>
-                <td className="px-[20px] py-[16px]">
-                  <button
-                    onClick={() => handleImpersonate(user)}
-                    className="px-[12px] py-[6px] bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white rounded-[999px] text-[12px] font-semibold transition-colors"
+          <div className="ocs-pods-list__panel app-glass-panel">
+            <DataView ouiaId="user-management-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+              <DataViewToolbar
+                ouiaId="user-management-dv-toolbar"
+                id="user-management-dv-toolbar"
+                className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+                clearAllFilters={clearAllFilters}
+                collapseListedFiltersBreakpoint="xl"
+                filters={
+                  <IoDataViewFiltersWithMidActions<UserFilters>
+                    values={filters}
+                    onChange={(_filterId, partial) => onSetFilters(partial)}
+                    breakpoint="xl"
+                    midContent={
+                      <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }}>
+                        <ToolbarItem>
+                          <Button variant="plain" aria-label="List view" isAriaPressed icon={<ListIcon />} />
+                        </ToolbarItem>
+                        <ToolbarItem>
+                          <Button variant="plain" aria-label="Refresh" icon={<SyncIcon />} />
+                        </ToolbarItem>
+                      </ToolbarGroup>
+                    }
                   >
-                    Impersonate
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+                    <DataViewTextFilter
+                      title="Name"
+                      filterId="name"
+                      placeholder="Filter by name, email, or role..."
+                      style={{ minWidth: "16rem", maxWidth: "100%" }}
+                    />
+                    <DataViewCheckboxFilter
+                      title="Status"
+                      filterId="status"
+                      placeholder="Choose statuses"
+                      showIcon
+                      showBadge
+                      options={STATUS_OPTIONS}
+                    />
+                  </IoDataViewFiltersWithMidActions>
+                }
+                pagination={
+                  <Pagination
+                    perPageOptions={[
+                      { title: "10", value: 10 },
+                      { title: "20", value: 20 },
+                      { title: "50", value: 50 },
+                    ]}
+                    itemCount={itemCount}
+                    page={page}
+                    perPage={perPage}
+                    onSetPage={(_e, p) => setPage(p)}
+                    onPerPageSelect={(_e, pp) => {
+                      setPerPage(pp);
+                      setPage(1);
+                    }}
+                    variant={PaginationVariant.top}
+                    isCompact
+                    ouiaId="user-management-pagination"
+                    widgetId="user-management-pagination"
+                    titles={{ items: "users" }}
+                    paginationAriaLabel="User management pagination"
+                  />
+                }
+              />
+
+              <OcsPrototypeListTable ariaLabel="Users">
+                <Thead>
+                  <Tr>
+                    <Th dataLabel="User">
+                      <SortableTableHeader label="User" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Role">
+                      <SortableTableHeader label="Role" column="role" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Department">
+                      <SortableTableHeader label="Department" column="department" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Last login">
+                      <SortableTableHeader label="Last login" column="lastLogin" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Status">
+                      <SortableTableHeader label="Status" column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th modifier="fitContent" dataLabel="Actions">
+                      <PlainTableHeader label="Actions" />
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {paginated.length === 0 ? (
+                    <Tr>
+                      <Td colSpan={colSpan} dataLabel="Empty state">
+                        <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                          No users match your filters.
+                        </Content>
+                      </Td>
+                    </Tr>
+                  ) : (
+                    paginated.map((user) => (
+                      <Tr key={user.id}>
+                        <Td dataLabel="User">
+                          <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }}>
+                            <Content component="small">
+                              <strong>{user.name}</strong>
+                            </Content>
+                            <Content component="small" className="pf-v6-u-color-200">
+                              {user.email}
+                            </Content>
+                          </Flex>
+                        </Td>
+                        <Td dataLabel="Role">
+                          <Label color={roleLabelColor(user.role)} isCompact>
+                            {user.role}
+                          </Label>
+                        </Td>
+                        <Td dataLabel="Department">
+                          <Content component="small">{user.department}</Content>
+                        </Td>
+                        <Td dataLabel="Last login">
+                          <Content component="small">{user.lastLogin}</Content>
+                        </Td>
+                        <Td dataLabel="Status">
+                          <Label color="green" isCompact>
+                            {user.status}
+                          </Label>
+                        </Td>
+                        <Td dataLabel="Actions" isActionCell hasAction>
+                          <Button variant="primary" isSmall onClick={() => handleImpersonate(user)}>
+                            Impersonate
+                          </Button>
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </Tbody>
+              </OcsPrototypeListTable>
+            </DataView>
+          </div>
+        </Flex>
       </Breadcrumbs>
 
-      {/* Impersonate Modal */}
-      {isImpersonateModalOpen && selectedUser && (
+      {isImpersonateModalOpen && selectedUser ? (
         <ImpersonateUserModal
           onClose={() => setIsImpersonateModalOpen(false)}
           onImpersonate={confirmImpersonate}
-          users={users}
+          users={USERS}
           preselectedUser={selectedUser}
         />
-      )}
+      ) : null}
     </div>
   );
 }

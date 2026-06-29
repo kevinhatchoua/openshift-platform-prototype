@@ -41,8 +41,12 @@ export const NETWORKING_SUB: SubNavEntry[] = [
   { path: "/networking", label: "Services" },
   { path: "/networking/routes", label: "Routes" },
   { path: "/networking/ingresses", label: "Ingresses" },
+  { path: "/networking/physical-networks", label: "Physical networks" },
   { path: "/networking/networkpolicies", label: "NetworkPolicies" },
+  { path: "/networking/nodenetworkconfigurationpolicy", label: "NodeNetworkConfigurationPolicy" },
+  { path: "/networking/networkattachmentdefinitions", label: "NetworkAttachmentDefinitions" },
   { path: "/networking/userdefinednetworks", label: "UserDefinedNetworks" },
+  { path: "/networking/node-network-configuration", label: "Node network configuration" },
 ];
 
 export const STORAGE_SUB: SubNavEntry[] = [
@@ -127,6 +131,14 @@ export function collectStubPaths(): string[] {
     "/workloads/jobs",
     "/workloads/cronjobs",
     "/networking",
+    "/networking/routes",
+    "/networking/ingresses",
+    "/networking/physical-networks",
+    "/networking/networkpolicies",
+    "/networking/nodenetworkconfigurationpolicy",
+    "/networking/networkattachmentdefinitions",
+    "/networking/userdefinednetworks",
+    "/networking/node-network-configuration",
     "/storage",
     "/builds",
     "/observe",

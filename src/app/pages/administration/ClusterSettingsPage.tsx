@@ -1,8 +1,33 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
+import {
+  Button,
+  Content,
+  Pagination,
+  PaginationVariant,
+} from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
+import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { CheckCircle, AlertCircle, Clock, ExternalLink, ChevronDown, ChevronUp, Loader2 } from "@/lib/pfIcons";
 import { Link } from "react-router";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../../components/dataView/OcsPrototypeListTable";
 
 type SettingsTab = "details" | "cluster-operators" | "configuration";
 
@@ -82,139 +107,368 @@ function StatusBadge({ ok, label }: { ok: boolean; label: string }) {
   );
 }
 
-function ClusterOperatorsTab() {
-  const [filter, setFilter] = useState("");
-  const [expandedOp, setExpandedOp] = useState<string | null>(null);
+type ClusterOperatorFilters = { name: string };
+type ClusterOperatorSortColumn = "name" | "version" | "available" | "progressing" | "degraded" | "lastTransition";
 
-  const filtered = CLUSTER_OPERATORS.filter((op) => op.name.toLowerCase().includes(filter.toLowerCase()));
+function rowMatchesClusterOperatorFilters(row: ClusterOperator, filters: ClusterOperatorFilters): boolean {
+  const nameQ = (filters.name ?? "").trim().toLowerCase();
+  if (nameQ && !row.name.toLowerCase().includes(nameQ)) return false;
+  return true;
+}
+
+function sortClusterOperators(rows: ClusterOperator[], column: ClusterOperatorSortColumn, direction: SortDirection): ClusterOperator[] {
+  return [...rows].sort((a, b) => {
+    switch (column) {
+      case "name":
+        return compareStrings(a.name, b.name, direction);
+      case "version":
+        return compareStrings(a.version, b.version, direction);
+      case "available":
+        return compareStrings(a.available ? "True" : "False", b.available ? "True" : "False", direction);
+      case "progressing":
+        return compareStrings(a.progressing ? "True" : "False", b.progressing ? "True" : "False", direction);
+      case "degraded":
+        return compareStrings(a.degraded ? "True" : "False", b.degraded ? "True" : "False", direction);
+      case "lastTransition":
+        return compareStrings(a.lastTransition, b.lastTransition, direction);
+      default:
+        return 0;
+    }
+  });
+}
+
+function ClusterOperatorsTab() {
+  const [expandedOp, setExpandedOp] = useState<string | null>(null);
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<ClusterOperatorFilters>({
+    filters: { name: "" },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<ClusterOperatorSortColumn>("name");
+
+  const filteredRows = useMemo(
+    () => CLUSTER_OPERATORS.filter((row) => rowMatchesClusterOperatorFilters(row, filters)),
+    [filters]
+  );
+  const sortedRows = useMemo(
+    () => sortClusterOperators(filteredRows, sortColumn, sortDirection),
+    [filteredRows, sortColumn, sortDirection]
+  );
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(sortedRows, [filters], 20);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.name, perPage, setPage]);
+
+  const colSpan = 6;
 
   return (
     <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[16px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] mb-[24px] overflow-hidden">
-      <div className="p-[16px] border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] flex items-center justify-between">
-        <span className="text-[14px] font-semibold text-[#151515] dark:text-white font-['Red_Hat_Display:SemiBold',sans-serif]">
-          {filtered.length} ClusterOperators
-        </span>
-        <input
-          type="text"
-          placeholder="Filter by name…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="text-[13px] px-[10px] py-[6px] rounded-[6px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.15)] bg-white dark:bg-[rgba(255,255,255,0.05)] text-[#151515] dark:text-white w-[220px] font-['Red_Hat_Text:Regular',sans-serif] outline-none focus:border-[#0066cc]"
+      <DataView ouiaId="cluster-operators-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+        <DataViewToolbar
+          ouiaId="cluster-operators-dv-toolbar"
+          id="cluster-operators-dv-toolbar"
+          className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+          clearAllFilters={clearAllFilters}
+          collapseListedFiltersBreakpoint="xl"
+          filters={
+            <IoDataViewFiltersWithMidActions<ClusterOperatorFilters>
+              values={filters}
+              onChange={(_filterId, partial) => onSetFilters(partial)}
+              breakpoint="xl"
+            >
+              <DataViewTextFilter
+                title="Name"
+                filterId="name"
+                placeholder="Filter by name..."
+                style={{ minWidth: "16rem", maxWidth: "100%" }}
+              />
+            </IoDataViewFiltersWithMidActions>
+          }
+          pagination={
+            <Pagination
+              perPageOptions={[
+                { title: "10", value: 10 },
+                { title: "20", value: 20 },
+                { title: "50", value: 50 },
+              ]}
+              itemCount={itemCount}
+              page={page}
+              perPage={perPage}
+              onSetPage={(_e, p) => setPage(p)}
+              onPerPageSelect={(_e, pp) => {
+                setPerPage(pp);
+                setPage(1);
+              }}
+              variant={PaginationVariant.top}
+              isCompact
+              ouiaId="cluster-operators-pagination"
+              widgetId="cluster-operators-pagination"
+              titles={{ items: "cluster operators" }}
+              paginationAriaLabel="Cluster operators pagination"
+            />
+          }
         />
-      </div>
 
-      <table className="w-full text-[13px] font-['Red_Hat_Text:Regular',sans-serif]">
-        <thead>
-          <tr className="border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-left text-[12px] text-[#6a6e73] dark:text-[#8a8d90] uppercase tracking-wide">
-            <th className="px-[16px] py-[10px] font-medium">Name</th>
-            <th className="px-[16px] py-[10px] font-medium">Version</th>
-            <th className="px-[16px] py-[10px] font-medium">Available</th>
-            <th className="px-[16px] py-[10px] font-medium">Progressing</th>
-            <th className="px-[16px] py-[10px] font-medium">Degraded</th>
-            <th className="px-[16px] py-[10px] font-medium">Last Transition</th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((op) => (
-            <>
-              <tr
-                key={op.name}
-                onClick={() => setExpandedOp(expandedOp === op.name ? null : op.name)}
-                className={`border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] cursor-pointer hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors ${op.degraded ? "bg-[#fff5f5] dark:bg-[rgba(201,25,11,0.06)]" : ""}`}
-              >
-                <td className="px-[16px] py-[10px]">
-                  <div className="flex items-center gap-[6px]">
-                    {expandedOp === op.name ? <ChevronUp className="size-[14px] text-[#6a6e73]" /> : <ChevronDown className="size-[14px] text-[#6a6e73]" />}
-                    <span className="font-medium text-[#151515] dark:text-white">{op.name}</span>
-                  </div>
-                </td>
-                <td className="px-[16px] py-[10px] font-mono text-[#4d4d4d] dark:text-[#b0b0b0]">{op.version}</td>
-                <td className="px-[16px] py-[10px]"><StatusBadge ok={op.available} label={op.available ? "True" : "False"} /></td>
-                <td className="px-[16px] py-[10px]">
-                  {op.progressing
-                    ? <span className="inline-flex items-center gap-[4px] text-[12px] text-[#0066cc] dark:text-[#4dabf7]"><Clock className="size-[13px]" /> True</span>
-                    : <span className="text-[12px] text-[#4d4d4d] dark:text-[#b0b0b0]">False</span>}
-                </td>
-                <td className="px-[16px] py-[10px]"><StatusBadge ok={!op.degraded} label={op.degraded ? "True" : "False"} /></td>
-                <td className="px-[16px] py-[10px] text-[#4d4d4d] dark:text-[#b0b0b0]">{op.lastTransition}</td>
-              </tr>
-              {expandedOp === op.name && (
-                <tr key={`${op.name}-detail`} className="border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)]">
-                  <td colSpan={6} className="px-[16px] py-[12px] bg-[#fafafa] dark:bg-[rgba(255,255,255,0.02)]">
-                    <div className="grid grid-cols-2 gap-[16px] text-[13px]">
-                      <div>
-                        <span className="text-[11px] uppercase tracking-wide text-[#6a6e73] dark:text-[#8a8d90] block mb-[4px]">Operator</span>
-                        <span className="font-mono text-[#151515] dark:text-white">{op.name}</span>
+        <OcsPrototypeListTable ariaLabel="Cluster operators">
+          <Thead>
+            <Tr>
+              <Th dataLabel="Name">
+                <SortableTableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+              </Th>
+              <Th dataLabel="Version">
+                <SortableTableHeader label="Version" column="version" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+              </Th>
+              <Th dataLabel="Available">
+                <SortableTableHeader label="Available" column="available" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+              </Th>
+              <Th dataLabel="Progressing">
+                <SortableTableHeader label="Progressing" column="progressing" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+              </Th>
+              <Th dataLabel="Degraded">
+                <SortableTableHeader label="Degraded" column="degraded" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+              </Th>
+              <Th dataLabel="Last Transition">
+                <SortableTableHeader label="Last Transition" column="lastTransition" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+              </Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {paginated.length === 0 ? (
+              <Tr>
+                <Td colSpan={colSpan} dataLabel="Empty state">
+                  <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                    No cluster operators match your filters.
+                  </Content>
+                </Td>
+              </Tr>
+            ) : (
+              paginated.flatMap((op) => {
+                const rows = [
+                  <Tr
+                    key={op.name}
+                    onClick={() => setExpandedOp(expandedOp === op.name ? null : op.name)}
+                    className={op.degraded ? "ocs-cluster-operator-row--degraded" : undefined}
+                    style={{ cursor: "pointer" }}
+                  >
+                    <Td dataLabel="Name">
+                      <div className="flex items-center gap-[6px]">
+                        {expandedOp === op.name ? <ChevronUp className="size-[14px] text-[#6a6e73]" /> : <ChevronDown className="size-[14px] text-[#6a6e73]" />}
+                        <Content component="small">{op.name}</Content>
                       </div>
-                      <div>
-                        <span className="text-[11px] uppercase tracking-wide text-[#6a6e73] dark:text-[#8a8d90] block mb-[4px]">Version</span>
-                        <span className="font-mono text-[#151515] dark:text-white">{op.version}</span>
-                      </div>
-                      <div className="col-span-2">
-                        <span className="text-[11px] uppercase tracking-wide text-[#6a6e73] dark:text-[#8a8d90] block mb-[4px]">Message</span>
-                        <span className="text-[#4d4d4d] dark:text-[#b0b0b0]">{op.message || "All is well"}</span>
-                      </div>
-                    </div>
-                  </td>
-                </tr>
-              )}
-            </>
-          ))}
-        </tbody>
-      </table>
+                    </Td>
+                    <Td dataLabel="Version">
+                      <Content component="small">{op.version}</Content>
+                    </Td>
+                    <Td dataLabel="Available">
+                      <StatusBadge ok={op.available} label={op.available ? "True" : "False"} />
+                    </Td>
+                    <Td dataLabel="Progressing">
+                      {op.progressing ? (
+                        <span className="inline-flex items-center gap-[4px] text-[12px] text-[#0066cc] dark:text-[#4dabf7]">
+                          <Clock className="size-[13px]" /> True
+                        </span>
+                      ) : (
+                        <Content component="small">False</Content>
+                      )}
+                    </Td>
+                    <Td dataLabel="Degraded">
+                      <StatusBadge ok={!op.degraded} label={op.degraded ? "True" : "False"} />
+                    </Td>
+                    <Td dataLabel="Last Transition">
+                      <Content component="small">{op.lastTransition}</Content>
+                    </Td>
+                  </Tr>,
+                ];
+                if (expandedOp === op.name) {
+                  rows.push(
+                    <Tr key={`${op.name}-detail`}>
+                      <Td colSpan={colSpan} dataLabel="Details">
+                        <div className="grid grid-cols-2 gap-[16px] text-[13px]">
+                          <div>
+                            <span className="text-[11px] uppercase tracking-wide text-[#6a6e73] dark:text-[#8a8d90] block mb-[4px]">Operator</span>
+                            <Content component="small">{op.name}</Content>
+                          </div>
+                          <div>
+                            <span className="text-[11px] uppercase tracking-wide text-[#6a6e73] dark:text-[#8a8d90] block mb-[4px]">Version</span>
+                            <Content component="small">{op.version}</Content>
+                          </div>
+                          <div className="col-span-2">
+                            <span className="text-[11px] uppercase tracking-wide text-[#6a6e73] dark:text-[#8a8d90] block mb-[4px]">Message</span>
+                            <Content component="small">{op.message || "All is well"}</Content>
+                          </div>
+                        </div>
+                      </Td>
+                    </Tr>
+                  );
+                }
+                return rows;
+              })
+            )}
+          </Tbody>
+        </OcsPrototypeListTable>
+      </DataView>
     </div>
   );
 }
 
+type ConfigResourceFilters = { name: string; kind: string };
+type ConfigResourceSortColumn = "name" | "kind" | "apiVersion";
+
+function rowMatchesConfigResourceFilters(row: ConfigResource, filters: ConfigResourceFilters): boolean {
+  const nameQ = (filters.name ?? "").trim().toLowerCase();
+  const kindQ = (filters.kind ?? "").trim().toLowerCase();
+  if (nameQ && !row.name.toLowerCase().includes(nameQ)) return false;
+  if (kindQ && !row.kind.toLowerCase().includes(kindQ)) return false;
+  return true;
+}
+
+function sortConfigResources(rows: ConfigResource[], column: ConfigResourceSortColumn, direction: SortDirection): ConfigResource[] {
+  return [...rows].sort((a, b) => {
+    switch (column) {
+      case "name":
+        return compareStrings(a.name, b.name, direction);
+      case "kind":
+        return compareStrings(a.kind, b.kind, direction);
+      case "apiVersion":
+        return compareStrings(a.apiVersion, b.apiVersion, direction);
+      default:
+        return 0;
+    }
+  });
+}
+
 function ConfigurationTab() {
-  const [filter, setFilter] = useState("");
-  const filtered = CONFIG_RESOURCES.filter(
-    (r) => r.kind.toLowerCase().includes(filter.toLowerCase()) || r.name.toLowerCase().includes(filter.toLowerCase()),
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<ConfigResourceFilters>({
+    filters: { name: "", kind: "" },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<ConfigResourceSortColumn>("kind");
+
+  const filteredRows = useMemo(
+    () => CONFIG_RESOURCES.filter((row) => rowMatchesConfigResourceFilters(row, filters)),
+    [filters]
   );
+  const sortedRows = useMemo(
+    () => sortConfigResources(filteredRows, sortColumn, sortDirection),
+    [filteredRows, sortColumn, sortDirection]
+  );
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(sortedRows, [filters], 20);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.name, filters.kind, perPage, setPage]);
+
+  const colSpan = 4;
 
   return (
     <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[16px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] mb-[24px] overflow-hidden">
-      <div className="p-[16px] border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] flex items-center justify-between">
-        <span className="text-[14px] font-semibold text-[#151515] dark:text-white font-['Red_Hat_Display:SemiBold',sans-serif]">
-          {filtered.length} Configuration Resources
-        </span>
-        <input
-          type="text"
-          placeholder="Filter by kind…"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="text-[13px] px-[10px] py-[6px] rounded-[6px] border border-[#d2d2d2] dark:border-[rgba(255,255,255,0.15)] bg-white dark:bg-[rgba(255,255,255,0.05)] text-[#151515] dark:text-white w-[220px] font-['Red_Hat_Text:Regular',sans-serif] outline-none focus:border-[#0066cc]"
+      <DataView ouiaId="configuration-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+        <DataViewToolbar
+          ouiaId="configuration-dv-toolbar"
+          id="configuration-dv-toolbar"
+          className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+          clearAllFilters={clearAllFilters}
+          collapseListedFiltersBreakpoint="xl"
+          filters={
+            <IoDataViewFiltersWithMidActions<ConfigResourceFilters>
+              values={filters}
+              onChange={(_filterId, partial) => onSetFilters(partial)}
+              breakpoint="xl"
+            >
+              <DataViewTextFilter
+                title="Name"
+                filterId="name"
+                placeholder="Filter by name..."
+                style={{ minWidth: "14rem", maxWidth: "100%" }}
+              />
+              <DataViewTextFilter
+                title="Kind"
+                filterId="kind"
+                placeholder="Filter by kind..."
+                style={{ minWidth: "14rem", maxWidth: "100%" }}
+              />
+            </IoDataViewFiltersWithMidActions>
+          }
+          pagination={
+            <Pagination
+              perPageOptions={[
+                { title: "10", value: 10 },
+                { title: "20", value: 20 },
+                { title: "50", value: 50 },
+              ]}
+              itemCount={itemCount}
+              page={page}
+              perPage={perPage}
+              onSetPage={(_e, p) => setPage(p)}
+              onPerPageSelect={(_e, pp) => {
+                setPerPage(pp);
+                setPage(1);
+              }}
+              variant={PaginationVariant.top}
+              isCompact
+              ouiaId="configuration-pagination"
+              widgetId="configuration-pagination"
+              titles={{ items: "configuration resources" }}
+              paginationAriaLabel="Configuration resources pagination"
+            />
+          }
         />
-      </div>
 
-      <table className="w-full text-[13px] font-['Red_Hat_Text:Regular',sans-serif]">
-        <thead>
-          <tr className="border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-left text-[12px] text-[#6a6e73] dark:text-[#8a8d90] uppercase tracking-wide">
-            <th className="px-[16px] py-[10px] font-medium">Name</th>
-            <th className="px-[16px] py-[10px] font-medium">Kind</th>
-            <th className="px-[16px] py-[10px] font-medium">API Version</th>
-            <th className="px-[16px] py-[10px] font-medium"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {filtered.map((r) => (
-            <tr key={`${r.kind}-${r.name}`} className="border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors">
-              <td className="px-[16px] py-[10px] font-medium text-[#151515] dark:text-white">{r.name}</td>
-              <td className="px-[16px] py-[10px]">
-                <span className="px-[8px] py-[3px] rounded-[4px] bg-[#f0f0f0] dark:bg-[rgba(255,255,255,0.08)] text-[12px] font-mono text-[#151515] dark:text-white">
-                  {r.kind}
-                </span>
-              </td>
-              <td className="px-[16px] py-[10px] font-mono text-[#4d4d4d] dark:text-[#b0b0b0]">{r.apiVersion}</td>
-              <td className="px-[16px] py-[10px] text-right">
-                <a href={`https://docs.openshift.com/container-platform/latest/rest_api/config_apis/${r.kind.toLowerCase()}-${r.apiVersion.split("/")[0]}-${r.apiVersion.split("/")[1]}.html`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-[4px] text-[12px] text-[#0066cc] dark:text-[#4dabf7] no-underline hover:underline">
-                  API Reference <ExternalLink className="size-[11px]" />
-                </a>
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+        <OcsPrototypeListTable ariaLabel="Configuration resources">
+          <Thead>
+            <Tr>
+              <Th dataLabel="Name">
+                <SortableTableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+              </Th>
+              <Th dataLabel="Kind">
+                <SortableTableHeader label="Kind" column="kind" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+              </Th>
+              <Th dataLabel="API Version">
+                <SortableTableHeader label="API Version" column="apiVersion" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+              </Th>
+              <Th modifier="fitContent" dataLabel="Actions">
+                <PlainTableHeader label="Actions" />
+              </Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {paginated.length === 0 ? (
+              <Tr>
+                <Td colSpan={colSpan} dataLabel="Empty state">
+                  <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                    No configuration resources match your filters.
+                  </Content>
+                </Td>
+              </Tr>
+            ) : (
+              paginated.map((r) => (
+                <Tr key={`${r.kind}-${r.name}`}>
+                  <Td dataLabel="Name">
+                    <Content component="small">{r.name}</Content>
+                  </Td>
+                  <Td dataLabel="Kind">
+                    <Content component="small">{r.kind}</Content>
+                  </Td>
+                  <Td dataLabel="API Version">
+                    <Content component="small">{r.apiVersion}</Content>
+                  </Td>
+                  <Td dataLabel="Actions">
+                    <Button
+                      component="a"
+                      variant="link"
+                      isInline
+                      href={`https://docs.openshift.com/container-platform/latest/rest_api/config_apis/${r.kind.toLowerCase()}-${r.apiVersion.split("/")[0]}-${r.apiVersion.split("/")[1]}.html`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      icon={<ExternalLink className="size-[11px]" />}
+                    >
+                      API Reference
+                    </Button>
+                  </Td>
+                </Tr>
+              ))
+            )}
+          </Tbody>
+        </OcsPrototypeListTable>
+      </DataView>
     </div>
   );
 }

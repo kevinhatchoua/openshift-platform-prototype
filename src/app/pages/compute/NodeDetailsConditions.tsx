@@ -1,4 +1,9 @@
 import { Content, Title } from "@patternfly/react-core";
+import { InnerScrollContainer, Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import {
+  OCS_PROTOTYPE_TABLE_CLASS,
+  PlainTableHeader,
+} from "../../components/dataView/OcsPrototypeListTable";
 import type { NodeCondition } from "./nodeConditionsData";
 
 type NodeDetailsConditionsProps = {
@@ -12,39 +17,51 @@ export default function NodeDetailsConditions({ conditions }: NodeDetailsConditi
         Node conditions
       </Title>
 
-      <div className="ocs-nodes-list__table-wrap ocs-node-conditions__table-wrap">
-        <table className="ocs-nodes-list__table" aria-label="Node conditions">
-          <thead>
-            <tr>
-              <th scope="col">Type</th>
-              <th scope="col">Status</th>
-              <th scope="col">Reason</th>
-              <th scope="col">Updated</th>
-              <th scope="col">Changed</th>
-            </tr>
-          </thead>
-          <tbody>
-            {conditions.map((condition) => (
-              <tr key={condition.type}>
-                <td>
-                  <Content component="small">{condition.type}</Content>
-                </td>
-                <td>
-                  <Content component="small">{condition.status}</Content>
-                </td>
-                <td>
-                  <Content component="small">{condition.reason}</Content>
-                </td>
-                <td>
-                  <Content component="small">{condition.updated}</Content>
-                </td>
-                <td>
-                  <Content component="small">{condition.changed}</Content>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+      <div className="ocs-node-conditions__table-wrap">
+        <InnerScrollContainer>
+          <Table aria-label="Node conditions" borders variant="compact" className={OCS_PROTOTYPE_TABLE_CLASS}>
+            <Thead>
+              <Tr>
+                <Th dataLabel="Type">
+                  <PlainTableHeader label="Type" />
+                </Th>
+                <Th dataLabel="Status">
+                  <PlainTableHeader label="Status" />
+                </Th>
+                <Th dataLabel="Reason">
+                  <PlainTableHeader label="Reason" />
+                </Th>
+                <Th dataLabel="Updated">
+                  <PlainTableHeader label="Updated" />
+                </Th>
+                <Th dataLabel="Changed">
+                  <PlainTableHeader label="Changed" />
+                </Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {conditions.map((condition) => (
+                <Tr key={condition.type}>
+                  <Td dataLabel="Type">
+                    <Content component="small">{condition.type}</Content>
+                  </Td>
+                  <Td dataLabel="Status">
+                    <Content component="small">{condition.status}</Content>
+                  </Td>
+                  <Td dataLabel="Reason">
+                    <Content component="small">{condition.reason}</Content>
+                  </Td>
+                  <Td dataLabel="Updated">
+                    <Content component="small">{condition.updated}</Content>
+                  </Td>
+                  <Td dataLabel="Changed">
+                    <Content component="small">{condition.changed}</Content>
+                  </Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </InnerScrollContainer>
       </div>
     </section>
   );

@@ -1,7 +1,39 @@
-import { useState } from "react";
-import { Search, RefreshCw, MoreVertical, CheckCircle, Clock, Calendar } from "@/lib/pfIcons";
+import { useEffect, useMemo } from "react";
+import {
+  Button,
+  Content,
+  Flex,
+  Label,
+  Pagination,
+  PaginationVariant,
+  Title,
+  ToolbarGroup,
+  ToolbarItem,
+} from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
+import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
+import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
+import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
+import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../../components/dataView/OcsPrototypeListTable";
 
 interface CronJob {
   name: string;
@@ -13,33 +45,78 @@ interface CronJob {
   age: string;
 }
 
-export default function CronJobsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedNamespace, setSelectedNamespace] = useState("all");
+type CronJobFilters = {
+  name: string;
+  namespace: string;
+};
 
-  const cronjobs: CronJob[] = [
-    { name: "backup-job", namespace: "production", schedule: "0 2 * * *", suspend: false, active: 0, lastSchedule: "12h", age: "45d" },
-    { name: "cache-cleanup", namespace: "production", schedule: "*/15 * * * *", suspend: false, active: 0, lastSchedule: "5m", age: "30d" },
-    { name: "report-generator", namespace: "production", schedule: "0 8 * * 1", suspend: false, active: 0, lastSchedule: "2d", age: "60d" },
-    { name: "log-rotation", namespace: "logging", schedule: "0 0 * * *", suspend: false, active: 0, lastSchedule: "18h", age: "90d" },
-    { name: "metrics-aggregation", namespace: "monitoring", schedule: "*/5 * * * *", suspend: false, active: 1, lastSchedule: "2m", age: "75d" },
-    { name: "database-cleanup", namespace: "production", schedule: "0 3 * * 0", suspend: true, active: 0, lastSchedule: "7d", age: "120d" },
-  ];
+type SortColumn = "name" | "namespace" | "schedule" | "suspend" | "active" | "lastSchedule" | "age";
 
-  const namespaces = ["all", "production", "development", "logging", "monitoring"];
+const CRONJOBS: CronJob[] = [
+  { name: "backup-job", namespace: "production", schedule: "0 2 * * *", suspend: false, active: 0, lastSchedule: "12h", age: "45d" },
+  { name: "cache-cleanup", namespace: "production", schedule: "*/15 * * * *", suspend: false, active: 0, lastSchedule: "5m", age: "30d" },
+  { name: "report-generator", namespace: "production", schedule: "0 8 * * 1", suspend: false, active: 0, lastSchedule: "2d", age: "60d" },
+  { name: "log-rotation", namespace: "logging", schedule: "0 0 * * *", suspend: false, active: 0, lastSchedule: "18h", age: "90d" },
+  { name: "metrics-aggregation", namespace: "monitoring", schedule: "*/5 * * * *", suspend: false, active: 1, lastSchedule: "2m", age: "75d" },
+  { name: "database-cleanup", namespace: "production", schedule: "0 3 * * 0", suspend: true, active: 0, lastSchedule: "7d", age: "120d" },
+];
 
-  const filteredCronJobs = cronjobs.filter((cj) => {
-    const matchesSearch = cj.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         cj.namespace.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesNamespace = selectedNamespace === "all" || cj.namespace === selectedNamespace;
-    return matchesSearch && matchesNamespace;
+function rowMatchesFilters(row: CronJob, filters: CronJobFilters): boolean {
+  const nameQ = (filters.name ?? "").trim().toLowerCase();
+  const nsQ = (filters.namespace ?? "").trim().toLowerCase();
+  if (nameQ && !row.name.toLowerCase().includes(nameQ)) return false;
+  if (nsQ && !row.namespace.toLowerCase().includes(nsQ)) return false;
+  return true;
+}
+
+function sortCronJobs(rows: CronJob[], column: SortColumn, direction: SortDirection): CronJob[] {
+  return [...rows].sort((a, b) => {
+    switch (column) {
+      case "name":
+        return compareStrings(a.name, b.name, direction);
+      case "namespace":
+        return compareStrings(a.namespace, b.namespace, direction);
+      case "schedule":
+        return compareStrings(a.schedule, b.schedule, direction);
+      case "suspend": {
+        const cmp = Number(a.suspend) - Number(b.suspend);
+        return direction === "asc" ? cmp : -cmp;
+      }
+      case "active": {
+        const cmp = a.active - b.active;
+        return direction === "asc" ? cmp : -cmp;
+      }
+      case "lastSchedule":
+        return compareStrings(a.lastSchedule, b.lastSchedule, direction);
+      case "age":
+        return compareStrings(a.age, b.age, direction);
+      default:
+        return 0;
+    }
   });
+}
 
-  const stats = {
-    total: cronjobs.length,
-    active: cronjobs.filter((cj) => cj.active > 0).length,
-    suspended: cronjobs.filter((cj) => cj.suspend).length,
-  };
+export default function CronJobsPage() {
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<CronJobFilters>({
+    filters: { name: "", namespace: "" },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
+
+  const filteredRows = useMemo(
+    () => CRONJOBS.filter((row) => rowMatchesFilters(row, filters)),
+    [filters]
+  );
+  const sortedRows = useMemo(
+    () => sortCronJobs(filteredRows, sortColumn, sortDirection),
+    [filteredRows, sortColumn, sortDirection]
+  );
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(sortedRows, [filters], 20);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.name, filters.namespace, perPage, setPage]);
+
+  const colSpan = 8;
 
   return (
     <div className="ocs-app-page-outer w-full">
@@ -50,132 +127,162 @@ export default function CronJobsPage() {
           { label: "CronJobs", path: "/workloads/cronjobs" },
         ]}
       >
-
-      <div className="flex items-center justify-between mb-[24px]">
-        <div>
-          <h1 className="font-['Red_Hat_Display_VF:Medium',sans-serif] font-medium leading-[36.4px] text-[#151515] dark:text-white text-[28px] mb-[8px]">
-            CronJobs
-          </h1>
-          <p className="text-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-            Manage time-based Jobs that run on a repeating schedule
-          </p>
-        </div>
-        <div className="flex items-center gap-[12px]">
-          <FavoriteButton name="CronJobs" path="/workloads/cronjobs" />
-          <button className="bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white px-[20px] py-[10px] rounded-[8px] font-semibold text-[14px] transition-colors flex items-center gap-[8px]">
-            <Calendar className="size-[16px]" />
-            Create CronJob
-          </button>
-        </div>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-3 gap-[16px] mb-[24px]">
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <CheckCircle className="size-[20px] text-[#0066cc] dark:text-[#4dabf7]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Total CronJobs</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.total}</p>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <Clock className="size-[20px] text-[#3e8635] dark:text-[#81c784]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Active Jobs</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.active}</p>
-        </div>
-        <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] p-[20px] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-          <div className="flex items-center gap-[12px] mb-[8px]">
-            <Clock className="size-[20px] text-[#ff9800] dark:text-[#ffb74d]" />
-            <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">Suspended</p>
-          </div>
-          <p className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[28px] text-[#151515] dark:text-white">{stats.suspended}</p>
-        </div>
-      </div>
-
-      {/* Filters and Search */}
-      <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] p-[20px] mb-[16px]">
-        <div className="flex items-center gap-[16px] flex-wrap">
-          <div className="flex-1 min-w-[200px]">
-            <div className="relative">
-              <Search className="absolute left-[12px] top-1/2 -translate-y-1/2 size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-              <input
-                type="text"
-                placeholder="Search cronjobs..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-[40px] pr-[12px] py-[10px] bg-white dark:bg-[#1a1a1a] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] rounded-[8px] text-[14px] text-[#151515] dark:text-white placeholder:text-[#4d4d4d] dark:placeholder:text-[#b0b0b0] focus:outline-none focus:ring-2 focus:ring-[#0066cc] dark:focus:ring-[#4dabf7]"
-              />
-            </div>
-          </div>
-          <select
-            value={selectedNamespace}
-            onChange={(e) => setSelectedNamespace(e.target.value)}
-            className="px-[16px] py-[10px] bg-white dark:bg-[#1a1a1a] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] rounded-[8px] text-[14px] text-[#151515] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0066cc] dark:focus:ring-[#4dabf7]"
+        <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
+          <Flex
+            alignItems={{ default: "alignItemsCenter" }}
+            justifyContent={{ default: "justifyContentSpaceBetween" }}
+            flexWrap={{ default: "wrap" }}
+            gap={{ default: "gapMd" }}
           >
-            {namespaces.map((ns) => (
-              <option key={ns} value={ns}>
-                {ns === "all" ? "All Namespaces" : ns}
-              </option>
-            ))}
-          </select>
-          <button className="p-[10px] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] rounded-[8px] transition-colors">
-            <RefreshCw className="size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-          </button>
-        </div>
-      </div>
+            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+              <Title headingLevel="h1" size="2xl">
+                CronJobs
+              </Title>
+              <FavoriteButton name="CronJobs" path="/workloads/cronjobs" />
+            </Flex>
+            <Button variant="primary">Create CronJob</Button>
+          </Flex>
 
-      {/* Table */}
-      <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[12px] shadow-[0px_4px_12px_0px_rgba(0,0,0,0.06)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] overflow-hidden">
-        <table className="w-full">
-          <thead className="bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)] border-b border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-            <tr>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">NAME</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">NAMESPACE</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">SCHEDULE</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">SUSPEND</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">ACTIVE</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">LAST SCHEDULE</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]">AGE</th>
-              <th className="text-left px-[20px] py-[12px] text-[13px] font-semibold text-[#4d4d4d] dark:text-[#b0b0b0]"></th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredCronJobs.map((cj, index) => (
-              <tr
-                key={index}
-                className="border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors cursor-pointer"
-              >
-                <td className="px-[20px] py-[16px] text-[14px] text-[#151515] dark:text-white font-['Red_Hat_Mono:Regular',sans-serif]">
-                  {cj.name}
-                </td>
-                <td className="px-[20px] py-[16px] text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0]">{cj.namespace}</td>
-                <td className="px-[20px] py-[16px] text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0] font-['Red_Hat_Mono:Regular',sans-serif]">
-                  {cj.schedule}
-                </td>
-                <td className="px-[20px] py-[16px]">
-                  <span className={`px-[10px] py-[4px] rounded-[999px] text-[12px] font-semibold ${
-                    cj.suspend
-                      ? "text-[#ff9800] dark:text-[#ffb74d] bg-[#fff4e5] dark:bg-[rgba(255,152,0,0.15)]"
-                      : "text-[#3e8635] dark:text-[#81c784] bg-[#e8f5e9] dark:bg-[rgba(62,134,53,0.15)]"
-                  }`}>
-                    {cj.suspend ? "Yes" : "No"}
-                  </span>
-                </td>
-                <td className="px-[20px] py-[16px] text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0]">{cj.active}</td>
-                <td className="px-[20px] py-[16px] text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0]">{cj.lastSchedule}</td>
-                <td className="px-[20px] py-[16px] text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0]">{cj.age}</td>
-                <td className="px-[20px] py-[16px]">
-                  <button className="p-[4px] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] rounded-[999px] transition-colors">
-                    <MoreVertical className="size-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]" />
-                  </button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+          <div className="ocs-pods-list__panel app-glass-panel">
+            <DataView ouiaId="cronjobs-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+              <DataViewToolbar
+                ouiaId="cronjobs-dv-toolbar"
+                id="cronjobs-dv-toolbar"
+                className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+                clearAllFilters={clearAllFilters}
+                collapseListedFiltersBreakpoint="xl"
+                filters={
+                  <IoDataViewFiltersWithMidActions<CronJobFilters>
+                    values={filters}
+                    onChange={(_filterId, partial) => onSetFilters(partial)}
+                    breakpoint="xl"
+                    midContent={
+                      <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }}>
+                        <ToolbarItem>
+                          <Button variant="plain" aria-label="List view" isAriaPressed icon={<ListIcon />} />
+                        </ToolbarItem>
+                        <ToolbarItem>
+                          <Button variant="plain" aria-label="Refresh" icon={<SyncIcon />} />
+                        </ToolbarItem>
+                      </ToolbarGroup>
+                    }
+                  >
+                    <DataViewTextFilter
+                      title="Name"
+                      filterId="name"
+                      placeholder="Filter by name..."
+                      style={{ minWidth: "16rem", maxWidth: "100%" }}
+                    />
+                    <DataViewTextFilter
+                      title="Namespace"
+                      filterId="namespace"
+                      placeholder="Filter by namespace..."
+                      style={{ minWidth: "14rem", maxWidth: "100%" }}
+                    />
+                  </IoDataViewFiltersWithMidActions>
+                }
+                pagination={
+                  <Pagination
+                    perPageOptions={[
+                      { title: "10", value: 10 },
+                      { title: "20", value: 20 },
+                      { title: "50", value: 50 },
+                    ]}
+                    itemCount={itemCount}
+                    page={page}
+                    perPage={perPage}
+                    onSetPage={(_e, p) => setPage(p)}
+                    onPerPageSelect={(_e, pp) => {
+                      setPerPage(pp);
+                      setPage(1);
+                    }}
+                    variant={PaginationVariant.top}
+                    isCompact
+                    ouiaId="cronjobs-pagination"
+                    widgetId="cronjobs-pagination"
+                    titles={{ items: "cron jobs" }}
+                    paginationAriaLabel="CronJobs pagination"
+                  />
+                }
+              />
+
+              <OcsPrototypeListTable ariaLabel="CronJobs">
+                <Thead>
+                  <Tr>
+                    <Th dataLabel="Name">
+                      <SortableTableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Namespace">
+                      <SortableTableHeader label="Namespace" column="namespace" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Schedule">
+                      <SortableTableHeader label="Schedule" column="schedule" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Suspend">
+                      <SortableTableHeader label="Suspend" column="suspend" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Active">
+                      <SortableTableHeader label="Active" column="active" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Last schedule">
+                      <SortableTableHeader label="Last schedule" column="lastSchedule" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Age">
+                      <SortableTableHeader label="Age" column="age" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th modifier="fitContent" dataLabel="Actions">
+                      <PlainTableHeader label="Actions" />
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {paginated.length === 0 ? (
+                    <Tr>
+                      <Td colSpan={colSpan} dataLabel="Empty state">
+                        <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                          No cron jobs match your filters.
+                        </Content>
+                      </Td>
+                    </Tr>
+                  ) : (
+                    paginated.map((cj) => (
+                      <Tr key={`${cj.namespace}/${cj.name}`}>
+                        <Td dataLabel="Name">
+                          <Button variant="link" isInline>
+                            {cj.name}
+                          </Button>
+                        </Td>
+                        <Td dataLabel="Namespace">
+                          <Content component="small">{cj.namespace}</Content>
+                        </Td>
+                        <Td dataLabel="Schedule">
+                          <Content component="small">{cj.schedule}</Content>
+                        </Td>
+                        <Td dataLabel="Suspend">
+                          <Label color={cj.suspend ? "orange" : "green"} isCompact>
+                            {cj.suspend ? "Yes" : "No"}
+                          </Label>
+                        </Td>
+                        <Td dataLabel="Active">
+                          <Content component="small">{cj.active}</Content>
+                        </Td>
+                        <Td dataLabel="Last schedule">
+                          <Content component="small">{cj.lastSchedule}</Content>
+                        </Td>
+                        <Td dataLabel="Age">
+                          <Content component="small">{cj.age}</Content>
+                        </Td>
+                        <Td dataLabel="Actions" isActionCell hasAction>
+                          <Button variant="plain" aria-label={`Actions for ${cj.name}`} icon={<EllipsisVIcon />} />
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </Tbody>
+              </OcsPrototypeListTable>
+            </DataView>
+          </div>
+        </Flex>
       </Breadcrumbs>
     </div>
   );

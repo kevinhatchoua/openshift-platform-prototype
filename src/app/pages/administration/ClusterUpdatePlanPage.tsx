@@ -58,7 +58,15 @@ import {
   Title,
   ToggleGroup,
   ToggleGroupItem,
+  Pagination,
+  PaginationVariant,
 } from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import { InnerScrollContainer, Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { usePatternFlyGlassActive } from "@/lib/usePatternFlyGlassActive";
@@ -90,6 +98,18 @@ import {
 } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../../components/dataView/OcsPrototypeListTable";
 import { AiAssessmentSection } from "../../components/AiAssessmentSection";
 import { OlsChatbot } from "../../components/OlsChatbot";
 import { AiGeneratedPlanMarker, AI_GENERATED_PLAN_HEADING } from "../../components/lightspeed/LightspeedLegalCopy";
@@ -2912,51 +2932,230 @@ function UpdateAgentTab({
 }
 
 /* ─── Operators on this cluster ─── */
+type OperatorClusterFilters = { name: string };
+type OperatorClusterSortColumn = "name" | "status" | "version" | "compatibility" | "lastUpdated";
+
+function sortOperatorClusterRows(
+  rows: Array<InstalledOperator & { clusterCompatibility: string }>,
+  column: OperatorClusterSortColumn,
+  direction: SortDirection
+) {
+  return [...rows].sort((a, b) => {
+    switch (column) {
+      case "name":
+        return compareStrings(a.name, b.name, direction);
+      case "status":
+        return compareStrings(
+          a.updateAvailable ? "Update available" : "Up to date",
+          b.updateAvailable ? "Update available" : "Up to date",
+          direction
+        );
+      case "version":
+        return compareStrings(a.version, b.version, direction);
+      case "compatibility":
+        return compareStrings(a.clusterCompatibility, b.clusterCompatibility, direction);
+      case "lastUpdated":
+        return compareStrings(a.lastUpdated || "", b.lastUpdated || "", direction);
+      default:
+        return 0;
+    }
+  });
+}
+
 function OperatorsOnClusterSection({ selectedVersion, operators, navigate }: { selectedVersion: string; operators: InstalledOperator[]; navigate: ReturnType<typeof useNavigate> }) {
   const [updateAll, setUpdateAll] = useState(false);
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<OperatorClusterFilters>({
+    filters: { name: "" },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<OperatorClusterSortColumn>("name");
+
+  const rowsWithCompat = useMemo(
+    () =>
+      operators.map((op) => {
+        const compat = getOperatorCompatibility(op, selectedVersion);
+        return { ...op, clusterCompatibility: compat.compatibility };
+      }),
+    [operators, selectedVersion]
+  );
+
+  const filteredRows = useMemo(() => {
+    const nameQ = (filters.name ?? "").trim().toLowerCase();
+    return rowsWithCompat.filter((op) => !nameQ || op.name.toLowerCase().includes(nameQ));
+  }, [rowsWithCompat, filters.name]);
+
+  const sortedRows = useMemo(
+    () => sortOperatorClusterRows(filteredRows, sortColumn, sortDirection),
+    [filteredRows, sortColumn, sortDirection]
+  );
+
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(sortedRows, [filters], 8);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.name, perPage, setPage]);
+
+  const colSpan = 5;
 
   return (
     <div className="rounded-[16px] border border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)] p-[24px] mb-[16px]">
       <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[18px] mb-[16px]">Operators on this cluster</h2>
 
       <div className="rounded-[8px] border border-[#e0e0e0] dark:border-[rgba(255,255,255,0.1)] overflow-hidden">
-        <table className="w-full text-[13px] font-['Red_Hat_Text:Regular',sans-serif]">
-          <thead>
-            <tr className="border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)] text-left text-[11px] text-[#6a6e73] dark:text-[#8a8d90] uppercase tracking-wide">
-              <th className="px-[16px] py-[10px] font-medium">Name</th>
-              <th className="px-[16px] py-[10px] font-medium">Status</th>
-              <th className="px-[16px] py-[10px] font-medium">Version</th>
-              <th className="px-[16px] py-[10px] font-medium">Cluster compatibility</th>
-              <th className="px-[16px] py-[10px] font-medium">Last updated</th>
-            </tr>
-          </thead>
-          <tbody>
-            {operators.slice(0, 8).map((op) => {
-              const compat = getOperatorCompatibility(op, selectedVersion);
-              return (
-                <tr key={op.name} className="border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors">
-                  <td className="px-[16px] py-[10px]">
-                    <button onClick={() => navigate(`/ecosystem/installed-operators/${encodeURIComponent(op.name)}`)} className="text-[#0066cc] dark:text-[#4dabf7] bg-transparent border-0 cursor-pointer p-0 hover:underline font-medium text-[13px] font-['Red_Hat_Text:Regular',sans-serif]">
-                      {op.name}
-                    </button>
-                  </td>
-                  <td className="px-[16px] py-[10px]">
-                    <span className={`inline-flex items-center gap-[4px] text-[12px] ${op.updateAvailable ? "text-[#0066cc]" : "text-[#3e8635]"}`}>
-                      {op.updateAvailable ? <><ArrowRight className="size-[12px]" /> Update available</> : <><CheckCircle className="size-[12px]" /> Up to date</>}
-                    </span>
-                  </td>
-                  <td className="px-[16px] py-[10px] font-mono text-[#4d4d4d] dark:text-[#b0b0b0]">{op.version}</td>
-                  <td className="px-[16px] py-[10px]">
-                    <span className={`text-[12px] ${compat.compatibility === "Compatible" ? "text-[#3e8635]" : compat.compatibility === "Incompatible" ? "text-[#c9190b]" : "text-[#795600]"}`}>
-                      {compat.compatibility}
-                    </span>
-                  </td>
-                  <td className="px-[16px] py-[10px] text-[#4d4d4d] dark:text-[#b0b0b0]">{op.lastUpdated || "—"}</td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        <DataView ouiaId="operators-on-cluster-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+          <DataViewToolbar
+            ouiaId="operators-on-cluster-dv-toolbar"
+            id="operators-on-cluster-dv-toolbar"
+            className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+            clearAllFilters={clearAllFilters}
+            collapseListedFiltersBreakpoint="xl"
+            filters={
+              <IoDataViewFiltersWithMidActions<OperatorClusterFilters>
+                values={filters}
+                onChange={(_filterId, partial) => onSetFilters(partial)}
+                breakpoint="xl"
+              >
+                <DataViewTextFilter
+                  title="Name"
+                  filterId="name"
+                  placeholder="Filter by name..."
+                  style={{ minWidth: "16rem", maxWidth: "100%" }}
+                />
+              </IoDataViewFiltersWithMidActions>
+            }
+            pagination={
+              <Pagination
+                perPageOptions={[
+                  { title: "8", value: 8 },
+                  { title: "20", value: 20 },
+                  { title: "50", value: 50 },
+                ]}
+                itemCount={itemCount}
+                page={page}
+                perPage={perPage}
+                onSetPage={(_e, p) => setPage(p)}
+                onPerPageSelect={(_e, pp) => {
+                  setPerPage(pp);
+                  setPage(1);
+                }}
+                variant={PaginationVariant.top}
+                isCompact
+                ouiaId="operators-on-cluster-pagination"
+                widgetId="operators-on-cluster-pagination"
+                titles={{ items: "operators" }}
+                paginationAriaLabel="Operators on cluster pagination"
+              />
+            }
+          />
+
+          <OcsPrototypeListTable ariaLabel="Operators on this cluster">
+            <Thead>
+              <Tr>
+                <Th dataLabel="Name">
+                  <SortableTableHeader
+                    label="Name"
+                    column="name"
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={toggleSort}
+                  />
+                </Th>
+                <Th dataLabel="Status">
+                  <SortableTableHeader
+                    label="Status"
+                    column="status"
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={toggleSort}
+                  />
+                </Th>
+                <Th dataLabel="Version">
+                  <SortableTableHeader
+                    label="Version"
+                    column="version"
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={toggleSort}
+                  />
+                </Th>
+                <Th dataLabel="Cluster compatibility">
+                  <SortableTableHeader
+                    label="Cluster compatibility"
+                    column="compatibility"
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={toggleSort}
+                  />
+                </Th>
+                <Th dataLabel="Last updated">
+                  <SortableTableHeader
+                    label="Last updated"
+                    column="lastUpdated"
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={toggleSort}
+                  />
+                </Th>
+              </Tr>
+            </Thead>
+            <Tbody>
+              {paginated.length === 0 ? (
+                <Tr>
+                  <Td colSpan={colSpan} dataLabel="Empty state">
+                    <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                      No operators match your filters.
+                    </Content>
+                  </Td>
+                </Tr>
+              ) : (
+                paginated.map((op) => (
+                  <Tr key={op.name}>
+                    <Td dataLabel="Name">
+                      <Button
+                        variant="link"
+                        isInline
+                        onClick={() => navigate(`/ecosystem/installed-operators/${encodeURIComponent(op.name)}`)}
+                      >
+                        {op.name}
+                      </Button>
+                    </Td>
+                    <Td dataLabel="Status">
+                      <span className={`inline-flex items-center gap-[4px] text-[12px] ${op.updateAvailable ? "text-[#0066cc]" : "text-[#3e8635]"}`}>
+                        {op.updateAvailable ? (
+                          <>
+                            <ArrowRight className="size-[12px]" /> Update available
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="size-[12px]" /> Up to date
+                          </>
+                        )}
+                      </span>
+                    </Td>
+                    <Td dataLabel="Version">
+                      <Content component="small">{op.version}</Content>
+                    </Td>
+                    <Td dataLabel="Cluster compatibility">
+                      <span
+                        className={`text-[12px] ${
+                          op.clusterCompatibility === "Compatible"
+                            ? "text-[#3e8635]"
+                            : op.clusterCompatibility === "Incompatible"
+                              ? "text-[#c9190b]"
+                              : "text-[#795600]"
+                        }`}
+                      >
+                        {op.clusterCompatibility}
+                      </span>
+                    </Td>
+                    <Td dataLabel="Last updated">
+                      <Content component="small">{op.lastUpdated || "—"}</Content>
+                    </Td>
+                  </Tr>
+                ))
+              )}
+            </Tbody>
+          </OcsPrototypeListTable>
+        </DataView>
       </div>
 
       {operators.length > 8 && (

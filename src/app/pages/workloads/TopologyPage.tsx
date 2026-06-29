@@ -1,5 +1,18 @@
 import { useState, useRef, useCallback, useEffect, useMemo } from "react";
 import {
+  Button,
+  Content,
+  Pagination,
+  PaginationVariant,
+} from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
+import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import {
   ZoomIn, ZoomOut, Maximize2, List, LayoutGrid, Search, Filter,
   ExternalLink, Globe, Box, Database, ChevronRight, X, MoreVertical,
   ArrowUpRight, RefreshCw, Layers, GitBranch, CheckCircle2, AlertTriangle,
@@ -8,6 +21,18 @@ import {
 import { useNavigate } from "react-router";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../../components/dataView/OcsPrototypeListTable";
 
 // ── Data types ──
 type PodPhase = "Running" | "Pending" | "Succeeded" | "Failed" | "Terminating";
@@ -535,45 +560,56 @@ function ListViewRow({ node, onSelect }: { node: TopoNode; onSelect: () => void 
   const hasFailed = node.podStatuses.some(s => s.phase === "Failed");
 
   return (
-    <tr onClick={onSelect} className="border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] cursor-pointer transition-colors">
-      <td className="px-[16px] py-[12px]">
+    <Tr onClick={onSelect} style={{ cursor: "pointer" }}>
+      <Td dataLabel="Name">
         <div className="flex items-center gap-[10px]">
           <div className="size-[28px] rounded-[999px] flex items-center justify-center" style={{ backgroundColor: `${borderColor}18`, color: borderColor }}>
             <KindIcon kind={node.kind} size={14} />
           </div>
           <div>
-            <p className="text-[13px] font-mono text-[#151515] dark:text-white">{node.name}</p>
-            <p className="text-[11px] text-[#6a6e73]">{node.kind}</p>
+            <Content component="small">{node.name}</Content>
+            <Content component="small" className="text-[#6a6e73]">{node.kind}</Content>
           </div>
         </div>
-      </td>
-      <td className="px-[16px] py-[12px]">
-        <span className="px-[8px] py-[2px] rounded-[4px] text-[11px] bg-[rgba(0,0,0,0.05)] dark:bg-[rgba(255,255,255,0.08)] text-[#151515] dark:text-white font-mono">
-          {node.app}
-        </span>
-      </td>
-      <td className="px-[16px] py-[12px]">
+      </Td>
+      <Td dataLabel="Application">
+        <Content component="small">{node.app}</Content>
+      </Td>
+      <Td dataLabel="Status">
         <div className="flex items-center gap-[6px]">
           {hasFailed ? <XCircle className="size-[14px] text-[#c9190b]" /> : allRunning ? <CheckCircle2 className="size-[14px] text-[#3e8635]" /> : <AlertTriangle className="size-[14px] text-[#f0ab00]" />}
-          <span className="text-[12px] text-[#151515] dark:text-white">{node.totalPods}/{node.desiredPods} pods</span>
+          <Content component="small">{node.totalPods}/{node.desiredPods} pods</Content>
         </div>
-      </td>
-      <td className="px-[16px] py-[12px]">
+      </Td>
+      <Td dataLabel="Pods">
         <PodDonut statuses={node.podStatuses} total={node.totalPods} size={32} />
-      </td>
-      <td className="px-[16px] py-[12px]">
+      </Td>
+      <Td dataLabel="Route">
         {node.routeURL ? (
-          <a href="#" className="text-[12px] text-[#0066cc] dark:text-[#4dabf7] flex items-center gap-[4px] hover:underline" onClick={(e) => { e.preventDefault(); e.stopPropagation(); }}>
-            <ExternalLink className="size-[12px]" /> Route
-          </a>
-        ) : <span className="text-[12px] text-[#6a6e73]">—</span>}
-      </td>
-      <td className="px-[16px] py-[12px]">
-        <button className="p-[4px] hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] rounded-[4px]" onClick={(e) => e.stopPropagation()}>
-          <MoreVertical className="size-[14px] text-[#6a6e73]" />
-        </button>
-      </td>
-    </tr>
+          <Button
+            variant="link"
+            isInline
+            icon={<ExternalLink className="size-[12px]" />}
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            Route
+          </Button>
+        ) : (
+          <Content component="small">—</Content>
+        )}
+      </Td>
+      <Td dataLabel="Actions" isActionCell hasAction>
+        <Button
+          variant="plain"
+          aria-label={`Actions for ${node.name}`}
+          icon={<MoreVertical className="size-[14px] text-[#6a6e73]" />}
+          onClick={(e) => e.stopPropagation()}
+        />
+      </Td>
+    </Tr>
   );
 }
 
@@ -626,6 +662,41 @@ export default function TopologyPage() {
       return matchesSearch && matchesKind;
     });
   }, [nodes, searchTerm, filterKind]);
+
+  type TopologyListFilters = { name: string };
+  type TopologySortColumn = "name" | "app" | "status";
+
+  const { clearAllFilters: clearListFilters } = useDataViewFilters<TopologyListFilters>({
+    filters: { name: searchTerm },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<TopologySortColumn>("name");
+
+  const sortedListNodes = useMemo(() => {
+    return [...filteredNodes].sort((a, b) => {
+      switch (sortColumn) {
+        case "name":
+          return compareStrings(a.name, b.name, sortDirection);
+        case "app":
+          return compareStrings(a.app, b.app, sortDirection);
+        case "status":
+          return compareStrings(`${a.totalPods}/${a.desiredPods}`, `${b.totalPods}/${b.desiredPods}`, sortDirection);
+        default:
+          return 0;
+      }
+    });
+  }, [filteredNodes, sortColumn, sortDirection]);
+
+  const { page, setPage, perPage, setPerPage, paginated: paginatedListNodes, itemCount: listItemCount } = useListPagination(
+    sortedListNodes,
+    [searchTerm, filterKind, sortColumn, sortDirection],
+    20
+  );
+
+  useEffect(() => {
+    setPage(1);
+  }, [searchTerm, filterKind, perPage, sortColumn, sortDirection, setPage]);
+
+  const listColSpan = 6;
 
   const filteredNodeIds = new Set(filteredNodes.map((n) => n.id));
 
@@ -947,29 +1018,97 @@ export default function TopologyPage() {
           ) : (
             /* List View */
             <div className="w-full h-full overflow-auto">
-              <table className="w-full">
-                <thead className="bg-[rgba(0,0,0,0.03)] dark:bg-[rgba(255,255,255,0.03)] sticky top-0 z-10">
-                  <tr>
-                    <th className="text-left px-[16px] py-[12px] text-[12px] font-semibold text-[#151515] dark:text-white uppercase tracking-wider">Name</th>
-                    <th className="text-left px-[16px] py-[12px] text-[12px] font-semibold text-[#151515] dark:text-white uppercase tracking-wider">Application</th>
-                    <th className="text-left px-[16px] py-[12px] text-[12px] font-semibold text-[#151515] dark:text-white uppercase tracking-wider">Status</th>
-                    <th className="text-left px-[16px] py-[12px] text-[12px] font-semibold text-[#151515] dark:text-white uppercase tracking-wider">Pods</th>
-                    <th className="text-left px-[16px] py-[12px] text-[12px] font-semibold text-[#151515] dark:text-white uppercase tracking-wider">Route</th>
-                    <th className="text-left px-[16px] py-[12px] text-[12px] font-semibold text-[#151515] dark:text-white uppercase tracking-wider w-[48px]"></th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {filteredNodes.map((node) => (
-                    <ListViewRow key={node.id} node={node} onSelect={() => setSelectedNode(node)} />
-                  ))}
-                </tbody>
-              </table>
-              {filteredNodes.length === 0 && (
-                <div className="flex flex-col items-center justify-center py-[80px] text-[#6a6e73]">
-                  <Box className="size-[40px] mb-[12px]" />
-                  <p className="text-[14px]">No workloads found</p>
-                </div>
-              )}
+              <DataView ouiaId="topology-list-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+                <DataViewToolbar
+                  ouiaId="topology-list-dv-toolbar"
+                  id="topology-list-dv-toolbar"
+                  className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+                  clearAllFilters={() => {
+                    setSearchTerm("");
+                    clearListFilters();
+                  }}
+                  collapseListedFiltersBreakpoint="xl"
+                  filters={
+                    <IoDataViewFiltersWithMidActions<TopologyListFilters>
+                      values={{ name: searchTerm }}
+                      onChange={(_filterId, partial) => setSearchTerm(partial.name ?? "")}
+                      breakpoint="xl"
+                    >
+                      <DataViewTextFilter
+                        title="Name"
+                        filterId="name"
+                        placeholder="Filter by name..."
+                        style={{ minWidth: "16rem", maxWidth: "100%" }}
+                      />
+                    </IoDataViewFiltersWithMidActions>
+                  }
+                  pagination={
+                    <Pagination
+                      perPageOptions={[
+                        { title: "10", value: 10 },
+                        { title: "20", value: 20 },
+                        { title: "50", value: 50 },
+                      ]}
+                      itemCount={listItemCount}
+                      page={page}
+                      perPage={perPage}
+                      onSetPage={(_e, p) => setPage(p)}
+                      onPerPageSelect={(_e, pp) => {
+                        setPerPage(pp);
+                        setPage(1);
+                      }}
+                      variant={PaginationVariant.top}
+                      isCompact
+                      ouiaId="topology-list-pagination"
+                      widgetId="topology-list-pagination"
+                      titles={{ items: "workloads" }}
+                      paginationAriaLabel="Topology list pagination"
+                    />
+                  }
+                />
+
+                <OcsPrototypeListTable ariaLabel="Topology workloads">
+                  <Thead>
+                    <Tr>
+                      <Th dataLabel="Name">
+                        <SortableTableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                      </Th>
+                      <Th dataLabel="Application">
+                        <SortableTableHeader label="Application" column="app" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                      </Th>
+                      <Th dataLabel="Status">
+                        <SortableTableHeader label="Status" column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                      </Th>
+                      <Th dataLabel="Pods">
+                        <PlainTableHeader label="Pods" />
+                      </Th>
+                      <Th dataLabel="Route">
+                        <PlainTableHeader label="Route" />
+                      </Th>
+                      <Th modifier="fitContent" dataLabel="Actions">
+                        <PlainTableHeader label="Actions" />
+                      </Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {paginatedListNodes.length === 0 ? (
+                      <Tr>
+                        <Td colSpan={listColSpan} dataLabel="Empty state">
+                          <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                            <Box className="size-[40px] mb-[12px] inline-block" />
+                            <br />
+                            No workloads found
+                          </Content>
+                        </Td>
+                      </Tr>
+                    ) : (
+                      paginatedListNodes.map((node) => (
+                        <ListViewRow key={node.id} node={node} onSelect={() => setSelectedNode(node)} />
+                      ))
+                    )}
+                  </Tbody>
+                </OcsPrototypeListTable>
+              </DataView>
             </div>
           )}
         </div>

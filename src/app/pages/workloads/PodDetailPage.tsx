@@ -21,6 +21,11 @@ import {
   TabTitleText,
   Title,
 } from "@patternfly/react-core";
+import { InnerScrollContainer, Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import {
+  OCS_PROTOTYPE_TABLE_CLASS,
+  PlainTableHeader,
+} from "../../components/dataView/OcsPrototypeListTable";
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
 import ClockIcon from "@patternfly/react-icons/dist/esm/icons/clock-icon";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
@@ -287,58 +292,76 @@ export default function PodDetailPage() {
                 <Title headingLevel="h2" size="xl" className="ocs-pod-details__section-title">
                   Containers
                 </Title>
-                <div className="ocs-nodes-list__table-wrap">
-                  <table className="ocs-nodes-list__table" aria-label="Containers">
-                    <thead>
-                      <tr>
-                        <th scope="col">Name</th>
-                        <th scope="col">Image</th>
-                        <th scope="col">State</th>
-                        <th scope="col">Ready</th>
-                        <th scope="col">Last State</th>
-                        <th scope="col">Restarts</th>
-                        <th scope="col">Started</th>
-                        <th scope="col">Finished</th>
-                        <th scope="col">Exit code</th>
-                      </tr>
-                    </thead>
-                    <tbody>
+                <InnerScrollContainer>
+                  <Table aria-label="Containers" borders variant="compact" className={OCS_PROTOTYPE_TABLE_CLASS}>
+                    <Thead>
+                      <Tr>
+                        <Th dataLabel="Name">
+                          <PlainTableHeader label="Name" />
+                        </Th>
+                        <Th dataLabel="Image">
+                          <PlainTableHeader label="Image" />
+                        </Th>
+                        <Th dataLabel="State">
+                          <PlainTableHeader label="State" />
+                        </Th>
+                        <Th dataLabel="Ready">
+                          <PlainTableHeader label="Ready" />
+                        </Th>
+                        <Th dataLabel="Last State">
+                          <PlainTableHeader label="Last State" />
+                        </Th>
+                        <Th dataLabel="Restarts">
+                          <PlainTableHeader label="Restarts" />
+                        </Th>
+                        <Th dataLabel="Started">
+                          <PlainTableHeader label="Started" />
+                        </Th>
+                        <Th dataLabel="Finished">
+                          <PlainTableHeader label="Finished" />
+                        </Th>
+                        <Th dataLabel="Exit code">
+                          <PlainTableHeader label="Exit code" />
+                        </Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
                       {pod.containers.map((c) => (
-                        <tr key={c.name}>
-                          <td>
+                        <Tr key={c.name}>
+                          <Td dataLabel="Name">
                             <Content component="small">{c.name}</Content>
-                          </td>
-                          <td>
+                          </Td>
+                          <Td dataLabel="Image">
                             <Content component="small" className="ocs-pods-list__mono">
                               {c.image}
                             </Content>
-                          </td>
-                          <td>
+                          </Td>
+                          <Td dataLabel="State">
                             <Content component="small">{c.state}</Content>
-                          </td>
-                          <td>
+                          </Td>
+                          <Td dataLabel="Ready">
                             <Content component="small">{c.ready ? "True" : "False"}</Content>
-                          </td>
-                          <td>
+                          </Td>
+                          <Td dataLabel="Last State">
                             <Content component="small">{c.lastState}</Content>
-                          </td>
-                          <td>
+                          </Td>
+                          <Td dataLabel="Restarts">
                             <Content component="small">{c.restarts}</Content>
-                          </td>
-                          <td>
+                          </Td>
+                          <Td dataLabel="Started">
                             <Content component="small">{c.started}</Content>
-                          </td>
-                          <td>
+                          </Td>
+                          <Td dataLabel="Finished">
                             <Content component="small">{c.finished}</Content>
-                          </td>
-                          <td>
+                          </Td>
+                          <Td dataLabel="Exit code">
                             <Content component="small">{c.exitCode}</Content>
-                          </td>
-                        </tr>
+                          </Td>
+                        </Tr>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
+                    </Tbody>
+                  </Table>
+                </InnerScrollContainer>
               </section>
 
               <section className="ocs-pod-details__section app-glass-panel" aria-label="Volumes">

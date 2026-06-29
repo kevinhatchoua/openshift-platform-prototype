@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Button,
@@ -23,9 +23,21 @@ import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-ico
 import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
 import OutlinedClockIcon from "@patternfly/react-icons/dist/esm/icons/outlined-clock-icon";
 import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
+import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../components/Breadcrumbs";
 import FavoriteButton from "../components/FavoriteButton";
 import { IoDataViewFiltersWithMidActions } from "../components/dataView/IoDataViewFiltersWithMidActions";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../components/dataView/OcsPrototypeListTable";
 import { COMPUTE_NODES_LIST } from "./compute/nodeDetailData";
 
 type NodeStatus = (typeof COMPUTE_NODES_LIST)[number]["status"];
@@ -34,6 +46,8 @@ type NodeFilters = {
   name: string;
   role: string;
 };
+
+type SortColumn = "name" | "status" | "role" | "kubelet" | "cpu" | "memory" | "pods" | "age";
 
 function nodeDetailPath(nodeName: string) {
   return `/compute/nodes/${encodeURIComponent(nodeName)}`;
@@ -50,40 +64,68 @@ function NodeStatusCell({ status }: { status: NodeStatus }) {
   );
 }
 
+function rowMatchesFilters(
+  row: (typeof COMPUTE_NODES_LIST)[number],
+  filters: NodeFilters
+): boolean {
+  const nameQ = (filters.name ?? "").trim().toLowerCase();
+  const roleQ = (filters.role ?? "").trim().toLowerCase();
+  if (nameQ && !row.name.toLowerCase().includes(nameQ)) return false;
+  if (roleQ && !row.role.toLowerCase().includes(roleQ)) return false;
+  return true;
+}
+
+function sortNodes(
+  rows: typeof COMPUTE_NODES_LIST,
+  column: SortColumn,
+  direction: SortDirection
+): typeof COMPUTE_NODES_LIST {
+  return [...rows].sort((a, b) => {
+    switch (column) {
+      case "name":
+        return compareStrings(a.name, b.name, direction);
+      case "status":
+        return compareStrings(a.status, b.status, direction);
+      case "role":
+        return compareStrings(a.role, b.role, direction);
+      case "kubelet":
+        return compareStrings(a.kubelet, b.kubelet, direction);
+      case "cpu":
+        return compareStrings(a.cpu, b.cpu, direction);
+      case "memory":
+        return compareStrings(a.memory, b.memory, direction);
+      case "pods":
+        return compareStrings(a.pods, b.pods, direction);
+      case "age":
+        return compareStrings(a.age, b.age, direction);
+      default:
+        return 0;
+    }
+  });
+}
+
 export default function ComputePage() {
   const navigate = useNavigate();
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<NodeFilters>({
     filters: { name: "", role: "" },
   });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
 
-  const [page, setPage] = useState(1);
-  const [perPage, setPerPage] = useState(50);
-
-  const filteredNodes = useMemo(() => {
-    const nameQ = (filters.name ?? "").trim().toLowerCase();
-    const roleQ = (filters.role ?? "").trim().toLowerCase();
-    return COMPUTE_NODES_LIST.filter((node) => {
-      const matchesName = !nameQ || node.name.toLowerCase().includes(nameQ);
-      const matchesRole = !roleQ || node.role.toLowerCase().includes(roleQ);
-      return matchesName && matchesRole;
-    });
-  }, [filters.name, filters.role]);
-
-  const paginatedNodes = useMemo(() => {
-    const start = (page - 1) * perPage;
-    return filteredNodes.slice(start, start + perPage);
-  }, [filteredNodes, page, perPage]);
+  const filteredNodes = useMemo(
+    () => COMPUTE_NODES_LIST.filter((node) => rowMatchesFilters(node, filters)),
+    [filters]
+  );
+  const sortedNodes = useMemo(
+    () => sortNodes(filteredNodes, sortColumn, sortDirection),
+    [filteredNodes, sortColumn, sortDirection]
+  );
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(sortedNodes, [filters], 50);
 
   useEffect(() => {
     setPage(1);
-  }, [filters.name, filters.role, perPage]);
+  }, [filters.name, filters.role, perPage, setPage]);
 
-  useEffect(() => {
-    const maxPage = Math.max(1, Math.ceil(filteredNodes.length / perPage) || 1);
-    if (page > maxPage) {
-      setPage(maxPage);
-    }
-  }, [filteredNodes.length, page, perPage]);
+  const colSpan = 9;
 
   return (
     <div className="ocs-app-page-outer w-full">
@@ -110,11 +152,11 @@ export default function ComputePage() {
           </Flex>
 
           <div className="ocs-pods-list__panel app-glass-panel">
-            <DataView ouiaId="nodes-data-view" className="ocs-pods-dataview">
+            <DataView ouiaId="nodes-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
               <DataViewToolbar
                 ouiaId="nodes-dv-toolbar"
                 id="nodes-dv-toolbar"
-                className="ocs-io-dv-toolbar-align ocs-pods-list__dv-toolbar"
+                className={OCS_PROTOTYPE_TOOLBAR_CLASS}
                 clearAllFilters={clearAllFilters}
                 collapseListedFiltersBreakpoint="xl"
                 filters={
@@ -125,12 +167,7 @@ export default function ComputePage() {
                     midContent={
                       <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }}>
                         <ToolbarItem>
-                          <Button
-                            variant="plain"
-                            aria-label="List view"
-                            isAriaPressed
-                            icon={<ListIcon />}
-                          />
+                          <Button variant="plain" aria-label="List view" isAriaPressed icon={<ListIcon />} />
                         </ToolbarItem>
                         <ToolbarItem>
                           <Button variant="plain" aria-label="Refresh" icon={<SyncIcon />} />
@@ -159,7 +196,7 @@ export default function ComputePage() {
                       { title: "20", value: 20 },
                       { title: "50", value: 50 },
                     ]}
-                    itemCount={filteredNodes.length}
+                    itemCount={itemCount}
                     page={page}
                     perPage={perPage}
                     onSetPage={(_e, p) => setPage(p)}
@@ -177,93 +214,151 @@ export default function ComputePage() {
                 }
               />
 
-              <div className="ocs-nodes-list__table-wrap ocs-pods-list__table-wrap">
-                <table className="ocs-nodes-list__table ocs-pods-list__table" aria-label="Nodes">
-                  <thead>
-                    <tr>
-                      <th scope="col">Name</th>
-                      <th scope="col">Status</th>
-                      <th scope="col">Role</th>
-                      <th scope="col">Kubelet version</th>
-                      <th scope="col">CPU</th>
-                      <th scope="col">Memory</th>
-                      <th scope="col">Pods</th>
-                      <th scope="col">Age</th>
-                      <th scope="col">
-                        <span className="pf-v6-u-screen-reader">Actions</span>
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {paginatedNodes.length === 0 ? (
-                      <tr>
-                        <td colSpan={9}>
-                          <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
-                            No nodes match your filters.
-                          </Content>
-                        </td>
-                      </tr>
-                    ) : (
-                      paginatedNodes.map((node) => (
-                        <tr
-                          key={node.name}
-                          className="ocs-pods-list__row"
-                          onClick={() => navigate(nodeDetailPath(node.name))}
-                        >
-                          <td>
-                            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-                              <Label color="blue" isCompact className="ocs-resource-label">
-                                N
-                              </Label>
-                              <Button
-                                variant="link"
-                                isInline
-                                component={Link}
-                                to={nodeDetailPath(node.name)}
-                                onClick={(e) => e.stopPropagation()}
-                              >
-                                {node.name}
-                              </Button>
-                            </Flex>
-                          </td>
-                          <td>
-                            <NodeStatusCell status={node.status} />
-                          </td>
-                          <td>
-                            <Content component="small">{node.role}</Content>
-                          </td>
-                          <td>
-                            <Content component="small">{node.kubelet}</Content>
-                          </td>
-                          <td>
-                            <Content component="small">{node.cpu}</Content>
-                          </td>
-                          <td>
-                            <Content component="small">{node.memory}</Content>
-                          </td>
-                          <td>
-                            <Content component="small">{node.pods}</Content>
-                          </td>
-                          <td>
-                            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-                              <OutlinedClockIcon aria-hidden className="ocs-pods-list__created-icon" />
-                              <Content component="small">{node.age}</Content>
-                            </Flex>
-                          </td>
-                          <td>
+              <OcsPrototypeListTable ariaLabel="Nodes">
+                <Thead>
+                  <Tr>
+                    <Th dataLabel="Name">
+                      <SortableTableHeader
+                        label="Name"
+                        column="name"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={toggleSort}
+                      />
+                    </Th>
+                    <Th dataLabel="Status">
+                      <SortableTableHeader
+                        label="Status"
+                        column="status"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={toggleSort}
+                      />
+                    </Th>
+                    <Th dataLabel="Role">
+                      <SortableTableHeader
+                        label="Role"
+                        column="role"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={toggleSort}
+                      />
+                    </Th>
+                    <Th dataLabel="Kubelet version">
+                      <SortableTableHeader
+                        label="Kubelet version"
+                        column="kubelet"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={toggleSort}
+                      />
+                    </Th>
+                    <Th dataLabel="CPU">
+                      <SortableTableHeader
+                        label="CPU"
+                        column="cpu"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={toggleSort}
+                      />
+                    </Th>
+                    <Th dataLabel="Memory">
+                      <SortableTableHeader
+                        label="Memory"
+                        column="memory"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={toggleSort}
+                      />
+                    </Th>
+                    <Th dataLabel="Pods">
+                      <SortableTableHeader
+                        label="Pods"
+                        column="pods"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={toggleSort}
+                      />
+                    </Th>
+                    <Th dataLabel="Age">
+                      <SortableTableHeader
+                        label="Age"
+                        column="age"
+                        sortColumn={sortColumn}
+                        sortDirection={sortDirection}
+                        onSort={toggleSort}
+                      />
+                    </Th>
+                    <Th modifier="fitContent" dataLabel="Actions">
+                      <PlainTableHeader label="Actions" />
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {paginated.length === 0 ? (
+                    <Tr>
+                      <Td colSpan={colSpan} dataLabel="Empty state">
+                        <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                          No nodes match your filters.
+                        </Content>
+                      </Td>
+                    </Tr>
+                  ) : (
+                    paginated.map((node) => (
+                      <Tr key={node.name} onClick={() => navigate(nodeDetailPath(node.name))}>
+                        <Td dataLabel="Name">
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <Label color="blue" isCompact className="ocs-resource-label">
+                              N
+                            </Label>
                             <Button
-                              variant="plain"
-                              aria-label={`Actions for ${node.name}`}
-                              icon={<EllipsisVIcon />}
+                              variant="link"
+                              isInline
+                              component={Link}
+                              to={nodeDetailPath(node.name)}
                               onClick={(e) => e.stopPropagation()}
-                            />
-                          </td>
-                        </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
-              </div>
+                            >
+                              {node.name}
+                            </Button>
+                          </Flex>
+                        </Td>
+                        <Td dataLabel="Status">
+                          <NodeStatusCell status={node.status} />
+                        </Td>
+                        <Td dataLabel="Role">
+                          <Content component="small">{node.role}</Content>
+                        </Td>
+                        <Td dataLabel="Kubelet version">
+                          <Content component="small">{node.kubelet}</Content>
+                        </Td>
+                        <Td dataLabel="CPU">
+                          <Content component="small">{node.cpu}</Content>
+                        </Td>
+                        <Td dataLabel="Memory">
+                          <Content component="small">{node.memory}</Content>
+                        </Td>
+                        <Td dataLabel="Pods">
+                          <Content component="small">{node.pods}</Content>
+                        </Td>
+                        <Td dataLabel="Age">
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <OutlinedClockIcon aria-hidden className="ocs-pods-list__created-icon" />
+                            <Content component="small">{node.age}</Content>
+                          </Flex>
+                        </Td>
+                        <Td dataLabel="Actions" isActionCell hasAction>
+                          <Button
+                            variant="plain"
+                            aria-label={`Actions for ${node.name}`}
+                            icon={<EllipsisVIcon />}
+                            onClick={(e) => e.stopPropagation()}
+                          />
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </Tbody>
+              </OcsPrototypeListTable>
             </DataView>
           </div>
         </Flex>

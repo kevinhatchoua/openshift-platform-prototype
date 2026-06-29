@@ -1,80 +1,272 @@
-import { useState } from "react";
+import { useEffect, useMemo } from "react";
+import {
+  Button,
+  Content,
+  Flex,
+  Icon,
+  Label,
+  Pagination,
+  PaginationVariant,
+  Title,
+  ToolbarGroup,
+  ToolbarItem,
+} from "@patternfly/react-core";
+import {
+  DataView,
+  DataViewCheckboxFilter,
+  DataViewTextFilter,
+  DataViewToolbar,
+  useDataViewFilters,
+} from "@patternfly/react-data-view";
+import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
+import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
+import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
+import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
+import {
+  OCS_PROTOTYPE_DATAVIEW_CLASS,
+  OCS_PROTOTYPE_TOOLBAR_CLASS,
+  OcsPrototypeListTable,
+  PlainTableHeader,
+  SortableTableHeader,
+  compareStrings,
+  useListPagination,
+  useTableSort,
+  type SortDirection,
+} from "../../components/dataView/OcsPrototypeListTable";
+
+interface Namespace {
+  name: string;
+  status: string;
+  pods: number;
+  age: string;
+}
+
+type NamespaceFilters = {
+  name: string;
+  status: string[];
+};
+
+type SortColumn = "name" | "status" | "pods" | "age";
+
+const NAMESPACES: Namespace[] = [
+  { name: "default", status: "Active", pods: 12, age: "45d" },
+  { name: "kube-system", status: "Active", pods: 28, age: "45d" },
+  { name: "kube-public", status: "Active", pods: 2, age: "45d" },
+  { name: "openshift-console", status: "Active", pods: 6, age: "45d" },
+  { name: "openshift-monitoring", status: "Active", pods: 15, age: "45d" },
+  { name: "my-application", status: "Active", pods: 8, age: "12d" },
+];
+
+const STATUS_OPTIONS = [{ value: "Active", label: "Active" }];
+
+function rowMatchesFilters(row: Namespace, filters: NamespaceFilters): boolean {
+  const nameQ = (filters.name ?? "").trim().toLowerCase();
+  if (nameQ && !row.name.toLowerCase().includes(nameQ)) return false;
+  if (filters.status.length > 0 && !filters.status.includes(row.status)) return false;
+  return true;
+}
+
+function sortNamespaces(rows: Namespace[], column: SortColumn, direction: SortDirection): Namespace[] {
+  return [...rows].sort((a, b) => {
+    switch (column) {
+      case "name":
+        return compareStrings(a.name, b.name, direction);
+      case "status":
+        return compareStrings(a.status, b.status, direction);
+      case "pods": {
+        const cmp = a.pods - b.pods;
+        return direction === "asc" ? cmp : -cmp;
+      }
+      case "age":
+        return compareStrings(a.age, b.age, direction);
+      default:
+        return 0;
+    }
+  });
+}
 
 export default function NamespacesPage() {
-  const namespaces = [
-    { name: "default", status: "Active", pods: 12, age: "45d" },
-    { name: "kube-system", status: "Active", pods: 28, age: "45d" },
-    { name: "kube-public", status: "Active", pods: 2, age: "45d" },
-    { name: "openshift-console", status: "Active", pods: 6, age: "45d" },
-    { name: "openshift-monitoring", status: "Active", pods: 15, age: "45d" },
-    { name: "my-application", status: "Active", pods: 8, age: "12d" },
-  ];
+  const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<NamespaceFilters>({
+    filters: { name: "", status: [] },
+  });
+  const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
+
+  const filteredRows = useMemo(
+    () => NAMESPACES.filter((row) => rowMatchesFilters(row, filters)),
+    [filters]
+  );
+  const sortedRows = useMemo(
+    () => sortNamespaces(filteredRows, sortColumn, sortDirection),
+    [filteredRows, sortColumn, sortDirection]
+  );
+  const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(sortedRows, [filters], 20);
+
+  useEffect(() => {
+    setPage(1);
+  }, [filters.name, filters.status, perPage, setPage]);
+
+  const colSpan = 5;
 
   return (
-    <div className="ocs-app-page-outer">
-      <div className="flex items-center justify-between mb-[24px]">
-        <h1 className="font-['Red_Hat_Display_VF:Medium',sans-serif] font-medium leading-[36.4px] text-[#151515] dark:text-white text-[28px]">
-          Namespaces
-        </h1>
-        <div className="flex items-center gap-[12px]">
-          <FavoriteButton name="Namespaces" path="/administration/namespaces" />
-          <button className="bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white px-[20px] py-[10px] rounded-[8px] font-semibold transition-colors">
-            Create Namespace
-          </button>
-        </div>
-      </div>
-      <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] rounded-[24px] shadow-[0px_8px_24px_0px_rgba(0,0,0,0.08)] p-[32px]">
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)]">
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Name
-                </th>
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Status
-                </th>
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Pods
-                </th>
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Age
-                </th>
-                <th className="text-left py-[16px] px-[16px] font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[#151515] dark:text-white text-[14px]">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {namespaces.map((ns, index) => (
-                <tr
-                  key={ns.name}
-                  className={`border-b border-[rgba(0,0,0,0.05)] dark:border-[rgba(255,255,255,0.05)] hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.02)] transition-colors ${
-                    index === namespaces.length - 1 ? "border-b-0" : ""
-                  }`}
-                >
-                  <td className="py-[16px] px-[16px] font-['Red_Hat_Text:Medium',sans-serif] font-medium text-[#151515] dark:text-white">
-                    {ns.name}
-                  </td>
-                  <td className="py-[16px] px-[16px]">
-                    <span className="bg-[#3e8635] text-white px-[12px] py-[4px] rounded-[999px] text-[13px] font-semibold">
-                      {ns.status}
-                    </span>
-                  </td>
-                  <td className="py-[16px] px-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]">{ns.pods}</td>
-                  <td className="py-[16px] px-[16px] text-[#4d4d4d] dark:text-[#b0b0b0]">{ns.age}</td>
-                  <td className="py-[16px] px-[16px]">
-                    <button className="text-[#0066cc] dark:text-[#4dabf7] hover:underline font-semibold text-[14px]">
-                      Edit
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
+    <div className="ocs-app-page-outer w-full">
+      <Breadcrumbs
+        items={[
+          { label: "Home", path: "/" },
+          { label: "Administration", path: "/administration" },
+          { label: "Namespaces", path: "/administration/namespaces" },
+        ]}
+      >
+        <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
+          <Flex
+            alignItems={{ default: "alignItemsCenter" }}
+            justifyContent={{ default: "justifyContentSpaceBetween" }}
+            flexWrap={{ default: "wrap" }}
+            gap={{ default: "gapMd" }}
+          >
+            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+              <Title headingLevel="h1" size="2xl">
+                Namespaces
+              </Title>
+              <FavoriteButton name="Namespaces" path="/administration/namespaces" />
+            </Flex>
+            <Button variant="primary">Create Namespace</Button>
+          </Flex>
+
+          <div className="ocs-pods-list__panel app-glass-panel">
+            <DataView ouiaId="namespaces-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+              <DataViewToolbar
+                ouiaId="namespaces-dv-toolbar"
+                id="namespaces-dv-toolbar"
+                className={OCS_PROTOTYPE_TOOLBAR_CLASS}
+                clearAllFilters={clearAllFilters}
+                collapseListedFiltersBreakpoint="xl"
+                filters={
+                  <IoDataViewFiltersWithMidActions<NamespaceFilters>
+                    values={filters}
+                    onChange={(_filterId, partial) => onSetFilters(partial)}
+                    breakpoint="xl"
+                    midContent={
+                      <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }}>
+                        <ToolbarItem>
+                          <Button variant="plain" aria-label="List view" isAriaPressed icon={<ListIcon />} />
+                        </ToolbarItem>
+                        <ToolbarItem>
+                          <Button variant="plain" aria-label="Refresh" icon={<SyncIcon />} />
+                        </ToolbarItem>
+                      </ToolbarGroup>
+                    }
+                  >
+                    <DataViewTextFilter
+                      title="Name"
+                      filterId="name"
+                      placeholder="Filter by name..."
+                      style={{ minWidth: "16rem", maxWidth: "100%" }}
+                    />
+                    <DataViewCheckboxFilter
+                      title="Status"
+                      filterId="status"
+                      placeholder="Choose statuses"
+                      showIcon
+                      showBadge
+                      options={STATUS_OPTIONS}
+                    />
+                  </IoDataViewFiltersWithMidActions>
+                }
+                pagination={
+                  <Pagination
+                    perPageOptions={[
+                      { title: "10", value: 10 },
+                      { title: "20", value: 20 },
+                      { title: "50", value: 50 },
+                    ]}
+                    itemCount={itemCount}
+                    page={page}
+                    perPage={perPage}
+                    onSetPage={(_e, p) => setPage(p)}
+                    onPerPageSelect={(_e, pp) => {
+                      setPerPage(pp);
+                      setPage(1);
+                    }}
+                    variant={PaginationVariant.top}
+                    isCompact
+                    ouiaId="namespaces-pagination"
+                    widgetId="namespaces-pagination"
+                    titles={{ items: "namespaces" }}
+                    paginationAriaLabel="Namespaces pagination"
+                  />
+                }
+              />
+
+              <OcsPrototypeListTable ariaLabel="Namespaces">
+                <Thead>
+                  <Tr>
+                    <Th dataLabel="Name">
+                      <SortableTableHeader label="Name" column="name" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Status">
+                      <SortableTableHeader label="Status" column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Pods">
+                      <SortableTableHeader label="Pods" column="pods" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th dataLabel="Age">
+                      <SortableTableHeader label="Age" column="age" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
+                    </Th>
+                    <Th modifier="fitContent" dataLabel="Actions">
+                      <PlainTableHeader label="Actions" />
+                    </Th>
+                  </Tr>
+                </Thead>
+                <Tbody>
+                  {paginated.length === 0 ? (
+                    <Tr>
+                      <Td colSpan={colSpan} dataLabel="Empty state">
+                        <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
+                          No namespaces match your filters.
+                        </Content>
+                      </Td>
+                    </Tr>
+                  ) : (
+                    paginated.map((ns) => (
+                      <Tr key={ns.name}>
+                        <Td dataLabel="Name">
+                          <Button variant="link" isInline>
+                            {ns.name}
+                          </Button>
+                        </Td>
+                        <Td dataLabel="Status">
+                          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                            <Icon status="success" aria-hidden>
+                              <CheckCircleIcon />
+                            </Icon>
+                            <Label color="green" isCompact>
+                              {ns.status}
+                            </Label>
+                          </Flex>
+                        </Td>
+                        <Td dataLabel="Pods">
+                          <Content component="small">{ns.pods}</Content>
+                        </Td>
+                        <Td dataLabel="Age">
+                          <Content component="small">{ns.age}</Content>
+                        </Td>
+                        <Td dataLabel="Actions" isActionCell hasAction>
+                          <Button variant="link" isInline>
+                            Edit
+                          </Button>
+                        </Td>
+                      </Tr>
+                    ))
+                  )}
+                </Tbody>
+              </OcsPrototypeListTable>
+            </DataView>
+          </div>
+        </Flex>
+      </Breadcrumbs>
     </div>
   );
 }

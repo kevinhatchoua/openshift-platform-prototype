@@ -6,6 +6,11 @@ import {
   DescriptionListTerm,
   Title,
 } from "@patternfly/react-core";
+import { InnerScrollContainer, Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import {
+  OCS_PROTOTYPE_TABLE_CLASS,
+  PlainTableHeader,
+} from "../../components/dataView/OcsPrototypeListTable";
 import type { NodeGpuMetrics } from "./nodeGpuMetricsData";
 
 type NodeDetailsGpuMetricsProps = {
@@ -72,43 +77,62 @@ export default function NodeDetailsGpuMetrics({ metrics }: NodeDetailsGpuMetrics
       )}
 
       {metrics.devices.length > 0 && (
-        <div className="ocs-nodes-list__table-wrap ocs-node-gpu-metrics__table-wrap">
-          <table className="ocs-nodes-list__table" aria-label="GPU metrics per device">
-            <thead>
-              <tr>
-                <th scope="col">GPU device</th>
-                <th scope="col">Utilization</th>
-                <th scope="col">Temperature</th>
-                <th scope="col">Power usage</th>
-                <th scope="col">FB memory used</th>
-                <th scope="col">FB memory free</th>
-              </tr>
-            </thead>
-            <tbody>
-              {metrics.devices.map((device) => (
-                <tr key={device.id}>
-                  <td>
-                    <Content component="small">{device.label}</Content>
-                  </td>
-                  <td>
-                    <Content component="small">{device.utilization}</Content>
-                  </td>
-                  <td>
-                    <Content component="small">{device.temperature}</Content>
-                  </td>
-                  <td>
-                    <Content component="small">{device.power}</Content>
-                  </td>
-                  <td>
-                    <Content component="small">{device.fbUsed}</Content>
-                  </td>
-                  <td>
-                    <Content component="small">{device.fbFree}</Content>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="ocs-node-gpu-metrics__table-wrap">
+          <InnerScrollContainer>
+            <Table
+              aria-label="GPU metrics per device"
+              borders
+              variant="compact"
+              className={OCS_PROTOTYPE_TABLE_CLASS}
+            >
+              <Thead>
+                <Tr>
+                  <Th dataLabel="GPU device">
+                    <PlainTableHeader label="GPU device" />
+                  </Th>
+                  <Th dataLabel="Utilization">
+                    <PlainTableHeader label="Utilization" />
+                  </Th>
+                  <Th dataLabel="Temperature">
+                    <PlainTableHeader label="Temperature" />
+                  </Th>
+                  <Th dataLabel="Power usage">
+                    <PlainTableHeader label="Power usage" />
+                  </Th>
+                  <Th dataLabel="FB memory used">
+                    <PlainTableHeader label="FB memory used" />
+                  </Th>
+                  <Th dataLabel="FB memory free">
+                    <PlainTableHeader label="FB memory free" />
+                  </Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {metrics.devices.map((device) => (
+                  <Tr key={device.id}>
+                    <Td dataLabel="GPU device">
+                      <Content component="small">{device.label}</Content>
+                    </Td>
+                    <Td dataLabel="Utilization">
+                      <Content component="small">{device.utilization}</Content>
+                    </Td>
+                    <Td dataLabel="Temperature">
+                      <Content component="small">{device.temperature}</Content>
+                    </Td>
+                    <Td dataLabel="Power usage">
+                      <Content component="small">{device.power}</Content>
+                    </Td>
+                    <Td dataLabel="FB memory used">
+                      <Content component="small">{device.fbUsed}</Content>
+                    </Td>
+                    <Td dataLabel="FB memory free">
+                      <Content component="small">{device.fbFree}</Content>
+                    </Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </Table>
+          </InnerScrollContainer>
         </div>
       )}
     </section>
