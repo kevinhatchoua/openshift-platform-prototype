@@ -15,11 +15,27 @@ import {
   updateStandaloneResourcesByIdSuffix,
   type NetworkNodeAssignments,
   type NodeNetworkConfigurationInput,
+  type ResourceInstallStatus,
   type StandaloneTopologyResource,
   type TopologyCrossEdge,
   type WorkerNodeGroup,
 } from "./networkTopologyData";
 import { getUdnRecords, type UdnRecord, udnDetailPath } from "./networkingMockData";
+
+export type ResourceLifecycleAction = "pause" | "stop" | "restart" | "delete";
+
+export type ResourceLifecycleTarget = {
+  resourceId: string;
+  placement: "group" | "standalone";
+  groupId?: string;
+  label: string;
+};
+
+function lifecycleStatusForAction(action: Exclude<ResourceLifecycleAction, "delete">): ResourceInstallStatus {
+  if (action === "pause") return "pending";
+  if (action === "stop") return "failed";
+  return "installing";
+}
 
 function cloneGroups(): WorkerNodeGroup[] {
   return WORKER_NODE_GROUPS.map((group) => ({
@@ -165,12 +181,23 @@ export function useNetworkTopologyState() {
         if (current.includes(workerId)) return;
         const nextWorkers = [...current, workerId];
         const worker = TOPOLOGY_WORKER_CATALOG.find((entry) => entry.id === workerId);
-        if (!worker) return;
+        const group = snapshot.groups.find((entry) => entry.id === workerId);
+        if (!worker || !group) return;
 
-        const hasStandalone = snapshot.standaloneResources.some((resource) => resource.id === standaloneId);
-        const newStandalone = hasStandalone
-          ? null
-          : createStandaloneBridgeForWorker(config, worker, nextWorkers.length - 1);
+        const alreadyNested = group.resources.some((resource) => resource.id === standaloneId);
+        let nextGroups = snapshot.groups;
+        let nextStandalones = snapshot.standaloneResources;
+
+        if (!alreadyNested) {
+          const floatingStandalone = snapshot.standaloneResources.find((resource) => resource.id === standaloneId);
+          const standaloneToNest =
+            floatingStandalone ?? createStandaloneBridgeForWorker(config, worker, nextWorkers.length - 1);
+          nextGroups = snapshot.groups.map((entry) =>
+            entry.id === workerId ? attachStandaloneResourceToGroup(entry, standaloneToNest) : entry
+          );
+          nextStandalones = snapshot.standaloneResources.filter((resource) => resource.id !== standaloneId);
+        }
+
         const revealedGroupIds = snapshot.revealedGroupIds.includes(workerId)
           ? snapshot.revealedGroupIds
           : [...snapshot.revealedGroupIds, workerId];
@@ -181,9 +208,8 @@ export function useNetworkTopologyState() {
             ...snapshot.networkNodeAssignments,
             [assignmentKey]: nextWorkers,
           },
-          standaloneResources: newStandalone
-            ? [...snapshot.standaloneResources, newStandalone]
-            : snapshot.standaloneResources,
+          groups: nextGroups,
+          standaloneResources: nextStandalones,
           revealedGroupIds,
           fitContentToken: snapshot.fitContentToken + 1,
         };
@@ -307,17 +333,33 @@ export function useNetworkTopologyState() {
   );
 
   const markStandalonesInstalling = useCallback(() => {
+    const updateGroupBridges = (groups: WorkerNodeGroup[]) =>
+      groups.map((group) => ({
+        ...group,
+        resources: group.resources.map((resource) =>
+          resource.id.endsWith("br-localnet") ? { ...resource, status: "installing" as const } : resource
+        ),
+      }));
     snapshot = {
       ...snapshot,
       standaloneResources: updateStandaloneResourcesByIdSuffix(snapshot.standaloneResources, "br-localnet", "installing"),
+      groups: updateGroupBridges(snapshot.groups),
     };
     emit();
   }, []);
 
   const markStandalonesConfigured = useCallback(() => {
+    const updateGroupBridges = (groups: WorkerNodeGroup[]) =>
+      groups.map((group) => ({
+        ...group,
+        resources: group.resources.map((resource) =>
+          resource.id.endsWith("br-localnet") ? { ...resource, status: "configured" as const } : resource
+        ),
+      }));
     snapshot = {
       ...snapshot,
       standaloneResources: updateStandaloneResourcesByIdSuffix(snapshot.standaloneResources, "br-localnet", "configured"),
+      groups: updateGroupBridges(snapshot.groups),
     };
     emit();
   }, []);
@@ -352,6 +394,114 @@ export function useNetworkTopologyState() {
     emit();
   }, []);
 
+  const applyResourceLifecycleAction = useCallback(
+    (target: ResourceLifecycleTarget, action: ResourceLifecycleAction) => {
+      if (action === "delete") {
+        const bridgeKey = bridgeAssignmentKey("br-localnet");
+        const isNncpConfig = target.resourceId === "nncp-br-localnet";
+        const isPerWorkerBridge = target.resourceId.endsWith("-br-localnet") && !isNncpConfig;
+
+        if (isNncpConfig) {
+          snapshot = {
+            ...snapshot,
+            standaloneResources: snapshot.standaloneResources.filter(
+              (resource) => resource.id !== target.resourceId && !resource.id.endsWith("-br-localnet")
+            ),
+            groups: snapshot.groups.map((group) => ({
+              ...group,
+              resources: group.resources.filter((resource) => !resource.id.endsWith("-br-localnet")),
+              edges: group.edges.filter(
+                (edge) => !edge.from.endsWith("-br-localnet") && !edge.to.endsWith("-br-localnet")
+              ),
+            })),
+            networkNodeAssignments: {
+              ...snapshot.networkNodeAssignments,
+              [bridgeKey]: [],
+            },
+            fitContentToken: snapshot.fitContentToken + 1,
+          };
+        } else if (isPerWorkerBridge) {
+          const workerId = target.groupId ?? target.resourceId.replace(/-br-localnet$/, "");
+          const current = snapshot.networkNodeAssignments[bridgeKey] ?? [];
+          snapshot = {
+            ...snapshot,
+            standaloneResources: snapshot.standaloneResources.filter(
+              (resource) => resource.id !== target.resourceId
+            ),
+            groups: snapshot.groups.map((group) => {
+              if (!group.resources.some((resource) => resource.id === target.resourceId)) return group;
+              return {
+                ...group,
+                resources: group.resources.filter((resource) => resource.id !== target.resourceId),
+                edges: group.edges.filter(
+                  (edge) => edge.from !== target.resourceId && edge.to !== target.resourceId
+                ),
+              };
+            }),
+            networkNodeAssignments: {
+              ...snapshot.networkNodeAssignments,
+              [bridgeKey]: current.filter((id) => id !== workerId),
+            },
+            fitContentToken: snapshot.fitContentToken + 1,
+          };
+        } else if (target.placement === "standalone") {
+          snapshot = {
+            ...snapshot,
+            standaloneResources: snapshot.standaloneResources.filter(
+              (resource) => resource.id !== target.resourceId
+            ),
+            fitContentToken: snapshot.fitContentToken + 1,
+          };
+        } else {
+          snapshot = {
+            ...snapshot,
+            groups: snapshot.groups.map((group) => {
+              if (group.id !== target.groupId) return group;
+              return {
+                ...group,
+                resources: group.resources.filter((resource) => resource.id !== target.resourceId),
+                edges: group.edges.filter(
+                  (edge) => edge.from !== target.resourceId && edge.to !== target.resourceId
+                ),
+              };
+            }),
+            fitContentToken: snapshot.fitContentToken + 1,
+          };
+        }
+        syncCrossEdgesFromAssignments();
+        emit();
+        return;
+      }
+
+      const nextStatus = lifecycleStatusForAction(action);
+      if (target.placement === "standalone") {
+        snapshot = {
+          ...snapshot,
+          standaloneResources: snapshot.standaloneResources.map((resource) =>
+            resource.id === target.resourceId ? { ...resource, status: nextStatus } : resource
+          ),
+          fitContentToken: snapshot.fitContentToken + 1,
+        };
+      } else if (target.groupId) {
+        snapshot = {
+          ...snapshot,
+          groups: snapshot.groups.map((group) => {
+            if (group.id !== target.groupId) return group;
+            return {
+              ...group,
+              resources: group.resources.map((resource) =>
+                resource.id === target.resourceId ? { ...resource, status: nextStatus } : resource
+              ),
+            };
+          }),
+          fitContentToken: snapshot.fitContentToken + 1,
+        };
+      }
+      emit();
+    },
+    []
+  );
+
   return {
     ...state,
     setGroups,
@@ -367,5 +517,6 @@ export function useNetworkTopologyState() {
     hideWorkerGroups,
     markStandalonesInstalling,
     markStandalonesConfigured,
+    applyResourceLifecycleAction,
   };
 }

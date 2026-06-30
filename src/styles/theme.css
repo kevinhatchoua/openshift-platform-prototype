@@ -946,7 +946,8 @@ html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
 }
 
 /* Installed Operators — @patternfly/react-data-view (HPUX-1429) */
-.ocs-io-dataview [data-ouia-component-id="installed-operators-dv-toolbar"] {
+.ocs-io-dataview [data-ouia-component-id="installed-operators-dv-toolbar"],
+.ocs-io-dataview [data-ouia-component-id="node-network-state-dv-toolbar"] {
   width: 100%;
 }
 
@@ -2257,6 +2258,28 @@ html.dark .ocs-net-topo-panel__stage .ocs-net-topo-create-drawer.pf-v6-c-drawer_
   right: var(--pf-t--global--spacer--sm);
   z-index: 5;
   max-width: 36rem;
+}
+
+.ocs-net-topo-panel__layout-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--md);
+  flex-shrink: 0;
+}
+
+.ocs-net-view-toggle .pf-v6-c-toggle-group__button {
+  min-width: 2.25rem;
+}
+
+.ocs-node-network-table__details-cell {
+  padding-block: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.ocs-node-network-table__type-row td {
+  font-weight: var(--pf-t--global--font--weight--heading--default);
+  color: var(--pf-t--global--text--color--subtle);
+  background: var(--pf-t--global--background--color--secondary--default);
 }
 
 .ocs-net-topo-panel__toolbar {

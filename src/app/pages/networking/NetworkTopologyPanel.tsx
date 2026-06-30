@@ -29,6 +29,10 @@ import {
   MenuContent,
   MenuItem,
   MenuList,
+  Modal,
+  ModalBody,
+  ModalFooter,
+  ModalHeader,
   MenuToggle,
   Select,
   SelectList,
@@ -53,6 +57,9 @@ import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclam
 import EyeIcon from "@patternfly/react-icons/dist/esm/icons/eye-icon";
 import InProgressIcon from "@patternfly/react-icons/dist/esm/icons/in-progress-icon";
 import NetworkWiredIcon from "@patternfly/react-icons/dist/esm/icons/network-wired-icon";
+import OutlinedStopCircleIcon from "@patternfly/react-icons/dist/esm/icons/outlined-stop-circle-icon";
+import PauseIcon from "@patternfly/react-icons/dist/esm/icons/pause-icon";
+import RedoIcon from "@patternfly/react-icons/dist/esm/icons/redo-icon";
 import SearchIcon from "@patternfly/react-icons/dist/esm/icons/search-icon";
 import ServerIcon from "@patternfly/react-icons/dist/esm/icons/server-icon";
 import TrashIcon from "@patternfly/react-icons/dist/esm/icons/trash-icon";
@@ -119,7 +126,14 @@ import {
 } from "./topologyCanvasLayout";
 import { computeGroupHullPath } from "./topologyGroupHull";
 import { NetworkResourceCreateDropdown, type NetworkCreateResource } from "./networkingCreateModals";
+import NodeNetworkTableList from "./NodeNetworkTableList";
+import NetworkViewToggle from "./NetworkViewToggle";
+import type { NodeNetworkViewMode } from "./nodeNetworkViewMode";
 import type { NadRecord, NncpRecord, UdnRecord } from "./networkingMockData";
+import type {
+  ResourceLifecycleAction,
+  ResourceLifecycleTarget,
+} from "./networkTopologyState";
 
 export type { TopologyStep };
 
@@ -951,30 +965,11 @@ function GroupActionsMenu({
   onRemoveFromTopology?: () => void;
 }) {
   const navigate = useNavigate();
-  const menuRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
-    if (!isOpen) return undefined;
-
-    const onPointerDown = (event: PointerEvent) => {
-      if (menuRef.current?.contains(event.target as Node)) return;
-      onOpenChange(false);
-    };
-
-    const onKeyDown = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onOpenChange(false);
-    };
-
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [isOpen, onOpenChange]);
+  const close = () => onOpenChange(false);
 
   const viewNodeDetails = () => {
-    onOpenChange(false);
+    close();
     navigate(`/compute/nodes/${encodeURIComponent(group.hostname)}`);
   };
 
@@ -991,7 +986,7 @@ function GroupActionsMenu({
         title: `Could not copy hostname. Copy manually: ${group.hostname}`,
       });
     }
-    onOpenChange(false);
+    close();
   };
 
   const resetLayout = () => {
@@ -1000,57 +995,56 @@ function GroupActionsMenu({
       variant: "info",
       title: `Reset resource layout for ${group.shortName}.`,
     });
-    onOpenChange(false);
+    close();
   };
 
-  const runAction =
-    (action: () => void | Promise<void>) => (event: React.MouseEvent<HTMLButtonElement>) => {
-      event.stopPropagation();
-      event.preventDefault();
-      void action();
-    };
-
   return (
-    <div className="ocs-net-topo-group__actions" ref={menuRef}>
-      <MenuToggle
-        variant="plain"
-        aria-label={`Actions for ${group.shortName}`}
-        isExpanded={isOpen}
-        onClick={(event) => {
-          event.stopPropagation();
-          onOpenChange(!isOpen);
-        }}
-      >
-        <EllipsisVIcon aria-hidden />
-      </MenuToggle>
-      {isOpen ? (
-        <div className="ocs-net-topo-group__menu" role="menu" aria-label={`Actions for ${group.shortName}`}>
-          <button type="button" role="menuitem" className="ocs-net-topo-group__menu-item" onClick={runAction(viewNodeDetails)}>
-            <EyeIcon aria-hidden />
-            View node details
-          </button>
-          <button type="button" role="menuitem" className="ocs-net-topo-group__menu-item" onClick={runAction(copyHostname)}>
-            <CopyIcon aria-hidden />
-            Copy hostname
-          </button>
-          <button type="button" role="menuitem" className="ocs-net-topo-group__menu-item" onClick={runAction(resetLayout)}>
-            <UndoIcon aria-hidden />
-            Reset node layout
-          </button>
-          {onRemoveFromTopology ? (
-            <button
-              type="button"
-              role="menuitem"
-              className="ocs-net-topo-group__menu-item ocs-net-topo-group__menu-item--danger"
-              onClick={runAction(onRemoveFromTopology)}
-            >
-              <TrashIcon aria-hidden />
-              Remove from topology
-            </button>
-          ) : null}
-        </div>
-      ) : null}
-    </div>
+    <Dropdown
+      className="ocs-net-topo-group__actions"
+      isOpen={isOpen}
+      onOpenChange={onOpenChange}
+      onSelect={() => onOpenChange(false)}
+      popperProps={{ position: "right-end" }}
+      toggle={(toggleRef) => (
+        <MenuToggle
+          ref={toggleRef}
+          variant="plain"
+          isExpanded={isOpen}
+          onClick={(event) => {
+            event.stopPropagation();
+            onOpenChange(!isOpen);
+          }}
+          aria-label={`Actions for ${group.shortName}`}
+        >
+          <EllipsisVIcon aria-hidden />
+        </MenuToggle>
+      )}
+    >
+      <DropdownList aria-label={`Actions for ${group.shortName}`}>
+        <DropdownItem itemId="view" icon={<EyeIcon aria-hidden />} onClick={viewNodeDetails}>
+          View node details
+        </DropdownItem>
+        <DropdownItem itemId="copy" icon={<CopyIcon aria-hidden />} onClick={() => void copyHostname()}>
+          Copy hostname
+        </DropdownItem>
+        <DropdownItem itemId="reset" icon={<UndoIcon aria-hidden />} onClick={resetLayout}>
+          Reset node layout
+        </DropdownItem>
+        {onRemoveFromTopology ? (
+          <DropdownItem
+            itemId="remove"
+            isDanger
+            icon={<TrashIcon aria-hidden />}
+            onClick={() => {
+              onRemoveFromTopology();
+              close();
+            }}
+          >
+            Remove from topology
+          </DropdownItem>
+        ) : null}
+      </DropdownList>
+    </Dropdown>
   );
 }
 
@@ -1132,6 +1126,8 @@ function TopologySidePanel({
   onRemoveEdge,
   onRemoveStandaloneEdge,
   onWorkerAssignmentChange,
+  onResourceLifecycleAction,
+  onNotice,
   onPeerHover,
   onPeerSelect,
 }: {
@@ -1148,11 +1144,15 @@ function TopologySidePanel({
   onRemoveEdge: (groupId: string, edgeId: string) => void;
   onRemoveStandaloneEdge: (edgeId: string) => void;
   onWorkerAssignmentChange: (logicalId: string, workerId: string, assigned: boolean) => void;
+  onResourceLifecycleAction?: (target: ResourceLifecycleTarget, action: ResourceLifecycleAction) => void;
+  onNotice?: (notice: { title: string; variant: "success" | "warning" | "info" }) => void;
   onPeerHover?: (peerId: string | null) => void;
   onPeerSelect?: (peerId: string) => void;
 }) {
   const [tab, setTab] = useState<string>("details");
   const [isAddWorkerOpen, setIsAddWorkerOpen] = useState(false);
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const color = RESOURCE_KIND_COLORS[resource.kind];
   const isStandalone = resource.placement === "standalone";
   const isLogical = isStandalone && isLogicalNetworkStandalone(resource);
@@ -1182,6 +1182,36 @@ function TopologySidePanel({
   const handleRemoveNode = (nodeId: string) => {
     if (!assignmentKey) return;
     onWorkerAssignmentChange(assignmentKey, nodeId, false);
+  };
+
+  const lifecycleTarget = useMemo<ResourceLifecycleTarget>(
+    () => ({
+      resourceId: resource.id,
+      placement: resource.placement,
+      groupId: resource.placement === "group" ? resource.group.id : undefined,
+      label: resource.label,
+    }),
+    [resource]
+  );
+
+  const runLifecycleAction = (action: Exclude<ResourceLifecycleAction, "delete">) => {
+    onResourceLifecycleAction?.(lifecycleTarget, action);
+    onNotice?.({
+      variant: "info",
+      title: `${action.charAt(0).toUpperCase()}${action.slice(1)} requested for ${resource.label}.`,
+    });
+    setActionsOpen(false);
+  };
+
+  const confirmDelete = () => {
+    onResourceLifecycleAction?.(lifecycleTarget, "delete");
+    onNotice?.({
+      variant: "success",
+      title: `Deleted ${resource.label} from the topology.`,
+    });
+    setDeleteConfirmOpen(false);
+    setActionsOpen(false);
+    onClose();
   };
   const connectionEntries = useMemo(
     () =>
@@ -1237,9 +1267,78 @@ function TopologySidePanel({
           </Flex>
         </Flex>
         <DrawerActions>
+          {onResourceLifecycleAction ? (
+            <Dropdown
+              isOpen={actionsOpen}
+              onOpenChange={setActionsOpen}
+              onSelect={() => setActionsOpen(false)}
+              popperProps={{ position: "bottom-end" }}
+              toggle={(toggleRef) => (
+                <MenuToggle
+                  ref={toggleRef}
+                  variant="secondary"
+                  isExpanded={actionsOpen}
+                  onClick={() => setActionsOpen((open) => !open)}
+                  aria-label={`Actions for ${resource.label}`}
+                >
+                  Actions
+                </MenuToggle>
+              )}
+            >
+              <DropdownList aria-label={`Actions for ${resource.label}`}>
+                <DropdownItem itemId="pause" icon={<PauseIcon aria-hidden />} onClick={() => runLifecycleAction("pause")}>
+                  Pause
+                </DropdownItem>
+                <DropdownItem
+                  itemId="stop"
+                  icon={<OutlinedStopCircleIcon aria-hidden />}
+                  onClick={() => runLifecycleAction("stop")}
+                >
+                  Stop
+                </DropdownItem>
+                <DropdownItem itemId="restart" icon={<RedoIcon aria-hidden />} onClick={() => runLifecycleAction("restart")}>
+                  Restart
+                </DropdownItem>
+                <DropdownItem
+                  itemId="delete"
+                  isDanger
+                  icon={<TrashIcon aria-hidden />}
+                  onClick={() => {
+                    setActionsOpen(false);
+                    setDeleteConfirmOpen(true);
+                  }}
+                >
+                  Delete
+                </DropdownItem>
+              </DropdownList>
+            </Dropdown>
+          ) : null}
           <DrawerCloseButton onClose={onClose} />
         </DrawerActions>
       </DrawerHead>
+
+      <Modal
+        variant="small"
+        isOpen={deleteConfirmOpen}
+        onClose={() => setDeleteConfirmOpen(false)}
+        aria-labelledby="delete-topo-resource-title"
+      >
+        <ModalHeader title={`Delete ${resource.label}?`} labelId="delete-topo-resource-title" />
+        <ModalBody>
+          <Content component="p">
+            Deleting <strong>{resource.label}</strong> removes it from the topology view. Cluster resources may remain
+            until reconciled.
+          </Content>
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="link" onClick={() => setDeleteConfirmOpen(false)}>
+            Cancel
+          </Button>
+          <Button variant="danger" onClick={confirmDelete}>
+            Delete
+          </Button>
+        </ModalFooter>
+      </Modal>
 
       <DrawerPanelBody>
         <Tabs activeKey={tab} onSelect={(_e, key) => setTab(String(key))} aria-label="Resource details">
@@ -1724,6 +1823,7 @@ export default function NetworkTopologyPanel({
   onCrossEdgesChange,
   onWorkerAssignmentChange,
   onAttachStandaloneToGroup,
+  onResourceLifecycleAction,
   onCreateResource,
   onOpenWorkerNodeModal,
   onRequestRemoveWorkerGroup,
@@ -1739,6 +1839,8 @@ export default function NetworkTopologyPanel({
   onPhysicalNetworkChange,
   fitContentToken = 0,
   highlightResourceSuffix,
+  viewMode = "topology",
+  onViewModeChange,
 }: {
   groups?: WorkerNodeGroup[];
   standaloneResources?: StandaloneTopologyResource[];
@@ -1748,6 +1850,7 @@ export default function NetworkTopologyPanel({
   onStandaloneResourcesChange?: (resources: StandaloneTopologyResource[]) => void;
   onCrossEdgesChange?: (edges: TopologyCrossEdge[] | ((prev: TopologyCrossEdge[]) => TopologyCrossEdge[])) => void;
   onWorkerAssignmentChange?: (logicalId: string, workerId: string, assigned: boolean) => void;
+  onResourceLifecycleAction?: (target: ResourceLifecycleTarget, action: ResourceLifecycleAction) => void;
   onAttachStandaloneToGroup?: (resourceId: string, groupId: string, connectToResourceId?: string) => void;
   onCreateResource?: (resource: NetworkCreateResource) => void;
   onOpenWorkerNodeModal?: () => void;
@@ -1764,6 +1867,8 @@ export default function NetworkTopologyPanel({
   onPhysicalNetworkChange?: (physicalNetworkName: string) => void;
   fitContentToken?: number;
   highlightResourceSuffix?: string;
+  viewMode?: NodeNetworkViewMode;
+  onViewModeChange?: (mode: NodeNetworkViewMode) => void;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
   const [zoom, setZoom] = useState(0.92);
@@ -2807,6 +2912,8 @@ export default function NetworkTopologyPanel({
             onWorkerAssignmentChange={(logicalId, workerId, assigned) =>
               onWorkerAssignmentChange?.(logicalId, workerId, assigned)
             }
+            onResourceLifecycleAction={onResourceLifecycleAction}
+            onNotice={setActionNotice}
             onPeerHover={setHoveredPeerId}
             onPeerSelect={selectPeerResource}
           />
@@ -2825,6 +2932,7 @@ export default function NetworkTopologyPanel({
     removeEdge,
     removeStandaloneEdge,
     onWorkerAssignmentChange,
+    onResourceLifecycleAction,
     selectPeerResource,
   ]);
 
@@ -2843,6 +2951,7 @@ export default function NetworkTopologyPanel({
           timeout={5000}
         />
       ) : null}
+      {viewMode === "topology" ? (
       <div className="ocs-net-topo-panel__toolbar">
         <Flex
           alignItems={{ default: "alignItemsCenter" }}
@@ -2932,16 +3041,38 @@ export default function NetworkTopologyPanel({
 
           <FlexItem flex={{ default: "flex_1" }} />
 
-          <Switch
-            id="net-topo-grid-layout"
-            label="Grid layout"
-            isChecked={layoutMode === "grid"}
-            onChange={(_event, checked) => handleLayoutModeChange(checked ? "grid" : "freeform")}
-          />
+          <Flex
+            alignItems={{ default: "alignItemsCenter" }}
+            gap={{ default: "gapMd" }}
+            className="ocs-net-topo-panel__layout-controls"
+          >
+            {viewMode === "topology" ? (
+              <Switch
+                id="net-topo-grid-layout"
+                label="Grid layout"
+                isChecked={layoutMode === "grid"}
+                onChange={(_event, checked) => handleLayoutModeChange(checked ? "grid" : "freeform")}
+              />
+            ) : null}
+            {onViewModeChange ? (
+              <NetworkViewToggle active={viewMode} onChange={onViewModeChange} />
+            ) : null}
+          </Flex>
         </Flex>
       </div>
+      ) : null}
 
       <div className="ocs-net-topo-panel__stage">
+        {viewMode === "table" ? (
+          <NodeNetworkTableList
+            groups={visibleGroupsFiltered}
+            viewToggle={
+              onViewModeChange ? (
+                <NetworkViewToggle active={viewMode} onChange={onViewModeChange} />
+              ) : undefined
+            }
+          />
+        ) : (
         <TopologyResizableSplit isPanelOpen={isCreateDrawerExpanded} panel={createPanelContent}>
           <Drawer isExpanded={isDetailDrawerExpanded} isInline position="end">
             <DrawerContent panelContent={detailPanelContent}>
@@ -3388,6 +3519,7 @@ export default function NetworkTopologyPanel({
             </DrawerContent>
           </Drawer>
         </TopologyResizableSplit>
+        )}
       </div>
     </div>
   );

@@ -20,6 +20,8 @@ export type NetResource = {
   detail: string;
   highlightSteps: TopologyStep[];
   related?: string[];
+  /** Worker group id when nested inside a node hull. */
+  parentNode?: string;
 };
 
 /** Resource placed on the canvas outside any node group until linked or dropped into a group. */
@@ -747,6 +749,7 @@ export function attachStandaloneResourceToGroup(
     kind: standalone.kind,
     ...pos,
     status: standalone.status,
+    parentNode: group.id,
     detail: standalone.detail.replace(
       "Drag onto a node group or link to a resource to attach.",
       `Attached to ${group.shortName}.`

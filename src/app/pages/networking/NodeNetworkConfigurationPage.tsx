@@ -7,7 +7,8 @@ import {
 import { useToast } from "../../contexts/ToastContext";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import NodeNetworkConfigurationWizard from "./NodeNetworkConfigurationWizard";
-import { NetworkingEmptyState, NetworkingPageShell } from "./networkingShared";
+import NodeNetworkConfigurationStage from "./NodeNetworkConfigurationStage";
+import { NetworkingPageShell } from "./networkingShared";
 import { useNodeNetworkConfigurationCreate } from "./useNodeNetworkConfigurationCreate";
 
 type NncFilters = { name: string };
@@ -89,12 +90,7 @@ export default function NodeNetworkConfigurationPage() {
             isCreating={isCreating}
           />
         ) : (
-          <NetworkingEmptyState
-            title="No NodeNetworkConfigurationPolicy found"
-            description="Click Create NodeNetworkConfigurationPolicy to create your first policy, then view the network topology."
-            createLabel="Create NodeNetworkConfigurationPolicy"
-            onCreate={openFormWizard}
-          />
+          <NodeNetworkConfigurationStage pushToast={pushToast} dismissToast={dismissToast} />
         )}
       </NetworkingPageShell>
     </>
