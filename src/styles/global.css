@@ -14,6 +14,28 @@ html.no-glass body {
   background-color: var(--app-page-canvas-no-glass);
 }
 
+/** Red Hat OpenShift interface backgrounds (glass mode). */
+html.pf-v6-theme-glass:not(.no-glass) {
+  --ocs-rh-interface-bg-light: url("/backgrounds/InterfaceBackground-Generic-Light-1850x1197-RH.svg");
+  --ocs-rh-interface-bg-dark: url("/backgrounds/InterfaceBackground-Generic-Dark-1850x1197-RH.svg");
+  background-color: #f2f2f2;
+  background-image: var(--ocs-rh-interface-bg-light);
+  background-size: cover;
+  background-position: center top;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+
+html.pf-v6-theme-glass:not(.no-glass).dark {
+  background-color: #151515;
+  background-image: var(--ocs-rh-interface-bg-dark);
+}
+
+html.pf-v6-theme-glass:not(.no-glass) body,
+html.pf-v6-theme-glass:not(.no-glass) #root {
+  background: transparent;
+}
+
 body {
   font-family: 'Red Hat Text', 'Red Hat Display', -apple-system, BlinkMacSystemFont,
     'Segoe UI', Roboto, sans-serif;

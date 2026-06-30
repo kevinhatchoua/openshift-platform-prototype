@@ -68,6 +68,7 @@ import {
   HOME_SUB,
   NETWORKING_SUB,
   OBSERVE_SUB,
+  VIRTUALIZATION_SUB,
   type SubNavEntry,
   STORAGE_SUB,
   USER_MANAGEMENT_SUB,
@@ -525,6 +526,12 @@ export default function Layout() {
               label="Workloads"
               pathname={location.pathname}
               subItems={WORKLOADS_SUB}
+            />
+            <ExpandableNavRouteGroup
+              groupId="layout-nav-virtualization"
+              label="Virtualization"
+              pathname={location.pathname}
+              subItems={VIRTUALIZATION_SUB}
             />
             <ExpandableNavRouteGroup
               groupId="layout-nav-networking"

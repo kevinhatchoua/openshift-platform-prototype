@@ -38,6 +38,7 @@ export const WORKLOADS_SUB: SubNavEntry[] = [
 ];
 
 export const NETWORKING_SUB: SubNavEntry[] = [
+  { path: "/networking/topology", label: "Topology" },
   { path: "/networking", label: "Services" },
   { path: "/networking/routes", label: "Routes" },
   { path: "/networking/ingresses", label: "Ingresses" },
@@ -70,6 +71,20 @@ export const OBSERVE_SUB: SubNavEntry[] = [
   { path: "/observe/metrics", label: "Metrics" },
   { path: "/observe/dashboards", label: "Dashboards" },
   { path: "/observe/targets", label: "Targets" },
+];
+
+export const VIRTUALIZATION_SUB: SubNavEntry[] = [
+  { path: "/virtualization/virtualmachines", label: "VirtualMachines" },
+  { path: "/virtualization/templates", label: "Templates" },
+  { path: "/virtualization/bootablevolumes", label: "Bootable volumes" },
+  "separator",
+  { path: "/virtualization/instancetypes", label: "InstanceTypes" },
+  { path: "/virtualization/virtualmachinenetworks", label: "Virtual machine networks" },
+  "separator",
+  { path: "/virtualization/migrationpolicies", label: "MigrationPolicies" },
+  { path: "/virtualization/checkups", label: "Checkups" },
+  "separator",
+  { path: "/virtualization/settings", label: "Settings" },
 ];
 
 export const COMPUTE_SUB: SubNavEntry[] = [
@@ -113,6 +128,7 @@ export function collectStubPaths(): string[] {
     STORAGE_SUB,
     BUILDS_SUB,
     OBSERVE_SUB,
+    VIRTUALIZATION_SUB,
     COMPUTE_SUB,
     USER_MANAGEMENT_SUB,
     ADMINISTRATION_SUB,
@@ -131,6 +147,7 @@ export function collectStubPaths(): string[] {
     "/workloads/jobs",
     "/workloads/cronjobs",
     "/networking",
+    "/networking/topology",
     "/networking/routes",
     "/networking/ingresses",
     "/networking/physical-networks",
@@ -139,6 +156,14 @@ export function collectStubPaths(): string[] {
     "/networking/networkattachmentdefinitions",
     "/networking/userdefinednetworks",
     "/networking/node-network-configuration",
+    "/virtualization/virtualmachines",
+    "/virtualization/templates",
+    "/virtualization/bootablevolumes",
+    "/virtualization/instancetypes",
+    "/virtualization/virtualmachinenetworks",
+    "/virtualization/migrationpolicies",
+    "/virtualization/checkups",
+    "/virtualization/settings",
     "/storage",
     "/builds",
     "/observe",

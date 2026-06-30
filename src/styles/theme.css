@@ -1650,6 +1650,181 @@ html.dark .ols-legal-ai-accuracy-banner {
   color: var(--pf-t--global--text--color--subtle);
 }
 
+.ocs-net-yaml {
+  margin: 0;
+  padding: var(--pf-t--global--spacer--md, 1rem);
+  font-family: var(--pf-v6-c-code-block__content--FontFamily, monospace);
+  font-size: var(--pf-t--global--font--size--body--sm, 0.875rem);
+  white-space: pre-wrap;
+  overflow-x: auto;
+}
+
+.ocs-net-vm-tab-badge {
+  margin-inline-start: var(--pf-t--global--spacer--xs, 0.25rem);
+  vertical-align: middle;
+}
+
+.ocs-net-remove-modal__warn {
+  color: var(--pf-t--global--icon--color--status--warning--default, #f0ab00);
+}
+
+.ocs-vm-network-card {
+  height: 100%;
+}
+
+.ocs-vm-config-tabs {
+  min-width: 12rem;
+}
+
+/* Virtualization */
+.ocs-virt-split {
+  min-height: 24rem;
+}
+
+.ocs-virt-split__main {
+  flex: 1;
+  min-width: 0;
+}
+
+.ocs-virt-project-sidebar {
+  width: 16rem;
+  flex-shrink: 0;
+  padding: var(--pf-t--global--spacer--md, 1rem);
+}
+
+.ocs-virt-project-sidebar__toggle-label {
+  font-size: var(--pf-t--global--font--size--body--sm, 0.875rem);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-virt-empty__icon {
+  width: 4rem;
+  height: 4rem;
+  border: 2px dashed var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--medium);
+  background: color-mix(in srgb, var(--pf-t--global--text--color--regular) 4%, transparent);
+}
+
+.ocs-virt-wizard {
+  min-height: 32rem;
+}
+
+.ocs-virt-wizard__nav {
+  width: 14rem;
+  flex-shrink: 0;
+  padding: var(--pf-t--global--spacer--lg, 1.25rem);
+}
+
+.ocs-virt-wizard__steps {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--sm, 0.5rem);
+}
+
+.ocs-virt-wizard__step {
+  display: flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--sm, 0.5rem);
+  padding: var(--pf-t--global--spacer--sm, 0.5rem) var(--pf-t--global--spacer--md, 1rem);
+  border-radius: var(--pf-t--global--border--radius--pill, 999px);
+  color: var(--pf-t--global--text--color--subtle);
+  font-size: var(--pf-t--global--font--size--body--sm, 0.875rem);
+}
+
+.ocs-virt-wizard__step--active {
+  background: color-mix(in srgb, var(--pf-t--global--color--brand--default) 18%, transparent);
+  color: var(--pf-t--global--text--color--regular);
+  font-weight: 600;
+}
+
+.ocs-virt-wizard__step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  font-size: 0.75rem;
+}
+
+.ocs-virt-wizard__step--active .ocs-virt-wizard__step-num {
+  border-color: var(--pf-t--global--color--brand--default);
+  background: var(--pf-t--global--color--brand--default);
+  color: var(--pf-t--global--text--color--on-brand--default, #fff);
+}
+
+.ocs-virt-wizard__content {
+  padding: var(--pf-t--global--spacer--xl, 1.5rem);
+  display: flex;
+  flex-direction: column;
+  min-height: 28rem;
+}
+
+.ocs-virt-wizard__footer {
+  margin-top: auto;
+  padding-top: var(--pf-t--global--spacer--xl, 1.5rem);
+  border-top: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.ocs-virt-method-card,
+.ocs-virt-os-card,
+.ocs-virt-series-card {
+  width: 100%;
+  text-align: left;
+  padding: var(--pf-t--global--spacer--lg, 1.25rem);
+  border-radius: var(--pf-t--global--border--radius--medium);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+
+.ocs-virt-method-card--selected,
+.ocs-virt-os-card--selected,
+.ocs-virt-series-card--selected {
+  border-color: var(--pf-t--global--color--brand--default);
+  box-shadow: 0 0 0 1px var(--pf-t--global--color--brand--default);
+}
+
+.ocs-virt-method-card__icon svg {
+  width: 2rem;
+  height: 2rem;
+}
+
+.ocs-virt-os-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: 6rem;
+}
+
+.ocs-virt-review-section {
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+  padding: var(--pf-t--global--spacer--md, 1rem) 0;
+}
+
+.ocs-virt-review-section summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.ocs-virt-review-section__body {
+  padding-top: var(--pf-t--global--spacer--sm, 0.5rem);
+}
+
+.ocs-virt-metric-card {
+  height: 100%;
+}
+
+.ocs-virt-checkup-row {
+  padding: var(--pf-t--global--spacer--md, 1rem);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
 .ocs-nnodes-policy-empty__illustration {
   width: 12rem;
   height: 8rem;
@@ -1688,6 +1863,10 @@ html.dark .ols-legal-ai-accuracy-banner {
   right: var(--pf-t--global--spacer--sm);
   z-index: 3;
   max-width: 36rem;
+}
+
+.ocs-nnc-wizard-page {
+  padding: var(--pf-t--global--spacer--lg, 1.25rem);
 }
 
 .ocs-nnc-wizard-overlay {

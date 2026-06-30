@@ -1,25 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import {
-  Alert,
   Button,
   Content,
   Dropdown,
   DropdownItem,
   DropdownList,
   Flex,
-  Form,
-  FormGroup,
-  FormHelperText,
   Label,
   MenuToggle,
-  Modal,
-  ModalBody,
-  ModalFooter,
-  ModalHeader,
   Pagination,
   PaginationVariant,
-  TextArea,
-  TextInput,
   ToolbarGroup,
   ToolbarItem,
 } from "@patternfly/react-core";
@@ -46,6 +37,9 @@ import {
   type SortDirection,
 } from "../../components/dataView/OcsPrototypeListTable";
 import { NetworkingPageShell, NetworkingTablePanel } from "./networkingShared";
+import { CreateClusterUdnModal, CreateUdnModal } from "./networkingCreateModals";
+import { type UdnRecord, udnDetailPath } from "./networkingMockData";
+import { useNetworkingResources } from "./useNetworkingResources";
 
 type UdnFilters = { name: string };
 
@@ -53,114 +47,12 @@ type SortColumn = "name" | "namespace" | "topology" | "mtu" | "condition";
 
 interface UdnRow {
   name: string;
-  kind: "CUDN";
+  kind: "CUDN" | "UDN";
   namespace: string;
   topology: string;
   mtu: string;
   condition: string;
-}
-
-const UDN_ROWS: UdnRow[] = [
-  {
-    name: "cluster-udn-lime-giraffe",
-    kind: "CUDN",
-    namespace: "—",
-    topology: "Layer2",
-    mtu: "Not available",
-    condition: "NetworkCreated=False",
-  },
-];
-
-function CreateUdnModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  return (
-    <Modal variant="medium" isOpen={isOpen} onClose={onClose} aria-labelledby="create-udn-title">
-      <ModalHeader title="Create UserDefinedNetwork" labelId="create-udn-title" />
-      <ModalBody>
-        <Alert variant="warning" title="No namespace is configured for a primary user-defined network." isInline>
-          At creation time the namespace must be configured with{" "}
-          <code>k8s.ovn.org/primary-user-defined-network</code> label. Go to{" "}
-          <Button variant="link" isInline component="a" href="/administration/namespaces">
-            Namespaces
-          </Button>{" "}
-          to create a new namespace.
-        </Alert>
-        <Content component="p" className="pf-v6-u-mt-md">
-          Define the network used by VirtualMachines and Pods to communicate in the given project. Learn more about{" "}
-          <Button variant="link" isInline>
-            primary user-defined network
-          </Button>
-          .
-        </Content>
-        <Form className="pf-v6-u-mt-md">
-          <FormGroup label="Project name" isRequired fieldId="udn-project">
-            <TextInput id="udn-project" placeholder="Select a Project" type="text" />
-          </FormGroup>
-          <FormGroup label="Subnet CIDR" isRequired fieldId="udn-cidr">
-            <TextInput id="udn-cidr" type="text" />
-            <FormHelperText>
-              Dual-stack clusters may set 2 subnets (one for each IP family), otherwise only 1 subnet is allowed.
-              The format should match standard CIDR notation (for example, &apos;192.168.123.0/24&apos;).
-            </FormHelperText>
-          </FormGroup>
-        </Form>
-      </ModalBody>
-      <ModalFooter>
-        <Button variant="primary" isDisabled>
-          Create
-        </Button>
-        <Button variant="link" onClick={onClose}>
-          Cancel
-        </Button>
-      </ModalFooter>
-    </Modal>
-  );
-}
-
-function CreateClusterUdnModal({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  return (
-    <Modal variant="medium" isOpen={isOpen} onClose={onClose} aria-labelledby="create-cudn-title">
-      <ModalHeader title="Create ClusterUserDefinedNetwork" labelId="create-cudn-title" />
-      <ModalBody>
-        <Content component="p">
-          Define the network used by VirtualMachines and Pods to communicate in the given project. Learn more about{" "}
-          <Button variant="link" isInline>
-            primary user-defined network
-          </Button>
-          .
-        </Content>
-        <Form className="pf-v6-u-mt-md">
-          <FormGroup label="Name" isRequired fieldId="cudn-name">
-            <TextInput id="cudn-name" defaultValue="cluster-udn-black-narwhal" type="text" />
-          </FormGroup>
-          <FormGroup label="Subnet CIDR" isRequired fieldId="cudn-cidr">
-            <TextInput id="cudn-cidr" type="text" />
-            <FormHelperText>
-              Dual-stack clusters may set 2 subnets (one for each IP family), otherwise only 1 subnet is allowed.
-              The format should match standard CIDR notation (for example, &apos;192.168.123.0/24&apos;).
-            </FormHelperText>
-          </FormGroup>
-          <FormGroup label="Namespace(s)" fieldId="cudn-ns">
-            <FormGroup label="Match Labels" isRequired fieldId="cudn-labels">
-              <TextArea id="cudn-labels" placeholder="app=frontend" />
-              <FormHelperText>
-                matchLabels is a map of {"{key,value}"} pairs. A single {"{key,value}"} in the matchLabels map is
-                equivalent to an element of matchExpressions, whose key field is &apos;key&apos;, the operator is
-                &apos;In&apos;, and the values array contains only &apos;value&apos;. The requirements are ANDed.
-              </FormHelperText>
-            </FormGroup>
-          </FormGroup>
-        </Form>
-      </ModalBody>
-      <ModalFooter>
-        <Button variant="primary" isDisabled>
-          Create
-        </Button>
-        <Button variant="link" onClick={onClose}>
-          Cancel
-        </Button>
-      </ModalFooter>
-    </Modal>
-  );
+  record: UdnRecord;
 }
 
 function rowMatchesFilters(row: UdnRow, filters: UdnFilters): boolean {
@@ -188,6 +80,8 @@ function sortUdnRows(rows: UdnRow[], column: SortColumn, direction: SortDirectio
 }
 
 export default function UserDefinedNetworksPage() {
+  const navigate = useNavigate();
+  const { udnRecords } = useNetworkingResources();
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<UdnFilters>({
     filters: { name: "" },
   });
@@ -196,9 +90,23 @@ export default function UserDefinedNetworksPage() {
   const [udnModalOpen, setUdnModalOpen] = useState(false);
   const [cudnModalOpen, setCudnModalOpen] = useState(false);
 
+  const udnRows = useMemo(
+    () =>
+      udnRecords.map((u) => ({
+        name: u.name,
+        kind: u.kind,
+        namespace: u.namespace ?? "—",
+        topology: u.topology,
+        mtu: u.mtu,
+        condition: u.condition,
+        record: u,
+      })),
+    [udnRecords]
+  );
+
   const filtered = useMemo(
-    () => UDN_ROWS.filter((r) => rowMatchesFilters(r, filters)),
-    [filters]
+    () => udnRows.filter((r) => rowMatchesFilters(r, filters)),
+    [udnRows, filters]
   );
   const sorted = useMemo(
     () => sortUdnRows(filtered, sortColumn, sortDirection),
@@ -376,7 +284,12 @@ export default function UserDefinedNetworksPage() {
                         <Label color="grey" isCompact className="ocs-resource-label">
                           {row.kind}
                         </Label>
-                        <Button variant="link" isInline>
+                        <Button
+                          variant="link"
+                          isInline
+                          component={Link}
+                          to={udnDetailPath(row.record)}
+                        >
                           {row.name}
                         </Button>
                       </Flex>
@@ -406,8 +319,16 @@ export default function UserDefinedNetworksPage() {
         </DataView>
       </NetworkingTablePanel>
 
-      <CreateUdnModal isOpen={udnModalOpen} onClose={() => setUdnModalOpen(false)} />
-      <CreateClusterUdnModal isOpen={cudnModalOpen} onClose={() => setCudnModalOpen(false)} />
+      <CreateUdnModal
+        isOpen={udnModalOpen}
+        onClose={() => setUdnModalOpen(false)}
+        onCreated={(record) => navigate(udnDetailPath(record))}
+      />
+      <CreateClusterUdnModal
+        isOpen={cudnModalOpen}
+        onClose={() => setCudnModalOpen(false)}
+        onCreated={(record) => navigate(udnDetailPath(record))}
+      />
     </NetworkingPageShell>
   );
 }

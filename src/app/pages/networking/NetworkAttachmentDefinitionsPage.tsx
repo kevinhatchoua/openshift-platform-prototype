@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { Link, useNavigate } from "react-router";
 import {
   Button,
   Content,
@@ -32,6 +33,9 @@ import {
   type SortDirection,
 } from "../../components/dataView/OcsPrototypeListTable";
 import { NetworkingPageShell, NetworkingTablePanel } from "./networkingShared";
+import { CreateNadModal } from "./networkingCreateModals";
+import { nadDetailPath } from "./networkingMockData";
+import { useNetworkingResources } from "./useNetworkingResources";
 
 type NadFilters = { name: string };
 
@@ -43,13 +47,6 @@ interface NadRow {
   type: string;
 }
 
-const NAD_ROWS: NadRow[] = [
-  {
-    name: "default",
-    namespace: "openshift-ovn-kubernetes",
-    type: "ovn-k8s-cni-overlay",
-  },
-];
 
 function rowMatchesFilters(row: NadRow, filters: NadFilters): boolean {
   const q = (filters.name ?? "").trim().toLowerCase();
@@ -72,14 +69,27 @@ function sortNadRows(rows: NadRow[], column: SortColumn, direction: SortDirectio
 }
 
 export default function NetworkAttachmentDefinitionsPage() {
+  const navigate = useNavigate();
+  const { nadRecords } = useNetworkingResources();
+  const [createOpen, setCreateOpen] = useState(false);
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<NadFilters>({
     filters: { name: "" },
   });
   const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
 
+  const nadRows = useMemo(
+    () =>
+      nadRecords.map((n) => ({
+        name: n.name,
+        namespace: n.namespace,
+        type: n.type,
+      })),
+    [nadRecords]
+  );
+
   const filtered = useMemo(
-    () => NAD_ROWS.filter((r) => rowMatchesFilters(r, filters)),
-    [filters]
+    () => nadRows.filter((r) => rowMatchesFilters(r, filters)),
+    [nadRows, filters]
   );
   const sorted = useMemo(
     () => sortNadRows(filtered, sortColumn, sortDirection),
@@ -90,11 +100,13 @@ export default function NetworkAttachmentDefinitionsPage() {
   const colSpan = 4;
 
   return (
-    <NetworkingPageShell
-      title="NetworkAttachmentDefinitions"
-      path="/networking/networkattachmentdefinitions"
-      createLabel="Create NetworkAttachmentDefinition"
-    >
+    <>
+      <NetworkingPageShell
+        title="NetworkAttachmentDefinitions"
+        path="/networking/networkattachmentdefinitions"
+        createLabel="Create NetworkAttachmentDefinition"
+        onCreate={() => setCreateOpen(true)}
+      >
       <NetworkingTablePanel>
         <DataView ouiaId="nad-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
           <DataViewToolbar
@@ -203,7 +215,7 @@ export default function NetworkAttachmentDefinitionsPage() {
                         <Label color="blue" isCompact className="ocs-resource-label">
                           NAD
                         </Label>
-                        <Button variant="link" isInline>
+                        <Button variant="link" isInline component={Link} to={nadDetailPath(row.namespace, row.name)}>
                           {row.name}
                         </Button>
                       </Flex>
@@ -231,6 +243,12 @@ export default function NetworkAttachmentDefinitionsPage() {
           </OcsPrototypeListTable>
         </DataView>
       </NetworkingTablePanel>
-    </NetworkingPageShell>
+      </NetworkingPageShell>
+      <CreateNadModal
+        isOpen={createOpen}
+        onClose={() => setCreateOpen(false)}
+        onCreated={(record) => navigate(nadDetailPath(record.namespace, record.name))}
+      />
+    </>
   );
 }

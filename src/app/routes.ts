@@ -21,8 +21,21 @@ import PhysicalNetworksPage from "./pages/networking/PhysicalNetworksPage";
 import NetworkPoliciesPage from "./pages/networking/NetworkPoliciesPage";
 import NodeNetworkConfigurationPolicyPage from "./pages/networking/NodeNetworkConfigurationPolicyPage";
 import NetworkAttachmentDefinitionsPage from "./pages/networking/NetworkAttachmentDefinitionsPage";
+import NadDetailPage from "./pages/networking/NadDetailPage";
 import UserDefinedNetworksPage from "./pages/networking/UserDefinedNetworksPage";
+import UdnDetailPage from "./pages/networking/UdnDetailPage";
 import NodeNetworkConfigurationPage from "./pages/networking/NodeNetworkConfigurationPage";
+import NetworkTopologyPage from "./pages/networking/NetworkTopologyPage";
+import CreateVirtualMachinePage from "./pages/virtualization/CreateVirtualMachinePage";
+import VirtualMachinesPage from "./pages/virtualization/VirtualMachinesPage";
+import VirtualMachineDetailPage from "./pages/virtualization/VirtualMachineDetailPage";
+import TemplatesPage from "./pages/virtualization/TemplatesPage";
+import BootableVolumesPage from "./pages/virtualization/BootableVolumesPage";
+import InstanceTypesPage from "./pages/virtualization/InstanceTypesPage";
+import VirtualMachineNetworksPage from "./pages/virtualization/VirtualMachineNetworksPage";
+import MigrationPoliciesPage from "./pages/virtualization/MigrationPoliciesPage";
+import CheckupsPage from "./pages/virtualization/CheckupsPage";
+import VirtSettingsPage from "./pages/virtualization/VirtSettingsPage";
 import StoragePage from "./pages/StoragePage";
 import BuildsPage from "./pages/BuildsPage";
 import ObservePage from "./pages/ObservePage";
@@ -102,14 +115,31 @@ export const router = createBrowserRouter([
           { path: "workloads/cronjobs", Component: CronJobsPage },
           { path: "workloads/topology", Component: TopologyPage },
           { path: "networking", Component: ServicesPage },
+          { path: "networking/topology", Component: NetworkTopologyPage },
           { path: "networking/routes", Component: RoutesPage },
           { path: "networking/ingresses", Component: IngressesPage },
           { path: "networking/physical-networks", Component: PhysicalNetworksPage },
           { path: "networking/networkpolicies", Component: NetworkPoliciesPage },
           { path: "networking/nodenetworkconfigurationpolicy", Component: NodeNetworkConfigurationPolicyPage },
           { path: "networking/networkattachmentdefinitions", Component: NetworkAttachmentDefinitionsPage },
+          {
+            path: "networking/networkattachmentdefinitions/:namespace/:name",
+            Component: NadDetailPage,
+          },
           { path: "networking/userdefinednetworks", Component: UserDefinedNetworksPage },
+          { path: "networking/userdefinednetworks/cluster/:name", Component: UdnDetailPage },
+          { path: "networking/userdefinednetworks/:namespace/:name", Component: UdnDetailPage },
           { path: "networking/node-network-configuration", Component: NodeNetworkConfigurationPage },
+          { path: "virtualization/virtualmachines", Component: VirtualMachinesPage },
+          { path: "virtualization/virtualmachines/create", Component: CreateVirtualMachinePage },
+          { path: "virtualization/virtualmachines/:namespace/:name", Component: VirtualMachineDetailPage },
+          { path: "virtualization/templates", Component: TemplatesPage },
+          { path: "virtualization/bootablevolumes", Component: BootableVolumesPage },
+          { path: "virtualization/instancetypes", Component: InstanceTypesPage },
+          { path: "virtualization/virtualmachinenetworks", Component: VirtualMachineNetworksPage },
+          { path: "virtualization/migrationpolicies", Component: MigrationPoliciesPage },
+          { path: "virtualization/checkups", Component: CheckupsPage },
+          { path: "virtualization/settings", Component: VirtSettingsPage },
           { path: "storage", Component: StoragePage },
           { path: "builds", Component: BuildsPage },
           { path: "observe", Component: ObservePage },
