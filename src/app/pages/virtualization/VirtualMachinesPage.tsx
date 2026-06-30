@@ -76,24 +76,16 @@ function OverviewTab() {
 
   return (
     <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-      <Grid hasGutter className="ocs-virt-overview-stats">
-        <GridItem sm={6} md={3}>
-          <OperatorSummaryCard
-            status={stats.operatorStatus}
-            statusColor={stats.operatorStatusColor}
-            alerts={stats.operatorAlerts}
-          />
-        </GridItem>
-        <GridItem sm={6} md={3}>
-          <MetricCard label="Nodes" value={String(stats.nodeCount)} />
-        </GridItem>
-        <GridItem sm={6} md={3}>
-          <MetricCard label="Projects" value={String(stats.projectCount)} />
-        </GridItem>
-        <GridItem sm={6} md={3}>
-          <MetricCard label="VMs" value={String(stats.vmCount)} />
-        </GridItem>
-      </Grid>
+      <div className="ocs-virt-overview-stats">
+        <OperatorSummaryCard
+          status={stats.operatorStatus}
+          statusColor={stats.operatorStatusColor}
+          alerts={stats.operatorAlerts}
+        />
+        <MetricCard label="Nodes" value={String(stats.nodeCount)} />
+        <MetricCard label="Projects" value={String(stats.projectCount)} />
+        <MetricCard label="VMs" value={String(stats.vmCount)} />
+      </div>
       <Grid hasGutter>
         <GridItem md={6}>
           <Card isCompact isPlain className="app-glass-panel">
