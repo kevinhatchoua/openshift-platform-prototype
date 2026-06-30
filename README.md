@@ -1,26 +1,34 @@
-# Node details — GPU metrics (OpenShift Console prototype)
+# OpenShift Platform prototype
 
-Interactive React/TypeScript prototype for **Node details** with **GPU metrics**, **node conditions**, and OCP-style **Nodes** / **Pods** list and detail pages. Built with **Vite**, **PatternFly 6**, and **React Router v7**.
+Interactive React/TypeScript prototype for **OpenShift Container Platform** Console UX — OLM / operator management, cluster update, networking topology, virtualization, node/GPU metrics, and related stakeholder demos. Built with **Vite**, **PatternFly 6**, and **React Router v7**.
 
-**Live demo:** [https://node-details-gpu-metrics.vercel.app](https://node-details-gpu-metrics.vercel.app)
+**Live demo:** [https://openshift-platform-prototype.vercel.app](https://openshift-platform-prototype.vercel.app)
 
 | Surface | Link |
 |--------|------|
-| Nodes list | [/compute](https://node-details-gpu-metrics.vercel.app/compute) |
-| GPU node details (sample) | [/compute/nodes/ip-10-0-24-42.us-east-2.compute.internal](https://node-details-gpu-metrics.vercel.app/compute/nodes/ip-10-0-24-42.us-east-2.compute.internal) |
-| Pods list | [/workloads/pods](https://node-details-gpu-metrics.vercel.app/workloads/pods) |
+| Installed Operators | [/ecosystem/installed-operators](https://openshift-platform-prototype.vercel.app/ecosystem/installed-operators) |
+| Cluster Update | [/administration/cluster-update](https://openshift-platform-prototype.vercel.app/administration/cluster-update) |
+| Network Topology | [/networking/topology](https://openshift-platform-prototype.vercel.app/networking/topology) |
+| Virtual Machines | [/virtualization/virtualmachines](https://openshift-platform-prototype.vercel.app/virtualization/virtualmachines) |
+| Nodes list | [/compute](https://openshift-platform-prototype.vercel.app/compute) |
+| GPU node details (sample) | [/compute/nodes/ip-10-0-24-42.us-east-2.compute.internal](https://openshift-platform-prototype.vercel.app/compute/nodes/ip-10-0-24-42.us-east-2.compute.internal) |
 
-**Repository:** [github.com/kevinhatchoua/node-details-gpu-metrics](https://github.com/kevinhatchoua/node-details-gpu-metrics)
+**Repository:** [github.com/kevinhatchoua/openshift-platform-prototype](https://github.com/kevinhatchoua/openshift-platform-prototype)
 
-**Related:** [CONSOLE-5297](https://issues.redhat.com/browse/CONSOLE-5297) (GPU metrics on Node Details). This repo also includes the broader OCP 5.x Operator Management / OLM prototype from [HPUX-1480](https://redhat.atlassian.net/browse/HPUX-1480).
+**Legacy URLs** (301 redirect to the live demo):
+
+- `https://ocp5-olm-update-experience.vercel.app`
+- `https://node-details-gpu-metrics.vercel.app`
+
+**Related:** [HPUX-1480](https://redhat.atlassian.net/browse/HPUX-1480) (OLM / Operator Management), [CONSOLE-5297](https://issues.redhat.com/browse/CONSOLE-5297) (GPU metrics on Node Details).
 
 ---
 
-## OCP 5.x Operator Management & OLM (included in this prototype)
+## OCP 5.x Operator Management & OLM
 
-Interactive React/TypeScript prototype for OpenShift Container Platform **5.x** operator catalog, installed operators, and related management flows.
+Interactive prototype for OpenShift Container Platform **5.x** operator catalog, installed operators, and related management flows.
 
-This repository is a **standalone** fork for Node details / GPU metrics demos. Historical lineage traces to `ocp5-olm-update-experience` and shared UX exploration with `ocp5-cluster-update-experience`.
+Historical lineage traces to `ocp5-olm-update-experience` and shared UX exploration with `ocp5-cluster-update-experience`.
 
 ### Problem statement
 
@@ -68,7 +76,7 @@ npm run build
 npm run preview
 ```
 
-The production bundle is suitable for static hosting (for example **Vercel**). This repo includes `vercel.json` with SPA rewrites to `index.html`.
+The production bundle is suitable for static hosting (for example **Vercel**). This repo includes `vercel.json` with SPA rewrites to `index.html` and permanent redirects from legacy deployment URLs.
 
 ## Cluster Update (`/administration/cluster-update`)
 
@@ -135,6 +143,8 @@ src/
     pages/
       administration/ # Cluster update plan and related admin flows
       ecosystem/      # Catalog and installed operators
+      networking/     # Topology, NAD/UDN, node network configuration
+      virtualization/ # VMs, templates, migration policies
       workloads/      # Sample workload views
       compute/        # Node-style views
     routes.ts         # React Router configuration

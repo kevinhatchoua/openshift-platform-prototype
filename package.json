@@ -1,10 +1,10 @@
 {
-  "name": "node-details-gpu-metrics",
-  "description": "Node details - GPU metrics — OpenShift Console UX prototype (CONSOLE-5297). Nodes/Pods lists, node detail with GPU metrics and conditions; simulated data for stakeholder demos.",
+  "name": "openshift-platform-prototype",
+  "description": "OpenShift Platform Console UX prototype — OLM, cluster update, networking topology, virtualization, node/GPU metrics, and related stakeholder demos.",
   "private": true,
   "repository": {
     "type": "git",
-    "url": "https://github.com/kevinhatchoua/node-details-gpu-metrics.git"
+    "url": "https://github.com/kevinhatchoua/openshift-platform-prototype.git"
   },
   "bugs": {
     "url": "https://redhat.atlassian.net/browse/HPUX-1480"
