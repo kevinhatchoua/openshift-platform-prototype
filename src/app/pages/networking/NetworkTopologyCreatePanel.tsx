@@ -1,11 +1,4 @@
-import {
-  DrawerActions,
-  DrawerCloseButton,
-  DrawerHead,
-  DrawerPanelBody,
-  DrawerPanelContent,
-  Title,
-} from "@patternfly/react-core";
+import { DrawerActions, DrawerCloseButton, DrawerHead, Title } from "@patternfly/react-core";
 import NodeNetworkConfigurationWizard from "./NodeNetworkConfigurationWizard";
 import {
   CreateClusterUdnForm,
@@ -56,12 +49,7 @@ export default function NetworkTopologyCreatePanel({
 
   if (isNncWizard && nncWizard) {
     return (
-      <DrawerPanelContent
-        hasNoGlass
-        className="ocs-net-topo-create-drawer ocs-net-topo-create-drawer--wizard"
-        widths={{ default: "width_50" }}
-        focusTrap={{ enabled: true }}
-      >
+      <div className="ocs-net-topo-create-panel ocs-net-topo-create-panel--wizard">
         <NodeNetworkConfigurationWizard
           variant="drawer"
           activeStep={nncWizard.activeStep}
@@ -74,18 +62,13 @@ export default function NetworkTopologyCreatePanel({
             onClose();
           }}
         />
-      </DrawerPanelContent>
+      </div>
     );
   }
 
   return (
-    <DrawerPanelContent
-      hasNoGlass
-      className="ocs-net-topo-create-drawer"
-      widths={{ default: "width_33" }}
-      focusTrap={{ enabled: true }}
-    >
-      <DrawerHead>
+    <div className="ocs-net-topo-create-panel">
+      <DrawerHead className="ocs-net-topo-create-panel__head">
         <Title headingLevel="h2" size="xl">
           {CREATE_RESOURCE_TITLES[resource]}
         </Title>
@@ -93,7 +76,7 @@ export default function NetworkTopologyCreatePanel({
           <DrawerCloseButton onClick={onClose} />
         </DrawerActions>
       </DrawerHead>
-      <DrawerPanelBody className="ocs-net-topo-create-drawer__body">
+      <div className="ocs-net-topo-create-panel__body">
         {resource === "network-attachment-definition" ? (
           <CreateNadForm
             onCancel={onClose}
@@ -130,7 +113,7 @@ export default function NetworkTopologyCreatePanel({
             }}
           />
         ) : null}
-      </DrawerPanelBody>
-    </DrawerPanelContent>
+      </div>
+    </div>
   );
 }

@@ -51,7 +51,7 @@ type TopologySnapshot = {
 
 const initialGroups = cloneGroups();
 const initialLogical = buildInitialLogicalLayer();
-const initialRevealedGroupIds = WORKER_NODE_GROUPS.map((group) => group.id);
+const initialRevealedGroupIds = ["worker-0"];
 
 let snapshot: TopologySnapshot = {
   groups: initialGroups,
