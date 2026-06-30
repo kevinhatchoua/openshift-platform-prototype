@@ -110,6 +110,7 @@ import {
   applyStructuredGridToGroup,
   readTopologyLayoutMode,
   resourceSuffixFromId,
+  separateOverlappingWorkerGroups,
   workerGroupGridPosition,
   writeTopologyLayoutMode,
   type CanvasLayoutMode,
@@ -1404,12 +1405,40 @@ function TopologySidePanel({
 
 function WorkerGroupSidePanel({
   group,
+  standaloneResources,
+  networkNodeAssignments,
+  onWorkerAssignmentChange,
   onClose,
 }: {
   group: WorkerNodeGroup;
+  standaloneResources: StandaloneTopologyResource[];
+  networkNodeAssignments: NetworkNodeAssignments;
+  onWorkerAssignmentChange?: (logicalId: string, workerId: string, assigned: boolean) => void;
   onClose: () => void;
 }) {
   const navigate = useNavigate();
+  const [tab, setTab] = useState<string>("details");
+  const [isAddNetworkOpen, setIsAddNetworkOpen] = useState(false);
+
+  useEffect(() => {
+    setTab("details");
+    setIsAddNetworkOpen(false);
+  }, [group.id]);
+
+  const logicalNetworks = useMemo(
+    () => standaloneResources.filter(isLogicalNetworkStandalone),
+    [standaloneResources]
+  );
+
+  const assignedNetworks = useMemo(
+    () => logicalNetworks.filter((network) => (networkNodeAssignments[network.id] ?? []).includes(group.id)),
+    [logicalNetworks, networkNodeAssignments, group.id]
+  );
+
+  const unassignedNetworks = useMemo(
+    () => logicalNetworks.filter((network) => !(networkNodeAssignments[network.id] ?? []).includes(group.id)),
+    [logicalNetworks, networkNodeAssignments, group.id]
+  );
 
   return (
     <>
@@ -1430,31 +1459,129 @@ function WorkerGroupSidePanel({
         </DrawerActions>
       </DrawerHead>
       <DrawerPanelBody>
-        <DescriptionList isCompact>
-          <DescriptionListGroup>
-            <DescriptionListTerm>Hostname</DescriptionListTerm>
-            <DescriptionListDescription>{group.hostname}</DescriptionListDescription>
-          </DescriptionListGroup>
-          <DescriptionListGroup>
-            <DescriptionListTerm>Configured resources</DescriptionListTerm>
-            <DescriptionListDescription>{group.resources.length}</DescriptionListDescription>
-          </DescriptionListGroup>
-        </DescriptionList>
-        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }} className="pf-v6-u-mt-lg">
-          <Title headingLevel="h4" size="md">
-            Host configuration
-          </Title>
-          <Content component="p" className="ocs-net-topo-sidepanel__hint">
-            Open the node details page to review capacity, conditions, and host-level networking context.
-          </Content>
-          <Button
-            variant="secondary"
-            icon={<ExternalLinkAltIcon aria-hidden />}
-            onClick={() => navigate(`/compute/nodes/${encodeURIComponent(group.hostname)}`)}
-          >
-            View node details
-          </Button>
-        </Flex>
+        <Tabs
+          activeKey={tab}
+          onSelect={(_event, key) => setTab(String(key))}
+          aria-label="Worker node details"
+        >
+          <Tab eventKey="details" title={<TabTitleText>Details</TabTitleText>} />
+          <Tab eventKey="networks" title={<TabTitleText>Networks</TabTitleText>} />
+        </Tabs>
+
+        {tab === "details" ? (
+          <>
+            <DescriptionList isCompact className="pf-v6-u-mt-md">
+              <DescriptionListGroup>
+                <DescriptionListTerm>Hostname</DescriptionListTerm>
+                <DescriptionListDescription>{group.hostname}</DescriptionListDescription>
+              </DescriptionListGroup>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Configured resources</DescriptionListTerm>
+                <DescriptionListDescription>{group.resources.length}</DescriptionListDescription>
+              </DescriptionListGroup>
+            </DescriptionList>
+            <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }} className="pf-v6-u-mt-lg">
+              <Title headingLevel="h4" size="md">
+                Host configuration
+              </Title>
+              <Content component="p" className="ocs-net-topo-sidepanel__hint">
+                Open the node details page to review capacity, conditions, and host-level networking context.
+              </Content>
+              <Button
+                variant="secondary"
+                icon={<ExternalLinkAltIcon aria-hidden />}
+                onClick={() => navigate(`/compute/nodes/${encodeURIComponent(group.hostname)}`)}
+              >
+                View node details
+              </Button>
+            </Flex>
+          </>
+        ) : null}
+
+        {tab === "networks" ? (
+          <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }} className="pf-v6-u-mt-md">
+            <Content component="p" className="ocs-net-topo-sidepanel__hint">
+              Assign logical networks to this worker. Changes sync to the topology canvas immediately.
+            </Content>
+
+            <Title headingLevel="h4" size="md">
+              Assigned networks
+            </Title>
+            {assignedNetworks.length === 0 ? (
+              <Content component="p">No logical networks assigned to this worker.</Content>
+            ) : (
+              <ul className="ocs-net-topo-connection-list" aria-label="Assigned logical networks">
+                {assignedNetworks.map((network) => (
+                  <li key={network.id}>
+                    <Flex
+                      alignItems={{ default: "alignItemsCenter" }}
+                      justifyContent={{ default: "justifyContentSpaceBetween" }}
+                      className="ocs-net-topo-connection-row"
+                    >
+                      <Flex direction={{ default: "column" }} gap={{ default: "gapNone" }}>
+                        <span className="ocs-net-topo-connection-row__name">{network.label}</span>
+                        <Content component="small">{RESOURCE_KIND_LABELS[network.kind]}</Content>
+                      </Flex>
+                      <Button
+                        variant="plain"
+                        aria-label={`Remove ${network.label} from ${group.shortName}`}
+                        icon={<TrashIcon aria-hidden />}
+                        onClick={() => onWorkerAssignmentChange?.(network.id, group.id, false)}
+                      />
+                    </Flex>
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <Title headingLevel="h4" size="md">
+              Add network
+            </Title>
+            {unassignedNetworks.length === 0 ? (
+              <Content component="small">All logical networks are already assigned to this worker.</Content>
+            ) : (
+              <Select
+                isOpen={isAddNetworkOpen}
+                selected={null}
+                onSelect={(_event, value) => {
+                  if (typeof value === "string") {
+                    onWorkerAssignmentChange?.(value, group.id, true);
+                  }
+                  setIsAddNetworkOpen(false);
+                }}
+                onOpenChange={(open) => setIsAddNetworkOpen(open)}
+                toggle={(toggleRef) => (
+                  <MenuToggle ref={toggleRef} onClick={() => setIsAddNetworkOpen(!isAddNetworkOpen)} isExpanded={isAddNetworkOpen}>
+                    Select a logical network
+                  </MenuToggle>
+                )}
+                aria-label="Add logical network to worker"
+              >
+                <SelectList>
+                  {unassignedNetworks.map((network) => (
+                    <SelectOption key={network.id} value={network.id}>
+                      {network.label} ({RESOURCE_KIND_LABELS[network.kind]})
+                    </SelectOption>
+                  ))}
+                </SelectList>
+              </Select>
+            )}
+
+            <Title headingLevel="h4" size="md">
+              Configured resources
+            </Title>
+            <DescriptionList isCompact>
+              {group.resources.map((resource) => (
+                <DescriptionListGroup key={resource.id}>
+                  <DescriptionListTerm>{resource.label}</DescriptionListTerm>
+                  <DescriptionListDescription>
+                    {RESOURCE_KIND_LABELS[resource.kind]} · {RESOURCE_INSTALL_STATUS_LABELS[resource.status]}
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
+              ))}
+            </DescriptionList>
+          </Flex>
+        ) : null}
       </DrawerPanelBody>
     </>
   );
@@ -1746,30 +1873,42 @@ export default function NetworkTopologyPanel({
 
       visibleGroups.forEach((group, index) => {
         if (!next[group.id]) {
+          const slotWidth = Math.max(GROUP_W, 280);
           next[group.id] =
             layoutMode === "grid"
               ? workerGroupGridPosition(index, workerGroupY)
-              : { x: group.x, y: workerGroupY };
+              : { x: BASE_X + index * (slotWidth + 64), y: workerGroupY };
           changed = true;
         }
       });
 
+      const layoutMetrics = Object.fromEntries(
+        visibleGroups.map((group) => [
+          group.id,
+          {
+            width: groupLayouts[group.id]?.width ?? GROUP_W,
+            totalHeight: groupLayouts[group.id]?.totalHeight ?? GROUP_H,
+          },
+        ])
+      );
+
       if (layoutMode === "grid" && visibleGroups.length > 0 && !dragSessionRef.current) {
-        const gridPositions = applyGridLayoutToGroupPositions(
-          visibleGroups,
-          workerGroupY,
-          Object.fromEntries(
-            visibleGroups.map((group) => [
-              group.id,
-              {
-                width: groupLayouts[group.id]?.width ?? GROUP_W,
-                totalHeight: groupLayouts[group.id]?.totalHeight ?? GROUP_H,
-              },
-            ])
-          )
-        );
-        Object.assign(next, gridPositions);
+        Object.assign(next, applyGridLayoutToGroupPositions(visibleGroups, workerGroupY, layoutMetrics));
         changed = true;
+      } else if (layoutMode === "freeform" && visibleGroups.length > 1 && !dragSessionRef.current) {
+        const separated = separateOverlappingWorkerGroups(
+          next,
+          visibleGroups.map((group) => group.id),
+          layoutMetrics
+        );
+        const moved = visibleGroups.some(
+          (group) =>
+            separated[group.id]?.x !== next[group.id]?.x || separated[group.id]?.y !== next[group.id]?.y
+        );
+        if (moved) {
+          Object.assign(next, separated);
+          changed = true;
+        }
       }
 
       return changed ? next : prev;
@@ -2513,6 +2652,9 @@ export default function NetworkTopologyPanel({
         {selection.type === "workerGroup" ? (
           <WorkerGroupSidePanel
             group={selection.group}
+            standaloneResources={standaloneResources}
+            networkNodeAssignments={networkNodeAssignments}
+            onWorkerAssignmentChange={onWorkerAssignmentChange}
             onClose={() => {
               setHoveredPeerId(null);
               setSelection(null);

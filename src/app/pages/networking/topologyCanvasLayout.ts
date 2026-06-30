@@ -128,11 +128,116 @@ export function workerGroupGridPosition(
 export function applyGridLayoutToGroupPositions(
   visibleGroups: WorkerNodeGroup[],
   workerGroupY: number,
-  _groupLayouts: Record<string, GroupLayoutMetrics> = {}
+  groupLayouts: Record<string, GroupLayoutMetrics> = {}
 ): Record<string, { x: number; y: number }> {
   const positions: Record<string, { x: number; y: number }> = {};
-  visibleGroups.forEach((group, index) => {
-    positions[group.id] = workerGroupGridPosition(index, workerGroupY);
-  });
+  if (visibleGroups.length === 0) return positions;
+
+  const slotWidth = Math.max(WORKER_GROUP_CARD_WIDTH, GROUP_W);
+  let rowY = workerGroupY;
+
+  for (let rowStart = 0; rowStart < visibleGroups.length; rowStart += WORKER_GROUP_GRID_COLUMNS) {
+    const rowGroups = visibleGroups.slice(rowStart, rowStart + WORKER_GROUP_GRID_COLUMNS);
+    const rowMaxHeight = Math.max(
+      WORKER_GROUP_CARD_HEIGHT,
+      GROUP_H,
+      ...rowGroups.map((group) => groupLayouts[group.id]?.totalHeight ?? GROUP_H)
+    );
+
+    rowGroups.forEach((group, colIndex) => {
+      const col = colIndex % WORKER_GROUP_GRID_COLUMNS;
+      positions[group.id] = {
+        x: BASE_X + col * (slotWidth + WORKER_GROUP_GRID_GAP_X),
+        y: rowY,
+      };
+    });
+
+    rowY += rowMaxHeight + WORKER_GROUP_GRID_GAP_Y;
+  }
+
   return positions;
+}
+
+function groupRectsOverlap(
+  a: { x: number; y: number },
+  aW: number,
+  aH: number,
+  b: { x: number; y: number },
+  bW: number,
+  bH: number,
+  gap: number
+): boolean {
+  return (
+    a.x < b.x + bW + gap &&
+    a.x + aW + gap > b.x &&
+    a.y < b.y + bH + gap &&
+    a.y + aH + gap > b.y
+  );
+}
+
+/** Push apart overlapping worker group cards in freeform layout mode. */
+export function separateOverlappingWorkerGroups(
+  positions: Record<string, { x: number; y: number }>,
+  groupIds: string[],
+  groupLayouts: Record<string, GroupLayoutMetrics>
+): Record<string, { x: number; y: number }> {
+  const next: Record<string, { x: number; y: number }> = { ...positions };
+
+  const sizeFor = (id: string) => ({
+    width: Math.max(WORKER_GROUP_CARD_WIDTH, GROUP_W, groupLayouts[id]?.width ?? GROUP_W),
+    height: Math.max(WORKER_GROUP_CARD_HEIGHT, GROUP_H, groupLayouts[id]?.totalHeight ?? GROUP_H),
+  });
+
+  for (let pass = 0; pass < 48; pass += 1) {
+    let changed = false;
+
+    for (let i = 0; i < groupIds.length; i += 1) {
+      for (let j = i + 1; j < groupIds.length; j += 1) {
+        const idA = groupIds[i];
+        const idB = groupIds[j];
+        const posA = next[idA];
+        const posB = next[idB];
+        if (!posA || !posB) continue;
+
+        const sizeA = sizeFor(idA);
+        const sizeB = sizeFor(idB);
+        if (
+          !groupRectsOverlap(
+            posA,
+            sizeA.width,
+            sizeA.height,
+            posB,
+            sizeB.width,
+            sizeB.height,
+            WORKER_GROUP_GRID_GAP_X
+          )
+        ) {
+          continue;
+        }
+
+        changed = true;
+        const centerAx = posA.x + sizeA.width / 2;
+        const centerAy = posA.y + sizeA.height / 2;
+        const centerBx = posB.x + sizeB.width / 2;
+        const centerBy = posB.y + sizeB.height / 2;
+        const dx = centerBx - centerAx;
+        const dy = centerBy - centerAy;
+        const dist = Math.hypot(dx, dy) || 1;
+        const pushX = ((sizeA.width + sizeB.width) / 2 + WORKER_GROUP_GRID_GAP_X - Math.abs(dx)) / 2 + 1;
+        const pushY = ((sizeA.height + sizeB.height) / 2 + WORKER_GROUP_GRID_GAP_Y - Math.abs(dy)) / 2 + 1;
+
+        if (Math.abs(dx) >= Math.abs(dy)) {
+          next[idA] = { x: posA.x - (pushX * dx) / dist, y: posA.y };
+          next[idB] = { x: posB.x + (pushX * dx) / dist, y: posB.y };
+        } else {
+          next[idA] = { x: posA.x, y: posA.y - (pushY * dy) / dist };
+          next[idB] = { x: posB.x, y: posB.y + (pushY * dy) / dist };
+        }
+      }
+    }
+
+    if (!changed) break;
+  }
+
+  return next;
 }
