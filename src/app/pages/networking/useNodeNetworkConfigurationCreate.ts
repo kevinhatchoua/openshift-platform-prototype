@@ -37,7 +37,7 @@ export function useNodeNetworkConfigurationCreate(
     lastConfigNameRef.current = name;
     creatingToastKeyRef.current = pushToast({
       variant: "info",
-      title: `Creating node network configuration for ${name} on worker-0, worker-1, and worker-2…`,
+      title: `Creating node network configuration for ${name}…`,
     });
     setShowFormWizard(false);
     setIsCreating(false);

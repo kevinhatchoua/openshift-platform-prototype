@@ -2402,6 +2402,44 @@ html.dark .ocs-net-topo-split__panel {
   min-height: 100%;
 }
 
+.ocs-dual-mode-create__toggle {
+  display: flex;
+  gap: var(--pf-t--global--spacer--lg, 1.5rem);
+}
+
+.ocs-dual-mode-create__divider {
+  margin-block: var(--pf-t--global--spacer--md, 1rem);
+}
+
+.ocs-dual-mode-create__banner {
+  margin-top: var(--pf-t--global--spacer--md, 1rem);
+}
+
+.ocs-dual-mode-create__yaml-layout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--md, 1rem);
+  margin-top: var(--pf-t--global--spacer--md, 1rem);
+}
+
+.ocs-dual-mode-create__yaml-editor {
+  font-family: var(--pf-v6-c-code-block__content--FontFamily, monospace);
+  font-size: var(--pf-t--global--font--size--body--sm, 0.875rem);
+  min-height: 16rem;
+}
+
+.ocs-dual-mode-create__schema {
+  padding: var(--pf-t--global--spacer--md, 1rem);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--medium);
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.ocs-dual-mode-create__schema-intro {
+  margin-block: var(--pf-t--global--spacer--sm, 0.5rem) var(--pf-t--global--spacer--md, 1rem);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
 
 .ocs-net-topo-panel__canvas--grid .ocs-net-topo-resource {
   cursor: pointer;
@@ -2479,32 +2517,42 @@ html.dark .ocs-net-topo-panel__canvas {
     height 0.45s cubic-bezier(0.22, 1, 0.36, 1);
 }
 
-.ocs-net-topo-group__surface {
+.ocs-net-topo-group__hull {
   position: absolute;
   top: 0;
   left: 0;
-  right: 0;
-  border-radius: 1.5rem;
-  background: color-mix(in srgb, var(--pf-t--global--text--color--regular) 4%, transparent);
-  border: 1px solid color-mix(in srgb, var(--pf-t--global--text--color--regular) 12%, transparent);
-  transition:
-    height 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-    width 0.45s cubic-bezier(0.22, 1, 0.36, 1),
-    border-color 0.2s ease,
-    box-shadow 0.2s ease;
-  pointer-events: auto;
-  cursor: pointer;
+  overflow: visible;
+  pointer-events: none;
   z-index: 0;
 }
 
-.ocs-net-topo-group--selected .ocs-net-topo-group__surface {
-  border-color: var(--pf-t--global--color--brand--default);
-  box-shadow: 0 0 0 2px color-mix(in srgb, var(--pf-t--global--color--brand--default) 35%, transparent);
+.ocs-net-topo-group__hull-path {
+  fill: color-mix(in srgb, var(--pf-t--global--text--color--regular) 4%, transparent);
+  stroke: color-mix(in srgb, var(--pf-t--global--text--color--regular) 12%, transparent);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  pointer-events: auto;
+  cursor: pointer;
+  transition:
+    d 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+    fill 0.2s ease,
+    stroke 0.2s ease,
+    filter 0.2s ease;
 }
 
-.ocs-net-topo-group--selected .ocs-net-topo-group__surface:focus-visible {
+.ocs-net-topo-group--selected .ocs-net-topo-group__hull-path {
+  stroke: var(--pf-t--global--color--brand--default);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--pf-t--global--color--brand--default) 35%, transparent));
+}
+
+.ocs-net-topo-group--selected .ocs-net-topo-group__hull-path:focus-visible {
   outline: 2px solid var(--pf-t--global--color--brand--default);
   outline-offset: 2px;
+}
+
+.ocs-net-topo-group--dragging .ocs-net-topo-group__hull-path {
+  transition: none;
 }
 
 .ocs-net-topo-group--dragging {
@@ -2524,19 +2572,20 @@ html.dark .ocs-net-topo-panel__canvas {
 
 .ocs-net-topo-group__footer {
   position: absolute;
-  left: 0.75rem;
-  right: 0.75rem;
+  left: 50%;
   display: flex;
   align-items: center;
   gap: var(--pf-t--global--spacer--xs);
-  padding: 0.35rem 0.5rem;
+  padding: 0.35rem 0.65rem;
   border-radius: var(--pf-t--global--border--radius--pill);
   background: var(--pf-t--global--background--color--primary--default);
   border: 1px solid var(--pf-t--global--border--color--default);
   pointer-events: auto;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
-  transition: top 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+  transition: top 0.35s cubic-bezier(0.22, 1, 0.36, 1), transform 0.35s cubic-bezier(0.22, 1, 0.36, 1);
   z-index: 3;
+  width: max-content;
+  max-width: calc(100% - 1.5rem);
 }
 
 .ocs-net-topo-group__actions {

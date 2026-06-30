@@ -1,14 +1,20 @@
 import { useCallback, useSyncExternalStore } from "react";
 import {
   WORKER_NODE_GROUPS,
+  TOPOLOGY_WORKER_CATALOG,
   attachStandaloneResourceToGroup,
+  bridgeAssignmentKey,
+  bridgeLabelFromAssignmentKey,
+  createStandaloneBridgeForWorker,
   createStandaloneNetworkResources,
   crossEdgesForAssignments,
+  isBridgeAssignmentKey,
   isLogicalNetworkStandalone,
   logicalNetworkFromRecord,
   logicalNetworkId,
   updateStandaloneResourcesByIdSuffix,
   type NetworkNodeAssignments,
+  type NodeNetworkConfigurationInput,
   type StandaloneTopologyResource,
   type TopologyCrossEdge,
   type WorkerNodeGroup,
@@ -47,6 +53,7 @@ type TopologySnapshot = {
   revealedGroupIds: string[];
   provisionGeneration: number;
   fitContentToken: number;
+  provisionedBridgeConfig: NodeNetworkConfigurationInput | null;
 };
 
 const initialGroups = cloneGroups();
@@ -61,6 +68,7 @@ let snapshot: TopologySnapshot = {
   revealedGroupIds: initialRevealedGroupIds,
   provisionGeneration: 0,
   fitContentToken: 0,
+  provisionedBridgeConfig: null,
 };
 
 const listeners = new Set<() => void>();
@@ -143,8 +151,69 @@ export function useNetworkTopologyState() {
     emit();
   }, []);
 
-  const setWorkerAssignedToNetwork = useCallback((logicalId: string, workerId: string, assigned: boolean) => {
-    const current = snapshot.networkNodeAssignments[logicalId] ?? [];
+  const setWorkerAssignedToNetwork = useCallback((assignmentKey: string, workerId: string, assigned: boolean) => {
+    if (isBridgeAssignmentKey(assignmentKey)) {
+      const bridgeLabel = bridgeLabelFromAssignmentKey(assignmentKey);
+      const config = snapshot.provisionedBridgeConfig ?? {
+        physicalNetworkName: "localnet-rzpi1d",
+        bridgeName: bridgeLabel,
+      };
+      const current = snapshot.networkNodeAssignments[assignmentKey] ?? [];
+      const standaloneId = `${workerId}-${bridgeLabel}`;
+
+      if (assigned) {
+        if (current.includes(workerId)) return;
+        const nextWorkers = [...current, workerId];
+        const worker = TOPOLOGY_WORKER_CATALOG.find((entry) => entry.id === workerId);
+        if (!worker) return;
+
+        const hasStandalone = snapshot.standaloneResources.some((resource) => resource.id === standaloneId);
+        const newStandalone = hasStandalone
+          ? null
+          : createStandaloneBridgeForWorker(config, worker, nextWorkers.length - 1);
+        const revealedGroupIds = snapshot.revealedGroupIds.includes(workerId)
+          ? snapshot.revealedGroupIds
+          : [...snapshot.revealedGroupIds, workerId];
+
+        snapshot = {
+          ...snapshot,
+          networkNodeAssignments: {
+            ...snapshot.networkNodeAssignments,
+            [assignmentKey]: nextWorkers,
+          },
+          standaloneResources: newStandalone
+            ? [...snapshot.standaloneResources, newStandalone]
+            : snapshot.standaloneResources,
+          revealedGroupIds,
+          fitContentToken: snapshot.fitContentToken + 1,
+        };
+      } else {
+        const nextWorkers = current.filter((id) => id !== workerId);
+        snapshot = {
+          ...snapshot,
+          networkNodeAssignments: {
+            ...snapshot.networkNodeAssignments,
+            [assignmentKey]: nextWorkers,
+          },
+          standaloneResources: snapshot.standaloneResources.filter((resource) => resource.id !== standaloneId),
+          groups: snapshot.groups.map((group) => {
+            if (!group.resources.some((resource) => resource.id === standaloneId)) return group;
+            return {
+              ...group,
+              resources: group.resources.filter((resource) => resource.id !== standaloneId),
+              edges: group.edges.filter((edge) => edge.from !== standaloneId && edge.to !== standaloneId),
+            };
+          }),
+          fitContentToken: snapshot.fitContentToken + 1,
+        };
+      }
+
+      syncCrossEdgesFromAssignments();
+      emit();
+      return;
+    }
+
+    const current = snapshot.networkNodeAssignments[assignmentKey] ?? [];
     const nextWorkers = assigned
       ? current.includes(workerId)
         ? current
@@ -153,7 +222,7 @@ export function useNetworkTopologyState() {
 
     const nextAssignments = {
       ...snapshot.networkNodeAssignments,
-      [logicalId]: nextWorkers,
+      [assignmentKey]: nextWorkers,
     };
 
     const revealedGroupIds =
@@ -193,17 +262,24 @@ export function useNetworkTopologyState() {
 
   const provisionConfiguration = useCallback((physicalNetworkName: string) => {
     const name = physicalNetworkName.trim() || "localnet-rzpi1d";
+    const bridgeConfig = { physicalNetworkName: name, bridgeName: "br-localnet" };
     snapshot = {
       ...snapshot,
       standaloneResources: [
         ...snapshot.standaloneResources.filter(
           (resource) => !resource.id.endsWith("br-localnet") || isLogicalNetworkStandalone(resource)
         ),
-        ...createStandaloneNetworkResources({ physicalNetworkName: name, bridgeName: "br-localnet" }),
+        ...createStandaloneNetworkResources(bridgeConfig),
       ],
+      networkNodeAssignments: {
+        ...snapshot.networkNodeAssignments,
+        [bridgeAssignmentKey("br-localnet")]: [],
+      },
+      provisionedBridgeConfig: bridgeConfig,
       provisionGeneration: snapshot.provisionGeneration + 1,
       fitContentToken: snapshot.fitContentToken + 1,
     };
+    syncCrossEdgesFromAssignments();
     emit();
     return name;
   }, []);

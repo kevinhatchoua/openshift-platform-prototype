@@ -637,28 +637,90 @@ export type NodeNetworkConfigurationInput = {
 export const STANDALONE_CANVAS_Y = BASE_Y + GROUP_H + 96;
 export const STANDALONE_H_SPACING = 168;
 
-const NNCP_TARGET_NODES = TOPOLOGY_WORKER_CATALOG.slice(0, 3);
+export const BRIDGE_ASSIGNMENT_PREFIX = "bridge::";
 
-/** Prototype: create br-localnet as standalone canvas resources (one per selected worker). */
-export function createStandaloneNetworkResources(
-  config: NodeNetworkConfigurationInput
-): StandaloneTopologyResource[] {
+export function bridgeAssignmentKey(bridgeLabel: string): string {
+  return `${BRIDGE_ASSIGNMENT_PREFIX}${bridgeLabel}`;
+}
+
+export function isBridgeAssignmentKey(key: string): boolean {
+  return key.startsWith(BRIDGE_ASSIGNMENT_PREFIX);
+}
+
+export function bridgeLabelFromAssignmentKey(key: string): string {
+  return key.slice(BRIDGE_ASSIGNMENT_PREFIX.length);
+}
+
+export function isBridgeNetworkResource(resource: { kind: string; label: string; id?: string }): boolean {
+  return (
+    resource.kind === "bridge" &&
+    (resource.label === "br-localnet" || Boolean(resource.id?.endsWith("br-localnet")))
+  );
+}
+
+/** Canonical assignment key for logical networks and provisioned bridge resources. */
+export function networkResourceAssignmentKey(resource: {
+  id: string;
+  label: string;
+  kind: string;
+  logicalNetwork?: boolean;
+}): string | null {
+  if (resource.logicalNetwork || resource.kind === "cudn" || resource.kind === "udn") {
+    return resource.id;
+  }
+  if (isBridgeNetworkResource(resource)) {
+    return bridgeAssignmentKey(resource.label);
+  }
+  return null;
+}
+
+/** NNCP config entity on the canvas — worker assignments start empty. */
+export function createBridgeConfigStandalone(config: NodeNetworkConfigurationInput): StandaloneTopologyResource {
   const bridgeName = config.bridgeName ?? "br-localnet";
-
-  return NNCP_TARGET_NODES.map((node, index) => ({
-    id: `${node.id}-${bridgeName}`,
+  return {
+    id: `nncp-${bridgeName}`,
     label: bridgeName,
-    kind: "bridge" as const,
+    kind: "bridge",
     x: 0,
     y: 0,
-    canvasX: BASE_X + index * STANDALONE_H_SPACING,
+    canvasX: BASE_X,
     canvasY: STANDALONE_CANVAS_Y,
-    status: "creating" as const,
+    status: "creating",
+    targetNodeId: "",
+    targetNodeLabel: "Unassigned",
+    detail: `Node network configuration for physical network ${config.physicalNetworkName}. Assign worker nodes from Assigned Nodes to project instances on the topology.`,
+    highlightSteps: ["network-identity", "uplink-connection", "settings", "review"],
+  };
+}
+
+/** Per-worker br-localnet card injected when a node is manually assigned. */
+export function createStandaloneBridgeForWorker(
+  config: NodeNetworkConfigurationInput,
+  node: TopologyWorkerCatalogEntry,
+  canvasIndex: number
+): StandaloneTopologyResource {
+  const bridgeName = config.bridgeName ?? "br-localnet";
+  return {
+    id: `${node.id}-${bridgeName}`,
+    label: bridgeName,
+    kind: "bridge",
+    x: 0,
+    y: 0,
+    canvasX: BASE_X + canvasIndex * STANDALONE_H_SPACING,
+    canvasY: STANDALONE_CANVAS_Y,
+    status: "creating",
     targetNodeId: node.id,
     targetNodeLabel: node.shortName,
     detail: `Localnet bridge for physical network ${config.physicalNetworkName} on ${node.shortName}. Drag onto a node group or link to a resource to attach.`,
-    highlightSteps: ["network-identity", "uplink-connection", "settings", "review"] as TopologyStep[],
-  }));
+    highlightSteps: ["network-identity", "uplink-connection", "settings", "review"],
+  };
+}
+
+/** Prototype: provision NNCP with empty worker assignments; one config resource on canvas. */
+export function createStandaloneNetworkResources(
+  config: NodeNetworkConfigurationInput
+): StandaloneTopologyResource[] {
+  return [createBridgeConfigStandalone(config)];
 }
 
 export function updateStandaloneResourcesByIdSuffix(

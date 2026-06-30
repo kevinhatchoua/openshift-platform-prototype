@@ -56,8 +56,8 @@ function NodesConfigurationStepContent() {
   return (
     <>
       <Content component="p">
-        Select worker nodes where the OVS bridge <strong>br-localnet</strong> will be configured. All three worker nodes
-        in this cluster are selected for the prototype configuration.
+        Choose worker nodes where the OVS bridge <strong>br-localnet</strong> will be configured. Assign nodes from
+        the topology <strong>Assigned Nodes</strong> tab after the configuration is created.
       </Content>
       <ul className="ocs-nnc-wizard__node-list pf-v6-u-mt-md">
         <li>worker-0 — Ready</li>
@@ -109,7 +109,7 @@ function ReviewStepContent({ physicalNetworkName }: Pick<StepContentProps, "phys
       </DescriptionListGroup>
       <DescriptionListGroup>
         <DescriptionListTerm>Nodes</DescriptionListTerm>
-        <DescriptionListDescription>worker-0, worker-1, worker-2</DescriptionListDescription>
+        <DescriptionListDescription>Assign from topology after create</DescriptionListDescription>
       </DescriptionListGroup>
       <DescriptionListGroup>
         <DescriptionListTerm>Bridge</DescriptionListTerm>

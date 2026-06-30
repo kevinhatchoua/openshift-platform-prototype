@@ -84,7 +84,9 @@ import {
   computeLogicalLaneLayout,
   effectiveLogicalCanvasY,
   isLogicalNetworkStandalone,
+  isBridgeNetworkResource,
   logicalNodeAreaTop,
+  networkResourceAssignmentKey,
   LOGICAL_LANE_PADDING_X,
   LOGICAL_TO_WORKER_GAP,
   type LogicalLaneLayout,
@@ -115,6 +117,7 @@ import {
   writeTopologyLayoutMode,
   type CanvasLayoutMode,
 } from "./topologyCanvasLayout";
+import { computeGroupHullPath } from "./topologyGroupHull";
 import { NetworkResourceCreateDropdown, type NetworkCreateResource } from "./networkingCreateModals";
 import type { NadRecord, NncpRecord, UdnRecord } from "./networkingMockData";
 
@@ -234,6 +237,9 @@ type GroupLayout = {
   width: number;
   surfaceHeight: number;
   totalHeight: number;
+  hullPath: string;
+  hullBounds: { minX: number; minY: number; maxX: number; maxY: number };
+  footerTop: number;
 };
 
 function rectsOverlap(
@@ -394,12 +400,17 @@ function computeGroupLayout(
 
   if (visibleResources.length === 0) {
     const surfaceHeight = Math.max(GROUP_H - GROUP_FOOTER_GAP - GROUP_FOOTER_H, minSurfaceHeight);
+    const width = Math.max(GROUP_W, minWidth);
+    const hull = computeGroupHullPath([], width, surfaceHeight);
     return {
       minX: 0,
       minY: 0,
-      width: Math.max(GROUP_W, minWidth),
+      width,
       surfaceHeight,
       totalHeight: surfaceHeight + GROUP_FOOTER_GAP + GROUP_FOOTER_H,
+      hullPath: hull.path,
+      hullBounds: hull.bounds,
+      footerTop: hull.bounds.maxY + GROUP_FOOTER_GAP,
     };
   }
 
@@ -418,13 +429,36 @@ function computeGroupLayout(
 
   const width = Math.max(GROUP_W, minWidth, maxX - minX + GROUP_PAD * 2);
   const surfaceHeight = Math.max(minSurfaceHeight, maxY - minY + GROUP_PAD * 2);
-
-  return {
+  const preliminary: GroupLayout = {
     minX,
     minY,
     width,
     surfaceHeight,
     totalHeight: surfaceHeight + GROUP_FOOTER_GAP + GROUP_FOOTER_H,
+    hullPath: "",
+    hullBounds: { minX: 0, minY: 0, maxX: width, maxY: surfaceHeight },
+    footerTop: surfaceHeight + GROUP_FOOTER_GAP,
+  };
+
+  const displayRects = visibleResources.map((resource) => {
+    const p = getPos(positions, group.id, resource);
+    const d = displayPos(p, preliminary);
+    return { x: d.x, y: d.y, w: RESOURCE_W, h: RESOURCE_H };
+  });
+
+  const hull = computeGroupHullPath(displayRects, width, surfaceHeight);
+  const hullWidth = Math.max(width, hull.bounds.maxX + GROUP_PAD);
+  const hullSurfaceHeight = Math.max(surfaceHeight, hull.bounds.maxY + GROUP_PAD);
+
+  return {
+    minX,
+    minY,
+    width: hullWidth,
+    surfaceHeight: hullSurfaceHeight,
+    totalHeight: hullSurfaceHeight + GROUP_FOOTER_GAP + GROUP_FOOTER_H,
+    hullPath: hull.path,
+    hullBounds: hull.bounds,
+    footerTop: hull.bounds.maxY + GROUP_FOOTER_GAP,
   };
 }
 
@@ -1025,6 +1059,18 @@ function resolveAssignedWorkers(
   groups: WorkerNodeGroup[],
   networkNodeAssignments: NetworkNodeAssignments
 ): AssignedWorkerRow[] {
+  const assignmentKey = networkResourceAssignmentKey(resource);
+  if (assignmentKey && isBridgeNetworkResource(resource)) {
+    return (networkNodeAssignments[assignmentKey] ?? []).map((workerId) => {
+      const group = groups.find((entry) => entry.id === workerId);
+      return {
+        id: workerId,
+        shortName: group?.shortName ?? workerId,
+        hostname: group?.hostname ?? "—",
+      };
+    });
+  }
+
   if (resource.placement === "group") {
     const suffix = resourceSuffixFromId(resource.id, resource.group.id);
     const matchingGroups = groups.filter((group) =>
@@ -1106,9 +1152,12 @@ function TopologySidePanel({
   onPeerSelect?: (peerId: string) => void;
 }) {
   const [tab, setTab] = useState<string>("details");
+  const [isAddWorkerOpen, setIsAddWorkerOpen] = useState(false);
   const color = RESOURCE_KIND_COLORS[resource.kind];
   const isStandalone = resource.placement === "standalone";
   const isLogical = isStandalone && isLogicalNetworkStandalone(resource);
+  const assignmentKey = networkResourceAssignmentKey(resource);
+  const canEditAssignedNodes = Boolean(assignmentKey) && isBridgeNetworkResource(resource);
 
   useEffect(() => {
     if (isLogical) setTab("nodes");
@@ -1118,6 +1167,22 @@ function TopologySidePanel({
     () => (isLogical ? [] : resolveAssignedWorkers(resource, groups, networkNodeAssignments)),
     [resource, groups, networkNodeAssignments, isLogical]
   );
+  const unassignedWorkers = useMemo(() => {
+    if (!canEditAssignedNodes || !assignmentKey) return [];
+    const assignedIds = new Set(networkNodeAssignments[assignmentKey] ?? []);
+    return workerCatalog.filter((worker) => !assignedIds.has(worker.id));
+  }, [assignmentKey, canEditAssignedNodes, networkNodeAssignments, workerCatalog]);
+
+  const handleAssignNode = (nodeId: string) => {
+    if (!assignmentKey) return;
+    onWorkerAssignmentChange(assignmentKey, nodeId, true);
+    setIsAddWorkerOpen(false);
+  };
+
+  const handleRemoveNode = (nodeId: string) => {
+    if (!assignmentKey) return;
+    onWorkerAssignmentChange(assignmentKey, nodeId, false);
+  };
   const connectionEntries = useMemo(
     () =>
       resolveTopologyConnections(
@@ -1314,8 +1379,70 @@ function TopologySidePanel({
             <Content component="p" className="ocs-net-topo-sidepanel__hint">
               Worker nodes where this resource is deployed or configured in the cluster topology.
             </Content>
-            {assignedNodeRows.length === 0 ? (
-              <Content component="p">No worker nodes are assigned to this resource yet.</Content>
+            {canEditAssignedNodes ? (
+              <>
+                {assignedNodeRows.length === 0 ? (
+                  <Content component="p">No worker nodes assigned to this network resource.</Content>
+                ) : (
+                  <ul className="ocs-net-topo-connection-list" aria-label="Assigned worker nodes">
+                    {assignedNodeRows.map((worker) => (
+                      <li key={worker.id}>
+                        <Flex
+                          alignItems={{ default: "alignItemsCenter" }}
+                          justifyContent={{ default: "justifyContentSpaceBetween" }}
+                          className="ocs-net-topo-connection-row"
+                        >
+                          <Flex direction={{ default: "column" }} gap={{ default: "gapNone" }}>
+                            <span className="ocs-net-topo-connection-row__name">{worker.shortName}</span>
+                            <Content component="small">{worker.hostname}</Content>
+                          </Flex>
+                          <Button
+                            variant="plain"
+                            aria-label={`Remove ${worker.shortName} from ${resource.label}`}
+                            icon={<TrashIcon aria-hidden />}
+                            onClick={() => handleRemoveNode(worker.id)}
+                          />
+                        </Flex>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                <Title headingLevel="h4" size="md">
+                  Add worker node
+                </Title>
+                {unassignedWorkers.length === 0 ? (
+                  <Content component="small">All worker nodes are already assigned to this resource.</Content>
+                ) : (
+                  <Select
+                    isOpen={isAddWorkerOpen}
+                    selected={null}
+                    onSelect={(_event, value) => {
+                      if (typeof value === "string") handleAssignNode(value);
+                    }}
+                    onOpenChange={(open) => setIsAddWorkerOpen(open)}
+                    toggle={(toggleRef) => (
+                      <MenuToggle
+                        ref={toggleRef}
+                        onClick={() => setIsAddWorkerOpen(!isAddWorkerOpen)}
+                        isExpanded={isAddWorkerOpen}
+                      >
+                        Select a worker node
+                      </MenuToggle>
+                    )}
+                    aria-label="Add worker node to network resource"
+                  >
+                    <SelectList>
+                      {unassignedWorkers.map((worker) => (
+                        <SelectOption key={worker.id} value={worker.id}>
+                          {worker.shortName} ({worker.hostname})
+                        </SelectOption>
+                      ))}
+                    </SelectList>
+                  </Select>
+                )}
+              </>
+            ) : assignedNodeRows.length === 0 ? (
+              <Content component="p">No worker nodes assigned to this network resource.</Content>
             ) : (
               <InnerScrollContainer>
                 <Table variant="compact" borders={false} aria-label="Assigned worker nodes">
@@ -2990,6 +3117,9 @@ export default function NetworkTopologyPanel({
                 width: group.width,
                 surfaceHeight: GROUP_H - GROUP_FOOTER_GAP - GROUP_FOOTER_H,
                 totalHeight: GROUP_H,
+                hullPath: "",
+                hullBounds: { minX: 0, minY: 0, maxX: group.width, maxY: GROUP_H },
+                footerTop: GROUP_H - GROUP_FOOTER_H,
               };
               const groupPos = getGroupPos(group);
               const isGroupSelected = selection?.type === "workerGroup" && selection.group.id === group.id;
@@ -3003,24 +3133,31 @@ export default function NetworkTopologyPanel({
                 role="group"
                 aria-label={`Node ${group.shortName}. Select or drag empty space to move the whole node group.`}
               >
-                <div
-                  className="ocs-net-topo-group__surface"
-                  style={{ height: layout.surfaceHeight }}
-                  role="button"
-                  tabIndex={0}
-                  aria-label={`Select ${group.shortName} worker node group`}
-                  aria-pressed={isGroupSelected}
-                  onPointerDown={(e) => handleGroupPointerDown(e, group)}
-                  onPointerUp={handleDragRelease}
-                  onPointerCancel={handleDragRelease}
-                  onClick={(e) => handleGroupSurfaceClick(e, group)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" || e.key === " ") {
-                      e.preventDefault();
-                      setSelection({ type: "workerGroup", group });
-                    }
-                  }}
-                />
+                <svg
+                  className="ocs-net-topo-group__hull"
+                  width={layout.width}
+                  height={layout.surfaceHeight}
+                  aria-hidden
+                >
+                  <path
+                    d={layout.hullPath}
+                    className="ocs-net-topo-group__hull-path"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`Select ${group.shortName} worker node group`}
+                    aria-pressed={isGroupSelected}
+                    onPointerDown={(e) => handleGroupPointerDown(e, group)}
+                    onPointerUp={handleDragRelease}
+                    onPointerCancel={handleDragRelease}
+                    onClick={(e) => handleGroupSurfaceClick(e, group)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        setSelection({ type: "workerGroup", group });
+                      }
+                    }}
+                  />
+                </svg>
                 {group.resources.filter(resourceVisible).map((resource) => {
                   const peerHighlighted = isPeerHighlighted(resource.id);
                   const highlighted =
@@ -3098,7 +3235,12 @@ export default function NetworkTopologyPanel({
                 })}
                 <div
                   className="ocs-net-topo-group__footer"
-                  style={{ top: layout.surfaceHeight + GROUP_FOOTER_GAP }}
+                  style={{
+                    top: layout.footerTop,
+                    left: "50%",
+                    transform: "translateX(-50%)",
+                    maxWidth: Math.max(160, layout.width - 24),
+                  }}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Label color="blue" isCompact className="ocs-resource-label">
