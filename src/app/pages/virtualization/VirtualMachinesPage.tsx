@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import {
-  Alert,
   Button,
   Card,
   CardBody,
@@ -47,7 +46,7 @@ import {
   type SortDirection,
 } from "../../components/dataView/OcsPrototypeListTable";
 import { getAllVirtualMachines, vmDetailPath } from "../networking/networkingMockData";
-import { getProjectVmCounts, getVmsForProject } from "./virtualizationMockData";
+import { getVmsForProject, getVirtOverviewStats } from "./virtualizationMockData";
 import {
   VirtualizationEmptyState,
   VirtualizationPageShell,
@@ -73,34 +72,26 @@ function sortRows(rows: ReturnType<typeof getAllVirtualMachines>, column: SortCo
 }
 
 function OverviewTab() {
-  const counts = getProjectVmCounts();
-  const totalVms = Object.values(counts).reduce((a, b) => a + b, 0);
+  const stats = useMemo(() => getVirtOverviewStats(), []);
 
   return (
     <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-      <Alert variant="info" title="No data to display yet." isInline />
-      <Grid hasGutter>
-        <GridItem md={4}>
-          <Card isCompact isPlain className="app-glass-panel">
-            <CardTitle>OpenShift Virtualization</CardTitle>
-            <CardBody>
-              <DescriptionRow label="Status" value="—" />
-              <DescriptionRow label="Alerts" value="—" />
-            </CardBody>
-          </Card>
+      <Grid hasGutter className="ocs-virt-overview-stats">
+        <GridItem sm={6} md={3}>
+          <OperatorSummaryCard
+            status={stats.operatorStatus}
+            statusColor={stats.operatorStatusColor}
+            alerts={stats.operatorAlerts}
+          />
         </GridItem>
-        <GridItem md={8}>
-          <Grid hasGutter>
-            <GridItem sm={4}>
-              <MetricCard label="Nodes" value="—" />
-            </GridItem>
-            <GridItem sm={4}>
-              <MetricCard label="Projects" value={String(VIRT_PROJECT_COUNT)} />
-            </GridItem>
-            <GridItem sm={4}>
-              <MetricCard label="VMs" value={String(totalVms)} />
-            </GridItem>
-          </Grid>
+        <GridItem sm={6} md={3}>
+          <MetricCard label="Nodes" value={String(stats.nodeCount)} />
+        </GridItem>
+        <GridItem sm={6} md={3}>
+          <MetricCard label="Projects" value={String(stats.projectCount)} />
+        </GridItem>
+        <GridItem sm={6} md={3}>
+          <MetricCard label="VMs" value={String(stats.vmCount)} />
         </GridItem>
       </Grid>
       <Grid hasGutter>
@@ -108,9 +99,9 @@ function OverviewTab() {
           <Card isCompact isPlain className="app-glass-panel">
             <CardTitle>Cluster averages (Across all nodes)</CardTitle>
             <CardBody>
-              <LoadRow label="CPU load" />
-              <LoadRow label="Memory load" />
-              <LoadRow label="Storage load" />
+              <LoadRow label="CPU load" value={stats.clusterLoads.cpu} />
+              <LoadRow label="Memory load" value={stats.clusterLoads.memory} />
+              <LoadRow label="Storage load" value={stats.clusterLoads.storage} />
             </CardBody>
           </Card>
         </GridItem>
@@ -119,8 +110,8 @@ function OverviewTab() {
             <CardTitle>Node load distribution</CardTitle>
             <CardBody>
               <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                {[1, 2, 3, 4].map((i) => (
-                  <Progress key={i} value={0} title={`worker-${i - 1}`} size="sm" />
+                {stats.nodeLoads.map((node) => (
+                  <Progress key={node.name} value={node.value} title={node.name} size="sm" />
                 ))}
               </Flex>
               <Button variant="link" isInline className="pf-v6-u-mt-sm">
@@ -135,10 +126,10 @@ function OverviewTab() {
           <Card isCompact isPlain className="app-glass-panel">
             <CardTitle>Virtual machine alerts</CardTitle>
             <CardBody>
-              <Flex justifyContent={{ default: "justifyContentSpaceBetween" }}>
-                <Content component="span">Critical</Content>
-                <Content component="span">Warning</Content>
-                <Content component="span">Info</Content>
+              <Flex justifyContent={{ default: "justifyContentSpaceBetween" }} gap={{ default: "gapLg" }}>
+                <AlertCount label="Critical" count={stats.vmAlerts.critical} color="red" />
+                <AlertCount label="Warning" count={stats.vmAlerts.warning} color="orange" />
+                <AlertCount label="Info" count={stats.vmAlerts.info} color="blue" />
               </Flex>
               <Button variant="link" isInline className="pf-v6-u-mt-sm">
                 View all
@@ -151,10 +142,10 @@ function OverviewTab() {
             <CardTitle>Virtual machine statuses</CardTitle>
             <CardBody>
               <Flex gap={{ default: "gapLg" }} flexWrap={{ default: "wrap" }}>
-                <StatusCount label="Error" count={totalVms} color="red" />
-                <StatusCount label="Running" count={0} color="green" />
-                <StatusCount label="Stopped" count={0} color="grey" />
-                <StatusCount label="Other" count={0} color="blue" />
+                <StatusCount label="Error" count={stats.vmStatuses.error} color="red" />
+                <StatusCount label="Running" count={stats.vmStatuses.running} color="green" />
+                <StatusCount label="Stopped" count={stats.vmStatuses.stopped} color="grey" />
+                <StatusCount label="Other" count={stats.vmStatuses.other} color="blue" />
               </Flex>
             </CardBody>
           </Card>
@@ -164,15 +155,58 @@ function OverviewTab() {
   );
 }
 
-const VIRT_PROJECT_COUNT = 7;
-
-function DescriptionRow({ label, value }: { label: string; value: string }) {
+function OperatorSummaryCard({
+  status,
+  statusColor,
+  alerts,
+}: {
+  status: string;
+  statusColor: "green" | "orange" | "red";
+  alerts: number;
+}) {
   return (
-    <Flex justifyContent={{ default: "justifyContentSpaceBetween" }} className="pf-v6-u-mb-sm">
+    <Card isCompact isPlain className="app-glass-panel ocs-virt-metric-card">
+      <CardBody className="ocs-virt-metric-card__body">
+        <Content component="p" className="pf-v6-u-color-200 pf-v6-u-mb-sm">
+          OpenShift Virtualization
+        </Content>
+        <Flex
+          direction={{ default: "column" }}
+          justifyContent={{ default: "justifyContentSpaceBetween" }}
+          className="ocs-virt-metric-card__content"
+          gap={{ default: "gapSm" }}
+        >
+          <Flex justifyContent={{ default: "justifyContentSpaceBetween" }} alignItems={{ default: "alignItemsCenter" }}>
+            <Content component="span" className="pf-v6-u-color-200">
+              Status
+            </Content>
+            <Label color={statusColor} isCompact>
+              {status}
+            </Label>
+          </Flex>
+          <Flex justifyContent={{ default: "justifyContentSpaceBetween" }} alignItems={{ default: "alignItemsCenter" }}>
+            <Content component="span" className="pf-v6-u-color-200">
+              Alerts
+            </Content>
+            <Title headingLevel="h3" size="2xl">
+              {alerts}
+            </Title>
+          </Flex>
+        </Flex>
+      </CardBody>
+    </Card>
+  );
+}
+
+function AlertCount({ label, count, color }: { label: string; count: number; color: "red" | "orange" | "blue" }) {
+  return (
+    <Flex direction={{ default: "column" }} alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapXs" }}>
       <Content component="span" className="pf-v6-u-color-200">
         {label}
       </Content>
-      <Content component="span">{value}</Content>
+      <Label color={color} isCompact>
+        {count}
+      </Label>
     </Flex>
   );
 }
@@ -180,11 +214,11 @@ function DescriptionRow({ label, value }: { label: string; value: string }) {
 function MetricCard({ label, value }: { label: string; value: string }) {
   return (
     <Card isCompact isPlain className="app-glass-panel ocs-virt-metric-card">
-      <CardBody>
+      <CardBody className="ocs-virt-metric-card__body">
         <Content component="p" className="pf-v6-u-color-200 pf-v6-u-mb-sm">
           {label}
         </Content>
-        <Title headingLevel="h3" size="2xl">
+        <Title headingLevel="h3" size="2xl" className="ocs-virt-metric-card__value">
           {value}
         </Title>
       </CardBody>
@@ -192,11 +226,16 @@ function MetricCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-function LoadRow({ label }: { label: string }) {
+function LoadRow({ label, value }: { label: string; value: number }) {
   return (
     <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} className="pf-v6-u-mb-md">
-      <Content component="span">{label}</Content>
-      <Progress value={0} size="sm" />
+      <Flex justifyContent={{ default: "justifyContentSpaceBetween" }} alignItems={{ default: "alignItemsCenter" }}>
+        <Content component="span">{label}</Content>
+        <Content component="span" className="pf-v6-u-color-200">
+          {value}%
+        </Content>
+      </Flex>
+      <Progress value={value} size="sm" aria-label={`${label} ${value}%`} />
     </Flex>
   );
 }

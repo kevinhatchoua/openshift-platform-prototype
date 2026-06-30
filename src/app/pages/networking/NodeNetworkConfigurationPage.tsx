@@ -1,19 +1,10 @@
-import { useCallback, useState } from "react";
-import {
-  Alert,
-  AlertActionCloseButton,
-  AlertGroup,
-  Button,
-  Dropdown,
-  DropdownItem,
-  DropdownList,
-  Flex,
-  MenuToggle,
-} from "@patternfly/react-core";
+import { useState } from "react";
+import { Button, Dropdown, DropdownItem, DropdownList, Flex, MenuToggle } from "@patternfly/react-core";
 import {
   DataViewTextFilter,
   useDataViewFilters,
 } from "@patternfly/react-data-view";
+import { useToast } from "../../contexts/ToastContext";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import NodeNetworkConfigurationWizard from "./NodeNetworkConfigurationWizard";
 import { NetworkingEmptyState, NetworkingPageShell } from "./networkingShared";
@@ -21,29 +12,13 @@ import { useNodeNetworkConfigurationCreate } from "./useNodeNetworkConfiguration
 
 type NncFilters = { name: string };
 
-type NncToast = {
-  key: number;
-  variant: "success" | "info" | "warning" | "danger";
-  title: string;
-};
-
 export default function NodeNetworkConfigurationPage() {
   const { filters, onSetFilters } = useDataViewFilters<NncFilters>({
     filters: { name: "" },
   });
+  const { pushToast, dismissToast } = useToast();
 
   const [createOpen, setCreateOpen] = useState(false);
-  const [toasts, setToasts] = useState<NncToast[]>([]);
-
-  const dismissToast = useCallback((key: number) => {
-    setToasts((prev) => prev.filter((toast) => toast.key !== key));
-  }, []);
-
-  const pushToast = useCallback((toast: Omit<NncToast, "key">) => {
-    const key = Date.now() + Math.floor(Math.random() * 1000);
-    setToasts((prev) => [{ key, ...toast }, ...prev].slice(0, 4));
-    return key;
-  }, []);
 
   const {
     showFormWizard,
@@ -59,19 +34,6 @@ export default function NodeNetworkConfigurationPage() {
 
   return (
     <>
-      <AlertGroup isToast isLiveRegion hasAnimations aria-label="Notifications">
-        {toasts.map((toast) => (
-          <Alert
-            key={toast.key}
-            variant={toast.variant}
-            title={toast.title}
-            isPlain
-            timeout={8000}
-            onTimeout={() => dismissToast(toast.key)}
-            actionClose={<AlertActionCloseButton onClose={() => dismissToast(toast.key)} />}
-          />
-        ))}
-      </AlertGroup>
       <NetworkingPageShell
         title="Node network configuration"
         path="/networking/node-network-configuration"

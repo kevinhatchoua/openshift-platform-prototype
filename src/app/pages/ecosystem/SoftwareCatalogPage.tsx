@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Alert,
@@ -6,18 +6,17 @@ import {
   AlertActionLink,
   AlertGroup,
   Content,
+  Drawer,
+  DrawerContent,
+  DrawerPanelContent,
 } from "@patternfly/react-core";
 import {
   Search,
   ChevronDown,
   ChevronUp,
-  AlertTriangle,
-  CheckCircle,
-  ExternalLink,
-  Globe,
-  X,
 } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import CatalogOperatorDetailPanel from "../../components/CatalogOperatorDetailPanel";
 import { CatalogBrandLogo } from "./CatalogBrandLogo";
 import type { LogoCatalogType } from "./catalogLogos";
 
@@ -125,14 +124,6 @@ const SUBSCRIPTION_FACETS: { id: string; label: string; count: number }[] = [
 ];
 
 const PROVIDER_FACET_PAGE_SIZE = 4;
-
-function InlineCode({ children }: { children: ReactNode }) {
-  return (
-    <code className="rounded-sm bg-[#ececec] px-1.5 py-0.5 font-mono text-[13px] text-[#151515] dark:bg-[#3c3f42] dark:text-[#e8eaed]">
-      {children}
-    </code>
-  );
-}
 
 const CATALOG_TYPE_LABEL: Record<CatalogItemKind, string> = {
   builderImages: "Builder image",
@@ -857,6 +848,8 @@ export default function SoftwareCatalogPage() {
   };
 
   return (
+    <Drawer isExpanded={showSidePanel && !!selectedCatalogItem} position="end">
+      <DrawerContent>
     <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
         <Breadcrumbs
           items={[
@@ -1258,296 +1251,45 @@ export default function SoftwareCatalogPage() {
           </div>
         </div>
         </Breadcrumbs>
-
-      {/* Side Panel — OCP console–style operator / catalog drawer */}
-      {showSidePanel && selectedCatalogItem && (
-        <div className="fixed inset-0 z-[10000]">
-          <div
-            className="absolute inset-0 bg-black/40"
-            onClick={() => setShowSidePanel(false)}
+      </div>
+      </DrawerContent>
+      {selectedCatalogItem && showSidePanel ? (
+        <DrawerPanelContent
+          isPlain
+          hasNoGlass
+          widths={{ default: "width_100", lg: "width_50" }}
+          focusTrap={{ enabled: true }}
+        >
+          <CatalogOperatorDetailPanel
+            item={{
+              id: selectedCatalogItem.id,
+              name: selectedCatalogItem.name,
+              provider: selectedCatalogItem.provider,
+              providerType: selectedCatalogItem.providerType,
+              description: selectedCatalogItem.description,
+              installed: selectedCatalogItem.installed,
+              hasUpdate: selectedCatalogItem.hasUpdate,
+              newVersion: selectedCatalogItem.newVersion,
+              currentVersion: selectedCatalogItem.currentVersion,
+              catalogType: selectedCatalogItem.catalogType,
+              typeLabel: CATALOG_TYPE_LABEL[selectedCatalogItem.catalogType],
+            }}
+            onClose={() => setShowSidePanel(false)}
+            onInstall={() => {
+              navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/install`);
+              setShowSidePanel(false);
+            }}
+            onUpdate={() => {
+              navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/update`);
+              setShowSidePanel(false);
+            }}
+            onViewDetails={() => {
+              navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}`);
+              setShowSidePanel(false);
+            }}
           />
-          <div className="absolute right-0 top-0 bottom-0 w-[min(720px,100%)] app-glass-panel app-glass-panel--edge-right flex flex-col overflow-hidden shadow-[-8px_0_24px_rgba(0,0,0,0.15)]">
-            <div className="flex-1 overflow-y-auto">
-              <header className="sticky top-0 z-[2] border-b border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.1)] bg-[rgba(255,255,255,0.92)] dark:bg-[rgba(28,28,28,0.96)] px-6 pt-5 pb-4 backdrop-blur-md">
-                <div className="flex gap-4">
-                  <CatalogBrandLogo
-                    id={selectedCatalogItem.id}
-                    catalogType={selectedCatalogItem.catalogType as LogoCatalogType}
-                    boxClassName="size-14 shrink-0 rounded-md bg-white dark:bg-[#2b2b2b] flex items-center justify-center overflow-hidden border border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.12)]"
-                    logoClassName="size-11 max-h-11 max-w-11"
-                  />
-                  <div className="flex-1 min-w-0 pr-2">
-                    <div className="flex justify-between gap-3 items-start">
-                      <div className="min-w-0">
-                        <h2 className="font-['Red_Hat_Display',sans-serif] font-semibold text-[22px] leading-tight text-[#151515] dark:text-white">
-                          {selectedCatalogItem.name}
-                        </h2>
-                        <p className="text-[13px] text-[#6a6e73] dark:text-[#b0b0b0] mt-1.5">
-                          Provided by {selectedCatalogItem.provider}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => setShowSidePanel(false)}
-                        className="p-2 -mr-2 -mt-1 rounded-md hover:bg-black/[0.06] dark:hover:bg-white/10 shrink-0"
-                        aria-label="Close"
-                      >
-                        <X className="size-4 text-[#151515] dark:text-white" />
-                      </button>
-                    </div>
-
-                    {selectedCatalogItem.catalogType === "operators" && selectedCatalogItem.hasUpdate && (
-                      <div className="mt-4 flex flex-wrap items-center gap-2 rounded-md border border-[#f0ab00]/45 bg-[#fef6e6] dark:bg-[rgba(240,171,0,0.12)] px-3 py-2.5">
-                        <AlertTriangle className="size-4 text-[#f0ab00] shrink-0" />
-                        <span className="text-[13px] text-[#151515] dark:text-white font-medium">
-                          New version {selectedCatalogItem.newVersion} available
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/update`);
-                            setShowSidePanel(false);
-                          }}
-                          className="text-[13px] font-semibold text-[#06c] dark:text-[#4dabf7] hover:underline"
-                        >
-                          Update
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}`);
-                            setShowSidePanel(false);
-                          }}
-                          className="text-[13px] font-semibold text-[#06c] dark:text-[#4dabf7] hover:underline"
-                        >
-                          View details
-                        </button>
-                      </div>
-                    )}
-
-                    {selectedCatalogItem.catalogType === "operators" && !selectedCatalogItem.installed && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/install`);
-                          setShowSidePanel(false);
-                        }}
-                        className="mt-4 inline-flex items-center justify-center px-6 py-2 rounded-md bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white text-[14px] font-semibold shadow-sm transition-colors"
-                      >
-                        Install
-                      </button>
-                    )}
-                  </div>
-                </div>
-              </header>
-
-              <div className="px-6 py-6 grid grid-cols-1 md:grid-cols-[minmax(200px,240px)_1fr] gap-x-10 gap-y-6 items-start">
-                {/* Left: metadata (OCP console pattern) */}
-                <aside className="space-y-5 text-[13px] text-[#151515] dark:text-[#e0e0e0]">
-                  {selectedCatalogItem.catalogType === "operators" ? (
-                    <>
-                      <div>
-                        <label className="block text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-1.5">
-                          Channel
-                        </label>
-                        <select
-                          className="w-full rounded border border-[#c7c7c7] dark:border-[#4d4d4d] bg-white dark:bg-[#1e1e1e] text-[13px] py-1.5 px-2 text-[#151515] dark:text-white"
-                          defaultValue="stable"
-                        >
-                          <option value="stable">stable</option>
-                          <option value="release-2-16">release-2.16</option>
-                          <option value="fast">fast</option>
-                        </select>
-                      </div>
-                      <div>
-                        <label className="block text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-1.5">
-                          Version
-                        </label>
-                        <select
-                          className="w-full rounded border border-[#c7c7c7] dark:border-[#4d4d4d] bg-white dark:bg-[#1e1e1e] text-[13px] py-1.5 px-2 text-[#151515] dark:text-white"
-                          defaultValue={selectedCatalogItem.currentVersion ?? selectedCatalogItem.newVersion ?? "2.16.0"}
-                        >
-                          <option>{selectedCatalogItem.currentVersion ?? "2.16.0"}</option>
-                          {selectedCatalogItem.newVersion && (
-                            <option>{selectedCatalogItem.newVersion}</option>
-                          )}
-                        </select>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-2">
-                          Capability level
-                        </p>
-                        <ul className="space-y-2">
-                          {[
-                            { label: "Basic Install", done: true },
-                            { label: "Seamless Upgrades", done: true },
-                            { label: "Full Lifecycle", done: false },
-                            { label: "Deep Insights", done: false },
-                            { label: "Auto Pilot", done: false },
-                          ].map((cap) => (
-                            <li key={cap.label} className="flex items-center gap-2">
-                              {cap.done ? (
-                                <CheckCircle className="size-4 text-[#06c] dark:text-[#4dabf7] shrink-0" />
-                              ) : (
-                                <span
-                                  className="inline-block size-4 rounded-full border-2 border-[#8a8d90] dark:border-[#6a6e73] shrink-0"
-                                  aria-hidden
-                                />
-                              )}
-                              <span className="text-[13px]">{cap.label}</span>
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </>
-                  ) : (
-                    <div>
-                      <p className="text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-1">
-                        Type
-                      </p>
-                      <p className="text-[13px]">{CATALOG_TYPE_LABEL[selectedCatalogItem.catalogType]}</p>
-                    </div>
-                  )}
-
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-1">
-                      Source
-                    </p>
-                    <p className="text-[13px]">{selectedCatalogItem.providerType}</p>
-                  </div>
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-1">
-                      Provider
-                    </p>
-                    <p className="text-[13px]">{selectedCatalogItem.provider}</p>
-                  </div>
-
-                  {selectedCatalogItem.catalogType === "operators" && (
-                    <>
-                      <div>
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-1.5">
-                          Infrastructure features
-                        </p>
-                        <ul className="list-disc pl-4 space-y-0.5 text-[13px] text-[#4d4d4d] dark:text-[#c6c7c8]">
-                          <li>Disconnected</li>
-                          <li>Proxy-aware</li>
-                          <li>Designed for FIPS</li>
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-1.5">
-                          Valid subscriptions
-                        </p>
-                        <ul className="space-y-1 text-[13px] text-[#4d4d4d] dark:text-[#c6c7c8]">
-                          <li>OpenShift Platform Plus</li>
-                          <li>
-                            {selectedCatalogItem.provider === "Red Hat"
-                              ? `Red Hat ${selectedCatalogItem.name}`
-                              : `${selectedCatalogItem.provider} — ${selectedCatalogItem.name}`}
-                          </li>
-                        </ul>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-1">
-                          Repository
-                        </p>
-                        <a
-                          href="https://github.com/openshift/"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 text-[13px] text-[#06c] dark:text-[#4dabf7] hover:underline break-all"
-                        >
-                          github.com/openshift
-                          <ExternalLink className="size-3 shrink-0 opacity-80" />
-                        </a>
-                      </div>
-                      <div>
-                        <p className="text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-1">
-                          Container image
-                        </p>
-                        <p className="text-[13px] text-[#6a6e73] dark:text-[#a1a1a1]">—</p>
-                      </div>
-                    </>
-                  )}
-
-                  <div>
-                    <p className="text-[11px] font-medium uppercase tracking-wide text-[#6a6e73] dark:text-[#a1a1a1] mb-1">
-                      Created at
-                    </p>
-                    <p className="flex items-center gap-1.5 text-[13px] text-[#4d4d4d] dark:text-[#c6c7c8]">
-                      <Globe className="size-3.5 shrink-0 text-[#6a6e73]" aria-hidden />
-                      Mar 10, 2026, 9:47 AM
-                    </p>
-                  </div>
-                </aside>
-
-                {/* Right: documentation-style body */}
-                <div className="min-w-0 space-y-6 text-[14px] leading-relaxed text-[#4d4d4d] dark:text-[#c6c7c8]">
-                  <p>{selectedCatalogItem.description}</p>
-
-                  {selectedCatalogItem.catalogType === "operators" ? (
-                    <>
-                      <section>
-                        <h3 className="text-[16px] font-semibold text-[#151515] dark:text-white mb-2">
-                          How to install
-                        </h3>
-                        <p>
-                          From the <InlineCode>OperatorHub</InlineCode> catalog, choose this operator and create a{" "}
-                          <InlineCode>Subscription</InlineCode> in your target namespace. The Operator Lifecycle Manager
-                          (OLM) will reconcile the required CSV and related objects. For cluster-scoped installs,
-                          ensure your account has sufficient privileges to create cluster extensions.
-                        </p>
-                      </section>
-                      <section>
-                        <h3 className="text-[16px] font-semibold text-[#151515] dark:text-white mb-2">
-                          Special considerations for disconnected environments
-                        </h3>
-                        <p>
-                          Mirror the operator bundle and related images into your registry, then reference that mirror in
-                          your <InlineCode>ImageContentSourcePolicy</InlineCode> or <InlineCode>CatalogSource</InlineCode>{" "}
-                          configuration. Verify signature and digest before promoting to production clusters.
-                        </p>
-                      </section>
-                      <section>
-                        <h3 className="text-[16px] font-semibold text-[#151515] dark:text-white mb-2">
-                          Include in mirrored catalog
-                        </h3>
-                        <p>
-                          When using oc-mirror or a private catalog index, add the package name for{" "}
-                          <InlineCode>{selectedCatalogItem.name.replace(/\s+/g, "")}</InlineCode> to your mirror set so
-                          installs remain available offline.
-                        </p>
-                      </section>
-                      <section>
-                        <h3 className="text-[16px] font-semibold text-[#151515] dark:text-white mb-2">
-                          Resource annotations
-                        </h3>
-                        <p>
-                          You can add annotations on the owning custom resource (for example{" "}
-                          <InlineCode>MultiClusterHub</InlineCode> or your operator&apos;s CR) to tune reconciliation
-                          intervals, feature gates, or proxy settings. Consult the operator documentation for the exact
-                          schema.
-                        </p>
-                      </section>
-                    </>
-                  ) : (
-                    <section>
-                      <h3 className="text-[16px] font-semibold text-[#151515] dark:text-white mb-2">
-                        Using this catalog item
-                      </h3>
-                      <p>
-                        Add this {CATALOG_TYPE_LABEL[selectedCatalogItem.catalogType].toLowerCase()} to your project from
-                        the catalog. Namespace-scoped resources can be created with the default editor; cluster
-                        administrators may restrict which items appear in the catalog.
-                      </p>
-                    </section>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
+        </DrawerPanelContent>
+      ) : null}
+    </Drawer>
   );
 }

@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useNetworkTopologyState } from "./networkTopologyState";
+import type { ToastInput } from "../../contexts/ToastContext";
 
-type ToastPush = (toast: {
-  variant: "success" | "info" | "warning" | "danger";
-  title: string;
-}) => number;
-
+type ToastPush = (toast: ToastInput) => number;
 type ToastDismiss = (key: number) => void;
 
 export function useNodeNetworkConfigurationCreate(

@@ -60,6 +60,7 @@ import { usePermissions } from "../contexts/PermissionsContext";
 import { useChat } from "../contexts/ChatContext";
 import { useFavorites } from "../contexts/FavoritesContext";
 import { useClusterUpdateDemoVariant } from "../contexts/ClusterUpdateDemoContext";
+import { useToast } from "../contexts/ToastContext";
 import {
   ADMINISTRATION_SUB,
   BUILDS_SUB,
@@ -372,6 +373,7 @@ export default function Layout() {
   const { isOpen: isAIOpen, setIsOpen: setIsAIOpen } = useChat();
 
   const { favorites } = useFavorites();
+  const { activeCount: activeToastCount } = useToast();
 
   const handleImpersonate = (user: {
     id: string;
@@ -437,9 +439,11 @@ export default function Layout() {
                   gap={{ default: "gapXs" }}
                 >
                   <MastheadIconButton label="Notifications" icon={<BellIcon aria-hidden />} />
-                  <Badge isRead={false} screenReaderText="Unread notifications">
-                    3
-                  </Badge>
+                  {activeToastCount > 0 ? (
+                    <Badge isRead={false} screenReaderText={`${activeToastCount} active notifications`}>
+                      {activeToastCount}
+                    </Badge>
+                  ) : null}
                 </Flex>
               </ToolbarItem>
               <ToolbarItem className="ocs-masthead-toolbar-item">

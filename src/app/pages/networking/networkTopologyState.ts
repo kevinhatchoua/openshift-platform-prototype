@@ -3,10 +3,17 @@ import {
   WORKER_NODE_GROUPS,
   attachStandaloneResourceToGroup,
   createStandaloneNetworkResources,
+  crossEdgesForAssignments,
+  isLogicalNetworkStandalone,
+  logicalNetworkFromRecord,
+  logicalNetworkId,
   updateStandaloneResourcesByIdSuffix,
+  type NetworkNodeAssignments,
   type StandaloneTopologyResource,
+  type TopologyCrossEdge,
   type WorkerNodeGroup,
 } from "./networkTopologyData";
+import { getUdnRecords, type UdnRecord, udnDetailPath } from "./networkingMockData";
 
 function cloneGroups(): WorkerNodeGroup[] {
   return WORKER_NODE_GROUPS.map((group) => ({
@@ -16,16 +23,41 @@ function cloneGroups(): WorkerNodeGroup[] {
   }));
 }
 
+function buildInitialLogicalLayer(): {
+  standaloneResources: StandaloneTopologyResource[];
+  networkNodeAssignments: NetworkNodeAssignments;
+} {
+  const records = getUdnRecords();
+  const standaloneResources = records.map((record, index) =>
+    logicalNetworkFromRecord(record, index, udnDetailPath(record))
+  );
+  const networkNodeAssignments: NetworkNodeAssignments = Object.fromEntries(
+    standaloneResources
+      .filter(isLogicalNetworkStandalone)
+      .map((resource) => [resource.id, [] as string[]])
+  );
+  return { standaloneResources, networkNodeAssignments };
+}
+
 type TopologySnapshot = {
   groups: WorkerNodeGroup[];
   standaloneResources: StandaloneTopologyResource[];
+  crossEdges: TopologyCrossEdge[];
+  networkNodeAssignments: NetworkNodeAssignments;
+  revealedGroupIds: string[];
   provisionGeneration: number;
   fitContentToken: number;
 };
 
+const initialGroups = cloneGroups();
+const initialLogical = buildInitialLogicalLayer();
+
 let snapshot: TopologySnapshot = {
-  groups: cloneGroups(),
-  standaloneResources: [],
+  groups: initialGroups,
+  standaloneResources: initialLogical.standaloneResources,
+  crossEdges: [],
+  networkNodeAssignments: initialLogical.networkNodeAssignments,
+  revealedGroupIds: [],
   provisionGeneration: 0,
   fitContentToken: 0,
 };
@@ -45,6 +77,17 @@ function getSnapshot(): TopologySnapshot {
   return snapshot;
 }
 
+function syncCrossEdgesFromAssignments() {
+  snapshot = {
+    ...snapshot,
+    crossEdges: crossEdgesForAssignments(
+      snapshot.networkNodeAssignments,
+      snapshot.standaloneResources,
+      snapshot.groups
+    ),
+  };
+}
+
 export function useNetworkTopologyState() {
   const state = useSyncExternalStore(subscribe, getSnapshot);
 
@@ -53,6 +96,7 @@ export function useNetworkTopologyState() {
       ...snapshot,
       groups: typeof updater === "function" ? updater(snapshot.groups) : updater,
     };
+    syncCrossEdgesFromAssignments();
     emit();
   }, []);
 
@@ -63,6 +107,31 @@ export function useNetworkTopologyState() {
         standaloneResources:
           typeof updater === "function" ? updater(snapshot.standaloneResources) : updater,
       };
+      syncCrossEdgesFromAssignments();
+      emit();
+    },
+    []
+  );
+
+  const setCrossEdges = useCallback(
+    (updater: TopologyCrossEdge[] | ((prev: TopologyCrossEdge[]) => TopologyCrossEdge[])) => {
+      snapshot = {
+        ...snapshot,
+        crossEdges: typeof updater === "function" ? updater(snapshot.crossEdges) : updater,
+      };
+      emit();
+    },
+    []
+  );
+
+  const setNetworkNodeAssignments = useCallback(
+    (updater: NetworkNodeAssignments | ((prev: NetworkNodeAssignments) => NetworkNodeAssignments)) => {
+      snapshot = {
+        ...snapshot,
+        networkNodeAssignments:
+          typeof updater === "function" ? updater(snapshot.networkNodeAssignments) : updater,
+      };
+      syncCrossEdgesFromAssignments();
       emit();
     },
     []
@@ -73,12 +142,62 @@ export function useNetworkTopologyState() {
     emit();
   }, []);
 
+  const setWorkerAssignedToNetwork = useCallback((logicalId: string, workerId: string, assigned: boolean) => {
+    const current = snapshot.networkNodeAssignments[logicalId] ?? [];
+    const nextWorkers = assigned
+      ? current.includes(workerId)
+        ? current
+        : [...current, workerId]
+      : current.filter((id) => id !== workerId);
+
+    const nextAssignments = {
+      ...snapshot.networkNodeAssignments,
+      [logicalId]: nextWorkers,
+    };
+
+    const revealedGroupIds =
+      assigned && !snapshot.revealedGroupIds.includes(workerId)
+        ? [...snapshot.revealedGroupIds, workerId]
+        : snapshot.revealedGroupIds;
+
+    snapshot = {
+      ...snapshot,
+      networkNodeAssignments: nextAssignments,
+      revealedGroupIds,
+      fitContentToken: snapshot.fitContentToken + 1,
+    };
+    syncCrossEdgesFromAssignments();
+    emit();
+  }, []);
+
+  const addLogicalNetwork = useCallback((record: UdnRecord) => {
+    const id = logicalNetworkId(record.name, record.kind);
+    if (snapshot.standaloneResources.some((resource) => resource.id === id)) return;
+
+    const logicalCount = snapshot.standaloneResources.filter(isLogicalNetworkStandalone).length;
+    const resource = logicalNetworkFromRecord(record, logicalCount, udnDetailPath(record));
+
+    snapshot = {
+      ...snapshot,
+      standaloneResources: [...snapshot.standaloneResources, resource],
+      networkNodeAssignments: {
+        ...snapshot.networkNodeAssignments,
+        [id]: [],
+      },
+      fitContentToken: snapshot.fitContentToken + 1,
+    };
+    syncCrossEdgesFromAssignments();
+    emit();
+  }, []);
+
   const provisionConfiguration = useCallback((physicalNetworkName: string) => {
     const name = physicalNetworkName.trim() || "localnet-rzpi1d";
     snapshot = {
       ...snapshot,
       standaloneResources: [
-        ...snapshot.standaloneResources.filter((r) => !r.id.endsWith("br-localnet")),
+        ...snapshot.standaloneResources.filter(
+          (resource) => !resource.id.endsWith("br-localnet") || isLogicalNetworkStandalone(resource)
+        ),
         ...createStandaloneNetworkResources({ physicalNetworkName: name, bridgeName: "br-localnet" }),
       ],
       provisionGeneration: snapshot.provisionGeneration + 1,
@@ -91,15 +210,19 @@ export function useNetworkTopologyState() {
   const attachStandaloneToGroup = useCallback(
     (resourceId: string, groupId: string, connectToResourceId?: string) => {
       const standalone = snapshot.standaloneResources.find((r) => r.id === resourceId);
-      if (!standalone) return null;
+      if (!standalone || isLogicalNetworkStandalone(standalone)) return null;
       snapshot = {
         ...snapshot,
         standaloneResources: snapshot.standaloneResources.filter((r) => r.id !== resourceId),
         groups: snapshot.groups.map((group) =>
           group.id === groupId ? attachStandaloneResourceToGroup(group, standalone, connectToResourceId) : group
         ),
+        revealedGroupIds: snapshot.revealedGroupIds.includes(groupId)
+          ? snapshot.revealedGroupIds
+          : [...snapshot.revealedGroupIds, groupId],
         fitContentToken: snapshot.fitContentToken + 1,
       };
+      syncCrossEdgesFromAssignments();
       emit();
       return standalone;
     },
@@ -122,13 +245,49 @@ export function useNetworkTopologyState() {
     emit();
   }, []);
 
+  const revealWorkerGroups = useCallback((workerIds: string[]) => {
+    const unique = workerIds.filter((id) => !snapshot.revealedGroupIds.includes(id));
+    if (unique.length === 0) return;
+    snapshot = {
+      ...snapshot,
+      revealedGroupIds: [...snapshot.revealedGroupIds, ...unique],
+      fitContentToken: snapshot.fitContentToken + 1,
+    };
+    emit();
+  }, []);
+
+  const hideWorkerGroups = useCallback((workerIds: string[]) => {
+    const idSet = new Set(workerIds.filter(Boolean));
+    if (idSet.size === 0) return;
+
+    const nextAssignments: NetworkNodeAssignments = {};
+    Object.entries(snapshot.networkNodeAssignments).forEach(([logicalId, assigned]) => {
+      nextAssignments[logicalId] = assigned.filter((workerId) => !idSet.has(workerId));
+    });
+
+    snapshot = {
+      ...snapshot,
+      revealedGroupIds: snapshot.revealedGroupIds.filter((id) => !idSet.has(id)),
+      networkNodeAssignments: nextAssignments,
+      fitContentToken: snapshot.fitContentToken + 1,
+    };
+    syncCrossEdgesFromAssignments();
+    emit();
+  }, []);
+
   return {
     ...state,
     setGroups,
     setStandaloneResources,
+    setCrossEdges,
+    setNetworkNodeAssignments,
+    setWorkerAssignedToNetwork,
     bumpFitContent,
+    addLogicalNetwork,
     provisionConfiguration,
     attachStandaloneToGroup,
+    revealWorkerGroups,
+    hideWorkerGroups,
     markStandalonesInstalling,
     markStandalonesConfigured,
   };

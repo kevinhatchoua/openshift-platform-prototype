@@ -26,7 +26,7 @@ export default defineConfig({
   ],
   resolve: {
     /** Avoid multiple React copies in @vite/deps (invalid hooks / useId on null with PatternFly + Router). */
-    dedupe: ['react', 'react-dom'],
+    dedupe: ['react', 'react-dom', '@patternfly/react-core'],
     alias: {
       '@': path.resolve(__dirname, './src'),
     },

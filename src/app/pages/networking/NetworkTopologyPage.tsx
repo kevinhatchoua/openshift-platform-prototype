@@ -1,92 +1,53 @@
 import { useCallback, useState } from "react";
 import { useNavigate } from "react-router";
-import { Alert, AlertActionCloseButton, AlertGroup } from "@patternfly/react-core";
+import { Content } from "@patternfly/react-core";
+import { useToast } from "../../contexts/ToastContext";
 import NetworkTopologyPanel from "./NetworkTopologyPanel";
-import NodeNetworkConfigurationWizard from "./NodeNetworkConfigurationWizard";
+import { OpenWorkerNodeModal } from "./OpenWorkerNodeModal";
 import {
-  CreateClusterUdnModal,
-  CreateNadModal,
-  CreateNncpModal,
-  CreateUdnModal,
-  NetworkResourceCreateDropdown,
-  type NetworkCreateResource,
-} from "./networkingCreateModals";
-import { nadDetailPath, udnDetailPath } from "./networkingMockData";
+  RemoveWorkerNodeGroupModal,
+  type WorkerNodeRemovalTarget,
+} from "./RemoveWorkerNodeGroupModal";
+import { TOPOLOGY_WORKER_CATALOG } from "./networkTopologyData";
+import { NNC_WIZARD_STEPS } from "./NodeNetworkConfigurationWizard";
+import { nadDetailPath } from "./networkingMockData";
 import { NetworkingPageShell } from "./networkingShared";
 import { useNetworkTopologyState } from "./networkTopologyState";
 import { useNodeNetworkConfigurationCreate } from "./useNodeNetworkConfigurationCreate";
 
-type TopoToast = {
-  key: number;
-  variant: "success" | "info" | "warning" | "danger";
-  title: string;
-};
-
 export default function NetworkTopologyPage() {
   const navigate = useNavigate();
+  const { pushToast, dismissToast } = useToast();
   const {
     groups,
     standaloneResources,
+    crossEdges,
+    networkNodeAssignments,
+    revealedGroupIds,
     provisionGeneration,
     fitContentToken,
     setStandaloneResources,
+    setCrossEdges,
+    setWorkerAssignedToNetwork,
+    addLogicalNetwork,
     attachStandaloneToGroup,
+    revealWorkerGroups,
+    hideWorkerGroups,
   } = useNetworkTopologyState();
-  const [toasts, setToasts] = useState<TopoToast[]>([]);
-  const [nadModalOpen, setNadModalOpen] = useState(false);
-  const [udnModalOpen, setUdnModalOpen] = useState(false);
-  const [cudnModalOpen, setCudnModalOpen] = useState(false);
-  const [nncpModalOpen, setNncpModalOpen] = useState(false);
-
-  const dismissToast = useCallback((key: number) => {
-    setToasts((prev) => prev.filter((toast) => toast.key !== key));
-  }, []);
-
-  const pushToast = useCallback((toast: Omit<TopoToast, "key">) => {
-    const key = Date.now() + Math.floor(Math.random() * 1000);
-    setToasts((prev) => [{ key, ...toast }, ...prev].slice(0, 4));
-    return key;
-  }, []);
+  const [workerNodeModalOpen, setWorkerNodeModalOpen] = useState(false);
+  const [workerRemovalTarget, setWorkerRemovalTarget] = useState<WorkerNodeRemovalTarget | null>(null);
 
   const {
-    showFormWizard,
     openFormWizard,
-    closeFormWizard,
     activeStep,
     setActiveStep,
     physicalNetworkName,
     setPhysicalNetworkName,
-    isCreating,
     handleCreateConfiguration,
   } = useNodeNetworkConfigurationCreate(pushToast, dismissToast, {
     successTitle: (configName) =>
       `Successfully created node network configuration for ${configName}. Drag standalone resources onto worker nodes to attach them.`,
   });
-
-  const handleCreateResource = useCallback(
-    (resource: NetworkCreateResource) => {
-      switch (resource) {
-        case "node-network-configuration":
-          openFormWizard();
-          break;
-        case "network-attachment-definition":
-          setNadModalOpen(true);
-          break;
-        case "user-defined-network":
-          setUdnModalOpen(true);
-          break;
-        case "cluster-user-defined-network":
-          setCudnModalOpen(true);
-          break;
-        case "node-network-configuration-policy":
-          setNncpModalOpen(true);
-          break;
-        default:
-          break;
-      }
-    },
-    [openFormWizard]
-  );
 
   const handleAttachStandaloneToGroup = useCallback(
     (resourceId: string, groupId: string, connectToResourceId?: string) => {
@@ -100,92 +61,131 @@ export default function NetworkTopologyPage() {
     [attachStandaloneToGroup, pushToast]
   );
 
+  const handleAddWorkersToTopology = useCallback(
+    (workerIds: string[]) => {
+      revealWorkerGroups(workerIds);
+      const count = workerIds.length;
+      pushToast({
+        variant: "success",
+        title: `Added ${count} worker node${count === 1 ? "" : "s"} to the topology.`,
+      });
+    },
+    [revealWorkerGroups, pushToast]
+  );
+
+  const openWorkerNodeModal = useCallback(() => {
+    setWorkerNodeModalOpen(true);
+  }, []);
+
+  const requestRemoveWorkerGroup = useCallback(
+    (worker: { id: string; shortName: string; hostname: string }) => {
+      setWorkerRemovalTarget({
+        id: worker.id,
+        shortName: worker.shortName,
+        hostname: worker.hostname,
+      });
+    },
+    []
+  );
+
+  const confirmRemoveWorkerGroup = useCallback(
+    (workerId: string) => {
+      const worker = TOPOLOGY_WORKER_CATALOG.find((entry) => entry.id === workerId);
+      hideWorkerGroups([workerId]);
+      pushToast({
+        variant: "success",
+        title: worker
+          ? `Removed ${worker.shortName} from the topology.`
+          : "Removed worker node group from the topology.",
+      });
+      setWorkerRemovalTarget(null);
+    },
+    [hideWorkerGroups, pushToast]
+  );
+
   return (
     <>
-      <AlertGroup isToast isLiveRegion hasAnimations aria-label="Notifications">
-        {toasts.map((toast) => (
-          <Alert
-            key={toast.key}
-            variant={toast.variant}
-            title={toast.title}
-            isPlain
-            timeout={8000}
-            onTimeout={() => dismissToast(toast.key)}
-            actionClose={<AlertActionCloseButton onClose={() => dismissToast(toast.key)} />}
-          />
-        ))}
-      </AlertGroup>
       <NetworkingPageShell
         title="Topology"
         path="/networking/topology"
-        createButton={<NetworkResourceCreateDropdown onSelect={handleCreateResource} />}
+        extraHeader={
+          <Content component="p" className="ocs-net-topo-page-desc">
+            Visualize, scale, and manage your cluster topology. Right-click the canvas to add nodes, or manage worker
+            node groups from the toolbar.
+          </Content>
+        }
       >
         <div className="ocs-nnc-stage">
           <NetworkTopologyPanel
             groups={groups}
             standaloneResources={standaloneResources}
+            crossEdges={crossEdges}
+            networkNodeAssignments={networkNodeAssignments}
+            revealedGroupIds={revealedGroupIds}
             onStandaloneResourcesChange={setStandaloneResources}
+            onCrossEdgesChange={setCrossEdges}
+            onWorkerAssignmentChange={setWorkerAssignedToNetwork}
             onAttachStandaloneToGroup={handleAttachStandaloneToGroup}
+            onOpenWorkerNodeModal={openWorkerNodeModal}
+            onRequestRemoveWorkerGroup={requestRemoveWorkerGroup}
             fitContentToken={fitContentToken}
             highlightResourceSuffix={provisionGeneration > 0 ? "br-localnet" : undefined}
+            activeStep={NNC_WIZARD_STEPS[activeStep]?.id}
+            physicalNetworkName={physicalNetworkName}
+            nncWizard={{
+              activeStep,
+              onActiveStepChange: setActiveStep,
+              physicalNetworkName,
+              onPhysicalNetworkNameChange: setPhysicalNetworkName,
+              onCreate: handleCreateConfiguration,
+              onOpen: openFormWizard,
+            }}
+            onNadCreated={(record) => {
+              pushToast({
+                variant: "success",
+                title: `Created NetworkAttachmentDefinition ${record.name}.`,
+              });
+              navigate(nadDetailPath(record.namespace, record.name));
+            }}
+            onUdnCreated={(record) => {
+              addLogicalNetwork(record);
+              pushToast({
+                variant: "success",
+                title: `Created UserDefinedNetwork ${record.name}. Linked on the topology graph.`,
+              });
+            }}
+            onCudnCreated={(record) => {
+              addLogicalNetwork(record);
+              pushToast({
+                variant: "success",
+                title: `Created ClusterUserDefinedNetwork ${record.name}. Linked on the topology graph.`,
+              });
+            }}
+            onNncpCreated={(record) => {
+              pushToast({
+                variant: "success",
+                title: `Created NodeNetworkConfigurationPolicy ${record.name}.`,
+              });
+              navigate("/networking/nodenetworkconfigurationpolicy");
+            }}
           />
-          {showFormWizard ? (
-            <NodeNetworkConfigurationWizard
-              variant="overlay"
-              activeStep={activeStep}
-              physicalNetworkName={physicalNetworkName}
-              onActiveStepChange={setActiveStep}
-              onPhysicalNetworkNameChange={setPhysicalNetworkName}
-              onClose={closeFormWizard}
-              onCreate={handleCreateConfiguration}
-              isCreating={isCreating}
-            />
-          ) : null}
         </div>
       </NetworkingPageShell>
-      <CreateNadModal
-        isOpen={nadModalOpen}
-        onClose={() => setNadModalOpen(false)}
-        onCreated={(record) => {
-          pushToast({
-            variant: "success",
-            title: `Created NetworkAttachmentDefinition ${record.name}.`,
-          });
-          navigate(nadDetailPath(record.namespace, record.name));
+      <OpenWorkerNodeModal
+        isOpen={workerNodeModalOpen}
+        onClose={() => setWorkerNodeModalOpen(false)}
+        workers={TOPOLOGY_WORKER_CATALOG}
+        revealedGroupIds={revealedGroupIds}
+        onAddWorkers={handleAddWorkersToTopology}
+        onRequestRemoveWorker={(worker) => {
+          setWorkerNodeModalOpen(false);
+          requestRemoveWorkerGroup(worker);
         }}
       />
-      <CreateUdnModal
-        isOpen={udnModalOpen}
-        onClose={() => setUdnModalOpen(false)}
-        onCreated={(record) => {
-          pushToast({
-            variant: "success",
-            title: `Created UserDefinedNetwork ${record.name}.`,
-          });
-          navigate(udnDetailPath(record));
-        }}
-      />
-      <CreateClusterUdnModal
-        isOpen={cudnModalOpen}
-        onClose={() => setCudnModalOpen(false)}
-        onCreated={(record) => {
-          pushToast({
-            variant: "success",
-            title: `Created ClusterUserDefinedNetwork ${record.name}.`,
-          });
-          navigate(udnDetailPath(record));
-        }}
-      />
-      <CreateNncpModal
-        isOpen={nncpModalOpen}
-        onClose={() => setNncpModalOpen(false)}
-        onCreated={(record) => {
-          pushToast({
-            variant: "success",
-            title: `Created NodeNetworkConfigurationPolicy ${record.name}.`,
-          });
-          navigate("/networking/nodenetworkconfigurationpolicy");
-        }}
+      <RemoveWorkerNodeGroupModal
+        target={workerRemovalTarget}
+        onClose={() => setWorkerRemovalTarget(null)}
+        onConfirm={confirmRemoveWorkerGroup}
       />
     </>
   );

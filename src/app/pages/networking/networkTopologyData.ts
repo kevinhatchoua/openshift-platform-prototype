@@ -1,6 +1,6 @@
 import type { TopologyStep } from "./networkTopologyTypes";
 
-export type NetResourceKind = "bridge" | "interface" | "tunnel" | "port";
+export type NetResourceKind = "bridge" | "interface" | "tunnel" | "port" | "cudn" | "udn";
 
 /** Installation / reconciliation status for a network resource. */
 export type ResourceInstallStatus =
@@ -28,9 +28,21 @@ export type StandaloneTopologyResource = NetResource & {
   canvasY: number;
   targetNodeId: string;
   targetNodeLabel: string;
+  /** Logical networks (CUDN/UDN) stay on the canvas and link to bridges via cross edges. */
+  logicalNetwork?: boolean;
+  detailPath?: string;
+  topologyMode?: string;
 };
 
 export type TopologyEdge = { id: string; from: string; to: string };
+
+/** Edge from a logical-network standalone to a bridge inside a worker group (HPUX-1768). */
+export type TopologyCrossEdge = {
+  id: string;
+  fromStandaloneId: string;
+  toGroupId: string;
+  toResourceId: string;
+};
 
 export type WorkerNodeGroup = {
   id: string;
@@ -250,6 +262,60 @@ export const WORKER_NODE_GROUPS: WorkerNodeGroup[] = [
       "worker-2-ens5": "installing",
     }
   ),
+  buildWorkerGroup(
+    "worker-3",
+    "worker-3",
+    "ip-10-0-27-14.us-east-2.compute.internal",
+    BASE_X + (GROUP_W + GROUP_GAP) * 3,
+    BASE_Y,
+    "264",
+    {
+      "worker-3-br-ex-a": "configured",
+      "worker-3-br-ex-b": "configured",
+      "worker-3-br-int": "pending",
+      "worker-3-geneve": "pending",
+      "worker-3-ovn-k8s-mp0": "pending",
+      "worker-3-ens5": "configured",
+    }
+  ),
+  buildWorkerGroup(
+    "worker-4",
+    "worker-4",
+    "ip-10-0-28-55.us-east-2.compute.internal",
+    BASE_X + (GROUP_W + GROUP_GAP) * 4,
+    BASE_Y,
+    "325",
+    {
+      "worker-4-br-ex-a": "configured",
+      "worker-4-br-ex-b": "pending",
+      "worker-4-br-int": "pending",
+      "worker-4-geneve": "pending",
+      "worker-4-ovn-k8s-mp0": "pending",
+      "worker-4-ens5": "configured",
+    }
+  ),
+  ...Array.from({ length: 6 }, (_, offset) => {
+    const index = offset + 5;
+    const id = `worker-${index}`;
+    const geneSuffix = String(300 + index * 17).slice(-3);
+    const ready = index % 3 !== 0;
+    return buildWorkerGroup(
+      id,
+      id,
+      `ip-10-0-${20 + index}-${(index * 11 + 14) % 100}.us-east-2.compute.internal`,
+      BASE_X + (GROUP_W + GROUP_GAP) * index,
+      BASE_Y,
+      geneSuffix,
+      {
+        [`${id}-br-ex-a`]: "configured",
+        [`${id}-br-ex-b`]: ready ? "configured" : "pending",
+        [`${id}-br-int`]: ready ? "configured" : "installing",
+        [`${id}-geneve`]: ready ? "configured" : "pending",
+        [`${id}-ovn-k8s-mp0`]: ready ? "configured" : "creating",
+        [`${id}-ens5`]: ready ? "configured" : "installing",
+      }
+    );
+  }),
 ];
 
 export function computeCanvasWidth(groupWidths: number[]) {
@@ -271,6 +337,8 @@ export const RESOURCE_KIND_LABELS: Record<NetResourceKind, string> = {
   interface: "Interface",
   tunnel: "Tunnel",
   port: "Port",
+  cudn: "ClusterUserDefinedNetwork",
+  udn: "UserDefinedNetwork",
 };
 
 export const RESOURCE_KIND_COLORS: Record<NetResourceKind, string> = {
@@ -278,7 +346,279 @@ export const RESOURCE_KIND_COLORS: Record<NetResourceKind, string> = {
   interface: "#3e8635",
   tunnel: "#6753ac",
   port: "#8f4700",
+  cudn: "#6753ac",
+  udn: "#009596",
 };
+
+export const LOGICAL_NETWORK_Y = 12;
+export const LOGICAL_NETWORK_H_SPACING = 176;
+/** Vertical gap between logical-network lane and worker node groups. */
+export const LOGICAL_TO_WORKER_GAP = 40;
+
+/** Matches `.ocs-net-topo-logical-lane` padding and label block in theme.css */
+export const LOGICAL_LANE_PADDING_TOP = 6;
+export const LOGICAL_LANE_PADDING_X = 12;
+export const LOGICAL_LANE_PADDING_BOTTOM = 8;
+export const LOGICAL_LANE_LABEL_BLOCK = 24;
+export const LOGICAL_LANE_NODE_OFFSET = 20;
+export const LOGICAL_LANE_BOTTOM_PAD = 24;
+
+export function workerGroupBaseY(hasLogicalNetworks: boolean): number {
+  if (!hasLogicalNetworks) return BASE_Y;
+  const laneHeight =
+    LOGICAL_LANE_PADDING_TOP +
+    LOGICAL_LANE_LABEL_BLOCK +
+    LOGICAL_LANE_NODE_OFFSET +
+    RESOURCE_H +
+    LOGICAL_LANE_BOTTOM_PAD +
+    LOGICAL_LANE_PADDING_BOTTOM;
+  return LOGICAL_NETWORK_Y - LOGICAL_LANE_PADDING_TOP + laneHeight + LOGICAL_TO_WORKER_GAP;
+}
+
+export function logicalNetworkLaneWidth(logicalCount: number, maxIndex?: number): number {
+  if (logicalCount <= 0) return 0;
+  const index = maxIndex ?? logicalCount - 1;
+  return RESOURCE_W + index * LOGICAL_NETWORK_H_SPACING + 32;
+}
+
+export type LogicalLaneLayout = {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+  nodeCanvasY: number;
+};
+
+export function defaultLogicalNodeCanvasY(): number {
+  return (
+    LOGICAL_NETWORK_Y - LOGICAL_LANE_PADDING_TOP + LOGICAL_LANE_PADDING_TOP + LOGICAL_LANE_LABEL_BLOCK + LOGICAL_LANE_NODE_OFFSET
+  );
+}
+
+export function logicalNodeAreaTop(laneTop: number): number {
+  return laneTop + LOGICAL_LANE_PADDING_TOP + LOGICAL_LANE_LABEL_BLOCK;
+}
+
+export function effectiveLogicalCanvasY(resource: StandaloneTopologyResource): number {
+  const defaultY = defaultLogicalNodeCanvasY();
+  if (resource.canvasY < defaultY - 8) return defaultY;
+  return resource.canvasY;
+}
+
+export function computeLogicalLaneLayout(
+  standalones: StandaloneTopologyResource[]
+): LogicalLaneLayout | null {
+  if (standalones.length === 0) return null;
+
+  const defaultTop = LOGICAL_NETWORK_Y - LOGICAL_LANE_PADDING_TOP;
+  let minX = Infinity;
+  let minY = Infinity;
+  let maxX = -Infinity;
+  let maxY = -Infinity;
+
+  standalones.forEach((resource) => {
+    const y = effectiveLogicalCanvasY(resource);
+    minX = Math.min(minX, resource.canvasX);
+    minY = Math.min(minY, y);
+    maxX = Math.max(maxX, resource.canvasX + RESOURCE_W);
+    maxY = Math.max(maxY, y + RESOURCE_H);
+  });
+
+  const left = minX - LOGICAL_LANE_PADDING_X;
+  const top = Math.min(defaultTop, minY - LOGICAL_LANE_PADDING_TOP - LOGICAL_LANE_LABEL_BLOCK);
+  const width = Math.max(
+    logicalNetworkLaneWidth(standalones.length),
+    maxX - left + LOGICAL_LANE_PADDING_X
+  );
+  const height = Math.max(
+    LOGICAL_LANE_PADDING_TOP +
+      LOGICAL_LANE_LABEL_BLOCK +
+      LOGICAL_LANE_NODE_OFFSET +
+      RESOURCE_H +
+      LOGICAL_LANE_BOTTOM_PAD +
+      LOGICAL_LANE_PADDING_BOTTOM,
+    maxY - top + LOGICAL_LANE_BOTTOM_PAD + LOGICAL_LANE_PADDING_BOTTOM
+  );
+  const nodeCanvasY = logicalNodeAreaTop(top) + LOGICAL_LANE_NODE_OFFSET;
+
+  return { left, top, width, height, nodeCanvasY };
+}
+
+/** Prototype Node Network Configuration profiles for toolbar switching. */
+export type NncProfile = {
+  id: string;
+  physicalNetworkName: string;
+  label: string;
+  description: string;
+};
+
+export const NNC_PROFILE_OPTIONS: NncProfile[] = [
+  {
+    id: "localnet-rzpi1d",
+    physicalNetworkName: "localnet-rzpi1d",
+    label: "localnet-rzpi1d",
+    description: "Default localnet VLAN 100 uplink on worker nodes",
+  },
+  {
+    id: "localnet-secondary",
+    physicalNetworkName: "localnet-secondary",
+    label: "localnet-secondary",
+    description: "Secondary localnet segment for tenant workloads",
+  },
+  {
+    id: "external-mgmt",
+    physicalNetworkName: "external-mgmt",
+    label: "external-mgmt",
+    description: "External management network for cluster operations",
+  },
+];
+
+export function isLogicalNetworkStandalone(resource: StandaloneTopologyResource): boolean {
+  return resource.logicalNetwork === true || resource.kind === "cudn" || resource.kind === "udn";
+}
+
+export function logicalNetworkId(name: string, kind: "CUDN" | "UDN"): string {
+  return `logical-${kind === "CUDN" ? "cudn" : "udn"}-${name}`;
+}
+
+export function logicalNetworkFromRecord(
+  record: {
+    name: string;
+    kind: "CUDN" | "UDN";
+    topology: string;
+    namespace?: string;
+    condition?: string;
+  },
+  index: number,
+  detailPath: string
+): StandaloneTopologyResource {
+  const kind = record.kind === "CUDN" ? "cudn" : "udn";
+  const id = logicalNetworkId(record.name, record.kind);
+  const configured = !record.condition?.includes("False");
+
+  return {
+    id,
+    label: record.name,
+    kind,
+    x: 0,
+    y: 0,
+    canvasX: BASE_X + index * LOGICAL_NETWORK_H_SPACING,
+    canvasY: defaultLogicalNodeCanvasY(),
+    status: configured ? "configured" : "creating",
+    targetNodeId: "",
+    targetNodeLabel: record.kind === "CUDN" ? "Cluster-scoped" : record.namespace ?? "Project",
+    logicalNetwork: true,
+    detailPath,
+    topologyMode: record.topology,
+    detail:
+      record.kind === "CUDN"
+        ? `Cluster user-defined network (${record.topology}). Runs on OVS bridges across worker nodes.`
+        : `Project user-defined network (${record.topology}). Runs on OVS bridges on selected nodes.`,
+    highlightSteps: [],
+  };
+}
+
+/** Worker nodes available for assignment to logical networks in the topology prototype. */
+export type TopologyWorkerCatalogEntry = {
+  id: string;
+  shortName: string;
+  hostname: string;
+  ready: boolean;
+};
+
+export const TOPOLOGY_WORKER_CATALOG: TopologyWorkerCatalogEntry[] = WORKER_NODE_GROUPS.map((group) => ({
+  id: group.id,
+  shortName: group.shortName,
+  hostname: group.hostname,
+  ready: group.resources.every((resource) => resource.status !== "failed"),
+}));
+
+/** logicalNetworkId → worker node ids assigned to run that network. */
+export type NetworkNodeAssignments = Record<string, string[]>;
+
+export function bridgeForLogicalOnGroup(
+  group: WorkerNodeGroup,
+  logicalKind: "cudn" | "udn"
+): NetResource | undefined {
+  const bridgeSuffix = logicalKind === "cudn" ? "br-int" : "br-ex-a";
+  return group.resources.find(
+    (resource) => resource.id.endsWith(bridgeSuffix) && resource.kind === "bridge"
+  );
+}
+
+export function crossEdgeForLogicalOnWorker(
+  logicalId: string,
+  logicalKind: "cudn" | "udn",
+  group: WorkerNodeGroup
+): TopologyCrossEdge | null {
+  const bridge = bridgeForLogicalOnGroup(group, logicalKind);
+  if (!bridge || bridge.status === "failed") return null;
+  return {
+    id: `${logicalId}__${bridge.id}`,
+    fromStandaloneId: logicalId,
+    toGroupId: group.id,
+    toResourceId: bridge.id,
+  };
+}
+
+export function crossEdgesForAssignments(
+  assignments: NetworkNodeAssignments,
+  standalones: StandaloneTopologyResource[],
+  groups: WorkerNodeGroup[]
+): TopologyCrossEdge[] {
+  const edges: TopologyCrossEdge[] = [];
+  for (const [logicalId, workerIds] of Object.entries(assignments)) {
+    const standalone = standalones.find((resource) => resource.id === logicalId);
+    if (!standalone || (standalone.kind !== "cudn" && standalone.kind !== "udn")) continue;
+    for (const workerId of workerIds) {
+      const group = groups.find((entry) => entry.id === workerId);
+      if (!group) continue;
+      const edge = crossEdgeForLogicalOnWorker(logicalId, standalone.kind, group);
+      if (edge) edges.push(edge);
+    }
+  }
+  return edges;
+}
+
+export function assignedGroupIds(assignments: NetworkNodeAssignments): Set<string> {
+  const ids = new Set<string>();
+  Object.values(assignments).forEach((workerIds) => workerIds.forEach((id) => ids.add(id)));
+  return ids;
+}
+
+export function visibleTopologyGroupIds(
+  assignments: NetworkNodeAssignments,
+  revealedGroupIds: string[]
+): Set<string> {
+  const ids = assignedGroupIds(assignments);
+  revealedGroupIds.forEach((id) => ids.add(id));
+  return ids;
+}
+
+/** Default prototype links: CUDN → br-int, UDN → br-ex (Layer2 vs Layer3 topology). */
+export function defaultCrossEdgesForLogical(
+  logicalId: string,
+  logicalKind: "cudn" | "udn",
+  groups: WorkerNodeGroup[]
+): TopologyCrossEdge[] {
+  const bridgeSuffix = logicalKind === "cudn" ? "br-int" : "br-ex-a";
+  const edges: TopologyCrossEdge[] = [];
+
+  for (const group of groups) {
+    const bridge = group.resources.find(
+      (resource) => resource.id.endsWith(bridgeSuffix) && resource.kind === "bridge"
+    );
+    if (!bridge || bridge.status === "failed") continue;
+    edges.push({
+      id: `${logicalId}__${bridge.id}`,
+      fromStandaloneId: logicalId,
+      toGroupId: group.id,
+      toResourceId: bridge.id,
+    });
+  }
+
+  return edges.slice(0, logicalKind === "cudn" ? 3 : 2);
+}
 
 export function resourceCenter(group: WorkerNodeGroup, resource: NetResource, pos?: { x: number; y: number }) {
   const x = pos?.x ?? resource.x;
@@ -297,11 +637,7 @@ export type NodeNetworkConfigurationInput = {
 export const STANDALONE_CANVAS_Y = BASE_Y + GROUP_H + 96;
 export const STANDALONE_H_SPACING = 168;
 
-const NNCP_TARGET_NODES = [
-  { id: "worker-0", label: "worker-0" },
-  { id: "worker-1", label: "worker-1" },
-  { id: "worker-2", label: "worker-2" },
-] as const;
+const NNCP_TARGET_NODES = TOPOLOGY_WORKER_CATALOG.slice(0, 3);
 
 /** Prototype: create br-localnet as standalone canvas resources (one per selected worker). */
 export function createStandaloneNetworkResources(
@@ -319,8 +655,8 @@ export function createStandaloneNetworkResources(
     canvasY: STANDALONE_CANVAS_Y,
     status: "creating" as const,
     targetNodeId: node.id,
-    targetNodeLabel: node.label,
-    detail: `Localnet bridge for physical network ${config.physicalNetworkName} on ${node.label}. Drag onto a node group or link to a resource to attach.`,
+    targetNodeLabel: node.shortName,
+    detail: `Localnet bridge for physical network ${config.physicalNetworkName} on ${node.shortName}. Drag onto a node group or link to a resource to attach.`,
     highlightSteps: ["network-identity", "uplink-connection", "settings", "review"] as TopologyStep[],
   }));
 }

@@ -98,3 +98,51 @@ export const GUEST_OS_OPTIONS = [
   { id: "windows", label: "Microsoft Windows", preference: "windows.11" },
   { id: "linux", label: "Other Linux", preference: "linux.generic" },
 ];
+
+export interface VirtOverviewStats {
+  operatorStatus: string;
+  operatorStatusColor: "green" | "orange" | "red";
+  operatorAlerts: number;
+  nodeCount: number;
+  projectCount: number;
+  vmCount: number;
+  clusterLoads: { cpu: number; memory: number; storage: number };
+  nodeLoads: { name: string; value: number }[];
+  vmAlerts: { critical: number; warning: number; info: number };
+  vmStatuses: { error: number; running: number; stopped: number; other: number };
+}
+
+function categorizeVmStatus(status: string): keyof VirtOverviewStats["vmStatuses"] {
+  const normalized = status.toLowerCase();
+  if (normalized.includes("error") || normalized.includes("fail")) return "error";
+  if (normalized.includes("running") || normalized.includes("starting")) return "running";
+  if (normalized.includes("stop") || normalized.includes("paused")) return "stopped";
+  return "other";
+}
+
+/** Prototype dashboard metrics for the VirtualMachines overview tab. */
+export function getVirtOverviewStats(): VirtOverviewStats {
+  const vms = getAllVirtualMachines();
+  const vmStatuses = { error: 0, running: 0, stopped: 0, other: 0 };
+  vms.forEach((vm) => {
+    vmStatuses[categorizeVmStatus(vm.status)] += 1;
+  });
+
+  return {
+    operatorStatus: "Available",
+    operatorStatusColor: "green",
+    operatorAlerts: 2,
+    nodeCount: 4,
+    projectCount: VIRT_PROJECTS.length,
+    vmCount: vms.length,
+    clusterLoads: { cpu: 38, memory: 52, storage: 24 },
+    nodeLoads: [
+      { name: "worker-0", value: 62 },
+      { name: "worker-1", value: 45 },
+      { name: "worker-2", value: 71 },
+      { name: "worker-3", value: 33 },
+    ],
+    vmAlerts: { critical: 1, warning: 4, info: 2 },
+    vmStatuses,
+  };
+}
