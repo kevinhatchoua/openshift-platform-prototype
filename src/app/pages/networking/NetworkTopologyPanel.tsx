@@ -57,11 +57,9 @@ import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclam
 import EyeIcon from "@patternfly/react-icons/dist/esm/icons/eye-icon";
 import InProgressIcon from "@patternfly/react-icons/dist/esm/icons/in-progress-icon";
 import NetworkWiredIcon from "@patternfly/react-icons/dist/esm/icons/network-wired-icon";
-import OutlinedStopCircleIcon from "@patternfly/react-icons/dist/esm/icons/outlined-stop-circle-icon";
-import PauseIcon from "@patternfly/react-icons/dist/esm/icons/pause-icon";
-import RedoIcon from "@patternfly/react-icons/dist/esm/icons/redo-icon";
 import SearchIcon from "@patternfly/react-icons/dist/esm/icons/search-icon";
 import ServerIcon from "@patternfly/react-icons/dist/esm/icons/server-icon";
+import TimesIcon from "@patternfly/react-icons/dist/esm/icons/times-icon";
 import TrashIcon from "@patternfly/react-icons/dist/esm/icons/trash-icon";
 import UndoIcon from "@patternfly/react-icons/dist/esm/icons/undo-icon";
 import ZoomInIcon from "@patternfly/react-icons/dist/esm/icons/search-plus-icon";
@@ -111,8 +109,19 @@ import {
   type WorkerNodeGroup,
 } from "./networkTopologyData";
 import type { TopologyStep } from "./networkTopologyTypes";
+import NetworkNamespacePropagationTab from "./NetworkNamespacePropagationTab";
 import NetworkTopologyCreatePanel, { type NetworkTopologyNncWizardProps } from "./NetworkTopologyCreatePanel";
+import PhysicalUnderlayChain from "./PhysicalUnderlayChain";
 import TopologyResizableSplit from "./TopologyResizableSplit";
+import { buildNncpLineageConnections, resolveNncpLineageForBridge } from "./topologyNncpLineage";
+import {
+  hasActivePath,
+  isCrossEdgeOnPath,
+  isGroupOnPath,
+  isInternalEdgeOnPath,
+  isResourceOnPath,
+  resolveTopologyPathHighlight,
+} from "./topologyPathHighlight";
 import {
   applyGridLayoutToGroupPositions,
   applyStructuredGridToAllGroups,
@@ -124,9 +133,10 @@ import {
   writeTopologyLayoutMode,
   type CanvasLayoutMode,
 } from "./topologyCanvasLayout";
-import { computeGroupHullPath } from "./topologyGroupHull";
+import { computeGroupHullPath, HULL_RADIAL_PADDING } from "./topologyGroupHull";
 import { NetworkResourceCreateDropdown, type NetworkCreateResource } from "./networkingCreateModals";
-import NodeNetworkTableList from "./NodeNetworkTableList";
+import NodeNetworkTableList, { type TableResourceConnection } from "./NodeNetworkTableList";
+import TopologyResourceActionsMenu from "./TopologyResourceActionsMenu";
 import NetworkViewToggle from "./NetworkViewToggle";
 import type { NodeNetworkViewMode } from "./nodeNetworkViewMode";
 import type { NadRecord, NncpRecord, UdnRecord } from "./networkingMockData";
@@ -144,6 +154,11 @@ type SelectedResource =
 type TopologySelection =
   | { type: "resource"; resource: SelectedResource }
   | { type: "workerGroup"; group: WorkerNodeGroup };
+
+type CanvasEdgeSelection =
+  | { scope: "group"; groupId: string; edgeId: string; from: string; to: string }
+  | { scope: "cross"; edgeId: string; fromStandaloneId: string; toGroupId: string; toResourceId: string }
+  | { scope: "standalone"; edgeId: string; from: string; to: string };
 
 type AssignedWorkerRow = {
   id: string;
@@ -216,6 +231,40 @@ function countResourcesByKind(
   return counts;
 }
 
+function EdgeDeleteHandle({
+  x,
+  y,
+  visible,
+  label,
+  onDelete,
+}: {
+  x: number;
+  y: number;
+  visible: boolean;
+  label: string;
+  onDelete: () => void;
+}) {
+  if (!visible) return null;
+  return (
+    <g className="ocs-net-topo-edge__delete" transform={`translate(${x}, ${y})`}>
+      <circle className="ocs-net-topo-edge__delete-bg" r={11} />
+      <foreignObject x={-8} y={-8} width={16} height={16}>
+        <button
+          type="button"
+          className="ocs-net-topo-edge__delete-btn"
+          aria-label={label}
+          onClick={(event) => {
+            event.stopPropagation();
+            onDelete();
+          }}
+        >
+          <TimesIcon aria-hidden />
+        </button>
+      </foreignObject>
+    </g>
+  );
+}
+
 function ResourceFilterOption({ label, count }: { label: string; count: number }) {
   return (
     <Flex
@@ -242,8 +291,10 @@ const GROUP_FOOTER_GAP = 14;
 const BOTTOM_CANVAS_PAD = 56;
 /** Max grid rows used in RESOURCE_SLOT_LAYOUT (includes br-localnet row). */
 const RESOURCE_GRID_ROWS = 3;
-/** Minimum gap between resource bounding boxes (must match visual spacing). */
-const RESOURCE_GAP = 14;
+/** Minimum gap between resource bounding boxes. */
+const RESOURCE_GAP = 30;
+/** Physical underlay strip rendered above bridge cards. */
+const BRIDGE_UNDERLAY_HEIGHT = 36;
 
 type GroupLayout = {
   minX: number;
@@ -405,7 +456,8 @@ function computeGroupLayout(
     RESOURCE_GRID_ORIGIN_Y +
     RESOURCE_GRID_ROWS * RESOURCE_CELL_H +
     (RESOURCE_GRID_ROWS - 1) * RESOURCE_ROW_GAP +
-    GROUP_PAD;
+    BRIDGE_UNDERLAY_HEIGHT +
+    HULL_RADIAL_PADDING;
   const minWidth =
     RESOURCE_GRID_ORIGIN_X +
     3 * RESOURCE_CELL_W +
@@ -419,9 +471,9 @@ function computeGroupLayout(
     return {
       minX: 0,
       minY: 0,
-      width,
-      surfaceHeight,
-      totalHeight: surfaceHeight + GROUP_FOOTER_GAP + GROUP_FOOTER_H,
+      width: Math.max(width, hull.bounds.maxX),
+      surfaceHeight: Math.max(surfaceHeight, hull.bounds.maxY),
+      totalHeight: Math.max(surfaceHeight, hull.bounds.maxY) + GROUP_FOOTER_GAP + GROUP_FOOTER_H,
       hullPath: hull.path,
       hullBounds: hull.bounds,
       footerTop: hull.bounds.maxY + GROUP_FOOTER_GAP,
@@ -435,41 +487,44 @@ function computeGroupLayout(
 
   visibleResources.forEach((resource) => {
     const p = getPos(positions, group.id, resource);
+    const underlay = resource.kind === "bridge" ? BRIDGE_UNDERLAY_HEIGHT : 0;
     minX = Math.min(minX, p.x);
-    minY = Math.min(minY, p.y);
+    minY = Math.min(minY, p.y - underlay);
     maxX = Math.max(maxX, p.x + RESOURCE_W);
     maxY = Math.max(maxY, p.y + RESOURCE_H);
   });
 
-  const width = Math.max(GROUP_W, minWidth, maxX - minX + GROUP_PAD * 2);
-  const surfaceHeight = Math.max(minSurfaceHeight, maxY - minY + GROUP_PAD * 2);
   const preliminary: GroupLayout = {
     minX,
     minY,
-    width,
-    surfaceHeight,
-    totalHeight: surfaceHeight + GROUP_FOOTER_GAP + GROUP_FOOTER_H,
+    width: Math.max(GROUP_W, minWidth, maxX - minX + GROUP_PAD * 2),
+    surfaceHeight: Math.max(
+      minSurfaceHeight,
+      maxY - minY + GROUP_PAD * 2 + BRIDGE_UNDERLAY_HEIGHT
+    ),
+    totalHeight: 0,
     hullPath: "",
-    hullBounds: { minX: 0, minY: 0, maxX: width, maxY: surfaceHeight },
-    footerTop: surfaceHeight + GROUP_FOOTER_GAP,
+    hullBounds: { minX: 0, minY: 0, maxX: 0, maxY: 0 },
+    footerTop: 0,
   };
 
   const displayRects = visibleResources.map((resource) => {
     const p = getPos(positions, group.id, resource);
     const d = displayPos(p, preliminary);
-    return { x: d.x, y: d.y, w: RESOURCE_W, h: RESOURCE_H };
+    const underlay = resource.kind === "bridge" ? BRIDGE_UNDERLAY_HEIGHT : 0;
+    return { x: d.x, y: d.y - underlay, w: RESOURCE_W, h: RESOURCE_H + underlay };
   });
 
-  const hull = computeGroupHullPath(displayRects, width, surfaceHeight);
-  const hullWidth = Math.max(width, hull.bounds.maxX + GROUP_PAD);
-  const hullSurfaceHeight = Math.max(surfaceHeight, hull.bounds.maxY + GROUP_PAD);
+  const hull = computeGroupHullPath(displayRects, preliminary.width, preliminary.surfaceHeight);
+  const width = Math.max(preliminary.width, hull.bounds.maxX);
+  const surfaceHeight = Math.max(preliminary.surfaceHeight, hull.bounds.maxY);
 
   return {
     minX,
     minY,
-    width: hullWidth,
-    surfaceHeight: hullSurfaceHeight,
-    totalHeight: hullSurfaceHeight + GROUP_FOOTER_GAP + GROUP_FOOTER_H,
+    width,
+    surfaceHeight,
+    totalHeight: surfaceHeight + GROUP_FOOTER_GAP + GROUP_FOOTER_H,
     hullPath: hull.path,
     hullBounds: hull.bounds,
     footerTop: hull.bounds.maxY + GROUP_FOOTER_GAP,
@@ -728,6 +783,8 @@ function StandaloneCanvasNode({
   logicalLane,
   highlighted,
   peerHighlighted = false,
+  pathActive = false,
+  pathDimmed = false,
   isSelected,
   isLinkSource,
   isDraggingThis,
@@ -742,6 +799,8 @@ function StandaloneCanvasNode({
   logicalLane?: LogicalLaneLayout | null;
   highlighted: boolean;
   peerHighlighted?: boolean;
+  pathActive?: boolean;
+  pathDimmed?: boolean;
   isSelected: boolean;
   isLinkSource: boolean;
   isDraggingThis: boolean;
@@ -758,7 +817,9 @@ function StandaloneCanvasNode({
 
   return (
     <div
-      className={`ocs-net-topo-standalone${isLogical ? " ocs-net-topo-standalone--logical" : ""}`}
+      className={`ocs-net-topo-standalone${isLogical ? " ocs-net-topo-standalone--logical" : ""}${
+        pathDimmed ? " ocs-net-topo-standalone--path-dim" : ""
+      }`}
       style={
         logicalPosition
           ? logicalPosition
@@ -772,7 +833,9 @@ function StandaloneCanvasNode({
         className={`ocs-net-topo-resource ocs-net-topo-resource--${resource.status} ocs-net-topo-resource--standalone${
           isLogical ? " ocs-net-topo-resource--logical" : ""
         }${highlighted ? " ocs-net-topo-resource--highlight" : ""}${
-          peerHighlighted ? " ocs-net-topo-resource--peer-highlight" : ""
+          peerHighlighted || pathActive ? " ocs-net-topo-resource--peer-highlight" : ""
+        }${pathActive ? " ocs-net-topo-resource--path-active" : ""}${
+          pathDimmed ? " ocs-net-topo-resource--path-dim" : ""
         }${isSelected ? " ocs-net-topo-resource--selected" : ""}${
           isLinkSource ? " ocs-net-topo-resource--link-source" : ""
         }${isDraggingThis ? " ocs-net-topo-resource--dragging" : ""
@@ -1152,12 +1215,21 @@ function TopologySidePanel({
   const [tab, setTab] = useState<string>("details");
   const [isAddWorkerOpen, setIsAddWorkerOpen] = useState(false);
   const [actionsOpen, setActionsOpen] = useState(false);
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const color = RESOURCE_KIND_COLORS[resource.kind];
   const isStandalone = resource.placement === "standalone";
   const isLogical = isStandalone && isLogicalNetworkStandalone(resource);
   const assignmentKey = networkResourceAssignmentKey(resource);
   const canEditAssignedNodes = Boolean(assignmentKey) && isBridgeNetworkResource(resource);
+  const nncpLineage = useMemo(
+    () => (!isLogical ? resolveNncpLineageForBridge(resource) : null),
+    [isLogical, resource]
+  );
+  const nncpLineageConnections = useMemo(
+    () => (nncpLineage ? buildNncpLineageConnections(resource, nncpLineage) : []),
+    [nncpLineage, resource]
+  );
+  const logicalNetworkKind =
+    resource.kind === "cudn" ? "CUDN" : resource.kind === "udn" ? "UDN" : null;
 
   useEffect(() => {
     if (isLogical) setTab("nodes");
@@ -1194,25 +1266,6 @@ function TopologySidePanel({
     [resource]
   );
 
-  const runLifecycleAction = (action: Exclude<ResourceLifecycleAction, "delete">) => {
-    onResourceLifecycleAction?.(lifecycleTarget, action);
-    onNotice?.({
-      variant: "info",
-      title: `${action.charAt(0).toUpperCase()}${action.slice(1)} requested for ${resource.label}.`,
-    });
-    setActionsOpen(false);
-  };
-
-  const confirmDelete = () => {
-    onResourceLifecycleAction?.(lifecycleTarget, "delete");
-    onNotice?.({
-      variant: "success",
-      title: `Deleted ${resource.label} from the topology.`,
-    });
-    setDeleteConfirmOpen(false);
-    setActionsOpen(false);
-    onClose();
-  };
   const connectionEntries = useMemo(
     () =>
       resolveTopologyConnections(
@@ -1267,83 +1320,28 @@ function TopologySidePanel({
           </Flex>
         </Flex>
         <DrawerActions>
-          {onResourceLifecycleAction ? (
-            <Dropdown
-              isOpen={actionsOpen}
-              onOpenChange={setActionsOpen}
-              onSelect={() => setActionsOpen(false)}
-              popperProps={{ position: "bottom-end" }}
-              toggle={(toggleRef) => (
-                <MenuToggle
-                  ref={toggleRef}
-                  variant="secondary"
-                  isExpanded={actionsOpen}
-                  onClick={() => setActionsOpen((open) => !open)}
-                  aria-label={`Actions for ${resource.label}`}
-                >
-                  Actions
-                </MenuToggle>
-              )}
-            >
-              <DropdownList aria-label={`Actions for ${resource.label}`}>
-                <DropdownItem itemId="pause" icon={<PauseIcon aria-hidden />} onClick={() => runLifecycleAction("pause")}>
-                  Pause
-                </DropdownItem>
-                <DropdownItem
-                  itemId="stop"
-                  icon={<OutlinedStopCircleIcon aria-hidden />}
-                  onClick={() => runLifecycleAction("stop")}
-                >
-                  Stop
-                </DropdownItem>
-                <DropdownItem itemId="restart" icon={<RedoIcon aria-hidden />} onClick={() => runLifecycleAction("restart")}>
-                  Restart
-                </DropdownItem>
-                <DropdownItem
-                  itemId="delete"
-                  isDanger
-                  icon={<TrashIcon aria-hidden />}
-                  onClick={() => {
-                    setActionsOpen(false);
-                    setDeleteConfirmOpen(true);
-                  }}
-                >
-                  Delete
-                </DropdownItem>
-              </DropdownList>
-            </Dropdown>
-          ) : null}
+          <TopologyResourceActionsMenu
+            label={resource.label}
+            lifecycleTarget={lifecycleTarget}
+            onResourceLifecycleAction={onResourceLifecycleAction}
+            onNotice={onNotice}
+            onDeleted={onClose}
+            isOpen={actionsOpen}
+            onOpenChange={setActionsOpen}
+            toggleVariant="secondary"
+            showActionsLabel
+          />
           <DrawerCloseButton onClose={onClose} />
         </DrawerActions>
       </DrawerHead>
-
-      <Modal
-        variant="small"
-        isOpen={deleteConfirmOpen}
-        onClose={() => setDeleteConfirmOpen(false)}
-        aria-labelledby="delete-topo-resource-title"
-      >
-        <ModalHeader title={`Delete ${resource.label}?`} labelId="delete-topo-resource-title" />
-        <ModalBody>
-          <Content component="p">
-            Deleting <strong>{resource.label}</strong> removes it from the topology view. Cluster resources may remain
-            until reconciled.
-          </Content>
-        </ModalBody>
-        <ModalFooter>
-          <Button variant="link" onClick={() => setDeleteConfirmOpen(false)}>
-            Cancel
-          </Button>
-          <Button variant="danger" onClick={confirmDelete}>
-            Delete
-          </Button>
-        </ModalFooter>
-      </Modal>
 
       <DrawerPanelBody>
         <Tabs activeKey={tab} onSelect={(_e, key) => setTab(String(key))} aria-label="Resource details">
           <Tab eventKey="details" title={<TabTitleText>Details</TabTitleText>} />
           {isLogical ? <Tab eventKey="nodes" title={<TabTitleText>Worker nodes</TabTitleText>} /> : null}
+          {isLogical && logicalNetworkKind ? (
+            <Tab eventKey="propagation" title={<TabTitleText>Namespace propagation</TabTitleText>} />
+          ) : null}
           {!isLogical ? <Tab eventKey="assigned-nodes" title={<TabTitleText>Assigned Nodes</TabTitleText>} /> : null}
           <Tab eventKey="connections" title={<TabTitleText>Connections</TabTitleText>} />
           <Tab eventKey="observe" title={<TabTitleText>Observe</TabTitleText>} />
@@ -1408,6 +1406,23 @@ function TopologySidePanel({
               <DescriptionListTerm>Description</DescriptionListTerm>
               <DescriptionListDescription>{resource.detail}</DescriptionListDescription>
             </DescriptionListGroup>
+            {nncpLineage ? (
+              <DescriptionListGroup>
+                <DescriptionListTerm>Orchestrated by</DescriptionListTerm>
+                <DescriptionListDescription>
+                  <Button
+                    variant="link"
+                    isInline
+                    component={Link}
+                    to={nncpLineage.nncpPath}
+                    icon={<ExternalLinkAltIcon />}
+                    iconPosition="right"
+                  >
+                    {nncpLineage.nncpName}
+                  </Button>
+                </DescriptionListDescription>
+              </DescriptionListGroup>
+            ) : null}
             {!isLogical ? (
               <DescriptionListGroup>
                 <DescriptionListTerm>Position</DescriptionListTerm>
@@ -1472,6 +1487,9 @@ function TopologySidePanel({
               })}
             </div>
           </Flex>
+        ) : null}
+        {tab === "propagation" && isLogical && logicalNetworkKind ? (
+          <NetworkNamespacePropagationTab networkName={resource.label} networkKind={logicalNetworkKind} />
         ) : null}
         {tab === "assigned-nodes" && !isLogical ? (
           <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }} className="pf-v6-u-mt-md">
@@ -1543,26 +1561,41 @@ function TopologySidePanel({
             ) : assignedNodeRows.length === 0 ? (
               <Content component="p">No worker nodes assigned to this network resource.</Content>
             ) : (
-              <InnerScrollContainer>
-                <Table variant="compact" borders={false} aria-label="Assigned worker nodes">
-                  <Thead>
-                    <Tr>
-                      <Th>Worker</Th>
-                      <Th>Hostname</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {assignedNodeRows.map((worker) => (
-                      <Tr key={worker.id}>
-                        <Td dataLabel="Worker">{worker.shortName}</Td>
-                        <Td dataLabel="Hostname">
-                          <Content component="small">{worker.hostname}</Content>
-                        </Td>
-                      </Tr>
-                    ))}
-                  </Tbody>
-                </Table>
-              </InnerScrollContainer>
+              <ul className="ocs-net-topo-connection-list" aria-label="Assigned worker nodes">
+                {assignedNodeRows.map((worker) => (
+                  <li key={worker.id}>
+                    <Flex
+                      alignItems={{ default: "alignItemsCenter" }}
+                      justifyContent={{ default: "justifyContentSpaceBetween" }}
+                      className="ocs-net-topo-connection-row"
+                    >
+                      <Flex direction={{ default: "column" }} gap={{ default: "gapNone" }}>
+                        <span className="ocs-net-topo-connection-row__name">{worker.shortName}</span>
+                        <Content component="small">{worker.hostname}</Content>
+                      </Flex>
+                      {canEditAssignedNodes ? (
+                        <Button
+                          variant="plain"
+                          aria-label={`Remove ${worker.shortName} from ${resource.label}`}
+                          icon={<TrashIcon aria-hidden />}
+                          onClick={() => handleRemoveNode(worker.id)}
+                        />
+                      ) : (
+                        <Button
+                          variant="plain"
+                          aria-label={`Unassign ${worker.shortName} from ${resource.label}`}
+                          icon={<TrashIcon aria-hidden />}
+                          onClick={() => {
+                            if (assignmentKey) {
+                              onWorkerAssignmentChange(assignmentKey, worker.id, false);
+                            }
+                          }}
+                        />
+                      )}
+                    </Flex>
+                  </li>
+                ))}
+              </ul>
             )}
           </Flex>
         ) : null}
@@ -1575,10 +1608,26 @@ function TopologySidePanel({
                   ? "Drag onto a node group to attach, or drag the arrow to link to another resource."
                   : "Drag the arrow on a resource to connect it to another resource in the same node."}
             </Content>
-            {connectionEntries.length === 0 ? (
+            {connectionEntries.length === 0 && nncpLineageConnections.length === 0 ? (
               <Content component="p">No connections for this resource.</Content>
             ) : (
               <ul className="ocs-net-topo-connection-list" aria-label="Connected resources">
+                {nncpLineageConnections.map((entry) => (
+                  <li key={entry.edgeId}>
+                    <Flex
+                      alignItems={{ default: "alignItemsCenter" }}
+                      className="ocs-net-topo-connection-row ocs-net-topo-connection-row--lineage"
+                    >
+                      <span className="ocs-net-topo-connection-row__direction" aria-hidden>
+                        →
+                      </span>
+                      <span className="ocs-net-topo-connection-row__labels">
+                        <span className="ocs-net-topo-connection-row__name">{entry.peerLabel}</span>
+                        <span className="ocs-net-topo-connection-row__meta">{entry.peerSubtitle}</span>
+                      </span>
+                    </Flex>
+                  </li>
+                ))}
                 {connectionEntries.map((entry) => (
                   <li key={entry.edgeId}>
                     <Flex
@@ -1954,6 +2003,9 @@ export default function NetworkTopologyPanel({
   } | null>(null);
   const [groupPositions, setGroupPositions] = useState<Record<string, { x: number; y: number }>>({});
   const [hoveredPeerId, setHoveredPeerId] = useState<string | null>(null);
+  const [hoveredEdgeKey, setHoveredEdgeKey] = useState<string | null>(null);
+  const [selectedEdge, setSelectedEdge] = useState<CanvasEdgeSelection | null>(null);
+  const [layoutRevision, setLayoutRevision] = useState(0);
   const [layoutMode, setLayoutMode] = useState<CanvasLayoutMode>(() => readTopologyLayoutMode());
 
   const isolateCanvasPointerEvent = useCallback((event: React.PointerEvent) => {
@@ -1997,6 +2049,46 @@ export default function NetworkTopologyPanel({
   const isHighlighted = useCallback(
     (resource: NetResource) => (activeStep ? resource.highlightSteps.includes(activeStep) : false),
     [activeStep]
+  );
+
+  const pathHighlight = useMemo(
+    () =>
+      resolveTopologyPathHighlight({
+        anchorResourceId: selection?.type === "resource" ? selection.resource.id : null,
+        anchorGroupId:
+          selection?.type === "workerGroup"
+            ? selection.group.id
+            : selection?.type === "resource" && selection.resource.placement === "group"
+              ? selection.resource.group.id
+              : null,
+        hoverResourceId: hoveredPeerId,
+        groups,
+        standaloneResources,
+        crossEdges,
+        edgesByGroup,
+        networkNodeAssignments,
+      }),
+    [
+      selection,
+      hoveredPeerId,
+      groups,
+      standaloneResources,
+      crossEdges,
+      edgesByGroup,
+      networkNodeAssignments,
+    ]
+  );
+
+  const pathTraversalActive = hasActivePath(pathHighlight);
+
+  const isPathHighlighted = useCallback(
+    (resourceId: string) => isResourceOnPath(pathHighlight, resourceId),
+    [pathHighlight]
+  );
+
+  const isPathEdgeHighlighted = useCallback(
+    (fromId: string, toId: string) => isInternalEdgeOnPath(pathHighlight, fromId, toId),
+    [pathHighlight]
   );
 
   const assignedIds = useMemo(
@@ -2075,17 +2167,35 @@ export default function NetworkTopologyPanel({
     [groups, standaloneResources]
   );
 
+  const layoutPositions = useMemo(() => {
+    let next: PositionMap = { ...positions };
+    groups.forEach((group) => {
+      next = resolveGroupOverlaps(group, next);
+    });
+    return next;
+  }, [groups, positions, layoutRevision]);
+
   const groupLayouts = useMemo(() => {
     const layouts: Record<string, GroupLayout> = {};
     groups.forEach((group) => {
       layouts[group.id] = computeGroupLayout(
         group,
-        positions,
+        layoutPositions,
         group.resources.filter(resourceVisible)
       );
     });
     return layouts;
-  }, [groups, positions, resourceVisible]);
+  }, [groups, layoutPositions, resourceVisible, layoutRevision]);
+
+  useEffect(() => {
+    const onResize = () => setLayoutRevision((revision) => revision + 1);
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
+  const edgeKeyFor = useCallback((scope: CanvasEdgeSelection["scope"], edgeId: string) => {
+    return `${scope}:${edgeId}`;
+  }, []);
 
   const topologyGroupIdsKey = visibleGroups.map((group) => group.id).join(",");
 
@@ -2198,8 +2308,8 @@ export default function NetworkTopologyPanel({
 
   const getResourcePos = useCallback(
     (groupId: string, resource: NetResource) =>
-      positions[posKey(groupId, resource.id)] ?? { x: resource.x, y: resource.y },
-    [positions]
+      layoutPositions[posKey(groupId, resource.id)] ?? { x: resource.x, y: resource.y },
+    [layoutPositions]
   );
 
   const triggerSmoothTransform = useCallback(() => {
@@ -2546,6 +2656,35 @@ export default function NetworkTopologyPanel({
     setStandaloneEdges((prev) => prev.filter((e) => e.id !== edgeId));
   };
 
+  const deleteSelectedEdge = useCallback(() => {
+    if (!selectedEdge) return;
+    if (selectedEdge.scope === "group") {
+      setEdgesByGroup((prev) => ({
+        ...prev,
+        [selectedEdge.groupId]: (prev[selectedEdge.groupId] ?? []).filter((e) => e.id !== selectedEdge.edgeId),
+      }));
+    } else if (selectedEdge.scope === "cross") {
+      onWorkerAssignmentChange?.(selectedEdge.fromStandaloneId, selectedEdge.toGroupId, false);
+    } else {
+      setStandaloneEdges((prev) => prev.filter((e) => e.id !== selectedEdge.edgeId));
+    }
+    setSelectedEdge(null);
+    setHoveredEdgeKey(null);
+  }, [selectedEdge, onWorkerAssignmentChange]);
+
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (!selectedEdge) return;
+      if (event.key !== "Delete" && event.key !== "Backspace") return;
+      const target = event.target as HTMLElement | null;
+      if (target?.closest("input, textarea, select, [contenteditable='true']")) return;
+      event.preventDefault();
+      deleteSelectedEdge();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedEdge, deleteSelectedEdge]);
+
   useEffect(() => {
     if (!linkDrag) return;
 
@@ -2697,15 +2836,44 @@ export default function NetworkTopologyPanel({
     [groups, standaloneResources]
   );
 
+  const getTableResourceConnections = useCallback(
+    (groupId: string, resourceId: string): TableResourceConnection[] => {
+      const group = groups.find((entry) => entry.id === groupId);
+      const resource = group?.resources.find((entry) => entry.id === resourceId);
+      if (!group || !resource) return [];
+      const selected: SelectedResource = { ...resource, group, placement: "group" };
+      return resolveTopologyConnections(
+        selected,
+        edgesByGroup,
+        standaloneEdges,
+        crossEdges,
+        groups,
+        standaloneResources,
+        removeEdge,
+        removeStandaloneEdge,
+        onWorkerAssignmentChange ?? (() => undefined)
+      ).map(({ peerId, peerLabel, direction }) => ({ peerId, peerLabel, direction }));
+    },
+    [
+      groups,
+      edgesByGroup,
+      standaloneEdges,
+      crossEdges,
+      standaloneResources,
+      removeEdge,
+      removeStandaloneEdge,
+      onWorkerAssignmentChange,
+    ]
+  );
+
   const isPeerHighlighted = useCallback(
-    (resourceId: string) => hoveredPeerId === resourceId,
-    [hoveredPeerId]
+    (resourceId: string) => isPathHighlighted(resourceId),
+    [isPathHighlighted]
   );
 
   const isPeerEdgeHighlighted = useCallback(
-    (fromId: string, toId: string) =>
-      Boolean(hoveredPeerId && (hoveredPeerId === fromId || hoveredPeerId === toId)),
-    [hoveredPeerId]
+    (fromId: string, toId: string) => isPathEdgeHighlighted(fromId, toId),
+    [isPathEdgeHighlighted]
   );
 
   const handleConnectorPointerDown = (
@@ -2797,13 +2965,28 @@ export default function NetworkTopologyPanel({
       y: groupPos.y + toDisplay.y + RESOURCE_H / 2,
     };
     const active =
-      isPeerEdgeHighlighted(from.id, to.id) || (isHighlighted(from) && isHighlighted(to));
+      isPathEdgeHighlighted(from.id, to.id) || (isHighlighted(from) && isHighlighted(to));
+    const pathActive = isPathEdgeHighlighted(from.id, to.id);
     const midX = (c1.x + c2.x) / 2;
+    const midY = (c1.y + c2.y) / 2;
+    const edgeKey = edgeKeyFor("group", edge.id);
+    const edgeFocused =
+      selectedEdge?.scope === "group" &&
+      selectedEdge.groupId === group.id &&
+      selectedEdge.edgeId === edge.id;
+    const edgeHovered = hoveredEdgeKey === edgeKey;
+    const showDelete = edgeFocused || edgeHovered;
 
     return (
       <g
         key={edge.id}
-        className={`ocs-net-topo-edge${active ? " ocs-net-topo-edge--peer-highlight" : ""}`}
+        className={`ocs-net-topo-edge${active ? " ocs-net-topo-edge--peer-highlight" : ""}${
+          pathActive ? " ocs-net-topo-edge--path-active" : ""
+        }${pathTraversalActive && !pathActive ? " ocs-net-topo-edge--path-dim" : ""}${
+          edgeFocused ? " ocs-net-topo-edge--selected" : ""
+        }`}
+        onMouseEnter={() => setHoveredEdgeKey(edgeKey)}
+        onMouseLeave={() => setHoveredEdgeKey((current) => (current === edgeKey ? null : current))}
       >
         <path
           d={`M ${c1.x} ${c1.y} C ${midX} ${c1.y}, ${midX} ${c2.y}, ${c2.x} ${c2.y}`}
@@ -2813,7 +2996,14 @@ export default function NetworkTopologyPanel({
           className="ocs-net-topo-edge-hit"
           onClick={(e) => {
             e.stopPropagation();
-            removeEdge(group.id, edge.id);
+            setSelectedEdge({
+              scope: "group",
+              groupId: group.id,
+              edgeId: edge.id,
+              from: edge.from,
+              to: edge.to,
+            });
+            setSelection(null);
           }}
         />
         <path
@@ -2825,6 +3015,17 @@ export default function NetworkTopologyPanel({
           markerEnd="url(#net-topo-arrow)"
           className="ocs-net-topo-edge__line"
           pointerEvents="none"
+        />
+        <EdgeDeleteHandle
+          x={midX}
+          y={midY}
+          visible={showDelete}
+          label={`Remove connection between ${from.label} and ${to.label}`}
+          onDelete={() => {
+            removeEdge(group.id, edge.id);
+            setSelectedEdge(null);
+            setHoveredEdgeKey(null);
+          }}
         />
       </g>
     );
@@ -3064,14 +3265,46 @@ export default function NetworkTopologyPanel({
 
       <div className="ocs-net-topo-panel__stage">
         {viewMode === "table" ? (
-          <NodeNetworkTableList
-            groups={visibleGroupsFiltered}
-            viewToggle={
-              onViewModeChange ? (
-                <NetworkViewToggle active={viewMode} onChange={onViewModeChange} />
-              ) : undefined
-            }
-          />
+          <Drawer isExpanded={isDetailDrawerExpanded} isInline position="end">
+            <DrawerContent panelContent={detailPanelContent}>
+              <DrawerContentBody className="ocs-net-topo-panel__drawer-body ocs-net-topo-panel__drawer-body--table">
+                <NodeNetworkTableList
+                  groups={visibleGroupsFiltered}
+                  viewToggle={
+                    onViewModeChange ? (
+                      <NetworkViewToggle active={viewMode} onChange={onViewModeChange} />
+                    ) : undefined
+                  }
+                  selectedGroupId={selection?.type === "workerGroup" ? selection.group.id : null}
+                  selectedResourceId={
+                    selection?.type === "resource" && selection.resource.placement === "group"
+                      ? selection.resource.id
+                      : null
+                  }
+                  onSelectWorkerGroup={(group) => {
+                    setHoveredPeerId(null);
+                    setSelection({ type: "workerGroup", group });
+                  }}
+                  onSelectResource={(group, resourceId) => {
+                    const resource = group.resources.find((entry) => entry.id === resourceId);
+                    if (!resource) return;
+                    setHoveredPeerId(null);
+                    setSelection({ type: "resource", resource: { ...resource, group, placement: "group" } });
+                  }}
+                  onSelectPeer={selectPeerResource}
+                  getResourceConnections={getTableResourceConnections}
+                  onResourceLifecycleAction={onResourceLifecycleAction}
+                  onNotice={setActionNotice}
+                  onResourceDeleted={(resourceId) => {
+                    if (selection?.type === "resource" && selection.resource.id === resourceId) {
+                      setHoveredPeerId(null);
+                      setSelection(null);
+                    }
+                  }}
+                />
+              </DrawerContentBody>
+            </DrawerContent>
+          </Drawer>
         ) : (
         <TopologyResizableSplit isPanelOpen={isCreateDrawerExpanded} panel={createPanelContent}>
           <Drawer isExpanded={isDetailDrawerExpanded} isInline position="end">
@@ -3081,7 +3314,9 @@ export default function NetworkTopologyPanel({
               ref={canvasRef}
               className={`ocs-net-topo-panel__canvas${
                 isCanvasMenuOpen ? " ocs-net-topo-panel__canvas--menu-open" : ""
-              }${layoutMode === "grid" ? " ocs-net-topo-panel__canvas--grid" : ""}`}
+              }${layoutMode === "grid" ? " ocs-net-topo-panel__canvas--grid" : ""}${
+                pathTraversalActive ? " ocs-net-topo-panel__canvas--path-active" : ""
+              }`}
               onPointerDown={isolateCanvasPointerEvent}
               onMouseDown={handleCanvasMouseDown}
               onMouseMove={handleMouseMove}
@@ -3096,7 +3331,10 @@ export default function NetworkTopologyPanel({
               }}
               onClick={(event) => {
                 event.stopPropagation();
-                if (!linkDrag) setSelection(null);
+                if (!linkDrag) {
+                  setSelection(null);
+                  setSelectedEdge(null);
+                }
                 setCanvasContextMenu(null);
               }}
               role="application"
@@ -3131,11 +3369,20 @@ export default function NetworkTopologyPanel({
                 const c1 = standaloneCanvasCenter(from);
                 const c2 = standaloneCanvasCenter(to);
                 const midX = (c1.x + c2.x) / 2;
+                const midY = (c1.y + c2.y) / 2;
                 const peerLit = isPeerEdgeHighlighted(edge.from, edge.to);
+                const edgeKey = edgeKeyFor("standalone", edge.id);
+                const edgeFocused = selectedEdge?.scope === "standalone" && selectedEdge.edgeId === edge.id;
+                const edgeHovered = hoveredEdgeKey === edgeKey;
+                const showDelete = edgeFocused || edgeHovered;
                 return (
                   <g
                     key={edge.id}
-                    className={`ocs-net-topo-edge${peerLit ? " ocs-net-topo-edge--peer-highlight" : ""}`}
+                    className={`ocs-net-topo-edge${peerLit ? " ocs-net-topo-edge--peer-highlight" : ""}${
+                      edgeFocused ? " ocs-net-topo-edge--selected" : ""
+                    }`}
+                    onMouseEnter={() => setHoveredEdgeKey(edgeKey)}
+                    onMouseLeave={() => setHoveredEdgeKey((current) => (current === edgeKey ? null : current))}
                   >
                     <path
                       d={`M ${c1.x} ${c1.y} C ${midX} ${c1.y}, ${midX} ${c2.y}, ${c2.x} ${c2.y}`}
@@ -3145,7 +3392,13 @@ export default function NetworkTopologyPanel({
                       className="ocs-net-topo-edge-hit"
                       onClick={(e) => {
                         e.stopPropagation();
-                        removeStandaloneEdge(edge.id);
+                        setSelectedEdge({
+                          scope: "standalone",
+                          edgeId: edge.id,
+                          from: edge.from,
+                          to: edge.to,
+                        });
+                        setSelection(null);
                       }}
                     />
                     <path
@@ -3159,6 +3412,17 @@ export default function NetworkTopologyPanel({
                       markerEnd="url(#net-topo-arrow)"
                       className="ocs-net-topo-edge__line"
                       pointerEvents="none"
+                    />
+                    <EdgeDeleteHandle
+                      x={midX}
+                      y={midY}
+                      visible={showDelete}
+                      label={`Remove connection between ${from.label} and ${to.label}`}
+                      onDelete={() => {
+                        removeStandaloneEdge(edge.id);
+                        setSelectedEdge(null);
+                        setHoveredEdgeKey(null);
+                      }}
                     />
                   </g>
                 );
@@ -3179,13 +3443,22 @@ export default function NetworkTopologyPanel({
                   y: groupPos.y + bridgeDisplay.y + RESOURCE_H / 2,
                 };
                 const midY = (c1.y + c2.y) / 2;
-                const peerLit = isPeerEdgeHighlighted(edge.fromStandaloneId, edge.toResourceId);
+                const midX = (c1.x + c2.x) / 2;
+                const peerLit = isCrossEdgeOnPath(pathHighlight, edge.id);
+                const edgeKey = edgeKeyFor("cross", edge.id);
+                const edgeFocused = selectedEdge?.scope === "cross" && selectedEdge.edgeId === edge.id;
+                const edgeHovered = hoveredEdgeKey === edgeKey;
+                const showDelete = edgeFocused || edgeHovered;
                 return (
                   <g
                     key={edge.id}
                     className={`ocs-net-topo-edge ocs-net-topo-edge--cross${
-                      peerLit ? " ocs-net-topo-edge--peer-highlight" : ""
+                      peerLit ? " ocs-net-topo-edge--peer-highlight ocs-net-topo-edge--path-active" : ""
+                    }${pathTraversalActive && !peerLit ? " ocs-net-topo-edge--path-dim" : ""}${
+                      edgeFocused ? " ocs-net-topo-edge--selected" : ""
                     }`}
+                    onMouseEnter={() => setHoveredEdgeKey(edgeKey)}
+                    onMouseLeave={() => setHoveredEdgeKey((current) => (current === edgeKey ? null : current))}
                   >
                     <path
                       d={`M ${c1.x} ${c1.y} C ${c1.x} ${midY}, ${c2.x} ${midY}, ${c2.x} ${c2.y}`}
@@ -3195,7 +3468,14 @@ export default function NetworkTopologyPanel({
                       className="ocs-net-topo-edge-hit"
                       onClick={(e) => {
                         e.stopPropagation();
-                        onWorkerAssignmentChange?.(edge.fromStandaloneId, edge.toGroupId, false);
+                        setSelectedEdge({
+                          scope: "cross",
+                          edgeId: edge.id,
+                          fromStandaloneId: edge.fromStandaloneId,
+                          toGroupId: edge.toGroupId,
+                          toResourceId: edge.toResourceId,
+                        });
+                        setSelection(null);
                       }}
                     />
                     <path
@@ -3211,6 +3491,17 @@ export default function NetworkTopologyPanel({
                       markerEnd="url(#net-topo-arrow)"
                       className="ocs-net-topo-edge__line"
                       pointerEvents="none"
+                    />
+                    <EdgeDeleteHandle
+                      x={midX}
+                      y={midY}
+                      visible={showDelete}
+                      label={`Remove connection between ${from.label} and ${bridge.label}`}
+                      onDelete={() => {
+                        onWorkerAssignmentChange?.(edge.fromStandaloneId, edge.toGroupId, false);
+                        setSelectedEdge(null);
+                        setHoveredEdgeKey(null);
+                      }}
                     />
                   </g>
                 );
@@ -3254,12 +3545,15 @@ export default function NetworkTopologyPanel({
               };
               const groupPos = getGroupPos(group);
               const isGroupSelected = selection?.type === "workerGroup" && selection.group.id === group.id;
+              const groupOnPath = isGroupOnPath(pathHighlight, group.id);
               return (
               <div
                 key={group.id}
                 className={`ocs-net-topo-group${
                   draggingGroup?.groupId === group.id ? " ocs-net-topo-group--dragging" : ""
-                }${isGroupSelected ? " ocs-net-topo-group--selected" : ""}`}
+                }${isGroupSelected ? " ocs-net-topo-group--selected" : ""}${
+                  pathTraversalActive && groupOnPath ? " ocs-net-topo-group--path-active" : ""
+                }${pathTraversalActive && !groupOnPath ? " ocs-net-topo-group--path-dim" : ""}`}
                 style={{ left: groupPos.x, top: groupPos.y, width: layout.width, height: layout.totalHeight }}
                 role="group"
                 aria-label={`Node ${group.shortName}. Select or drag empty space to move the whole node group.`}
@@ -3290,7 +3584,9 @@ export default function NetworkTopologyPanel({
                   />
                 </svg>
                 {group.resources.filter(resourceVisible).map((resource) => {
-                  const peerHighlighted = isPeerHighlighted(resource.id);
+                  const onPath = isPathHighlighted(resource.id);
+                  const peerHighlighted = onPath;
+                  const pathDimmed = pathTraversalActive && !onPath;
                   const highlighted =
                     isHighlighted(resource) ||
                     peerHighlighted ||
@@ -3309,22 +3605,32 @@ export default function NetworkTopologyPanel({
                   const kindColor = RESOURCE_KIND_COLORS[resource.kind];
                   const statusLabel = RESOURCE_INSTALL_STATUS_LABELS[resource.status];
                   const isDraggingThis = dragging?.resourceId === resource.id;
+                  const underlayOffset = resource.kind === "bridge" ? BRIDGE_UNDERLAY_HEIGHT : 0;
 
                   return (
                     <div
                       key={resource.id}
+                      className="ocs-net-topo-resource-stack"
+                      style={{ left: pos.x, top: pos.y - underlayOffset }}
+                    >
+                      {resource.kind === "bridge" ? (
+                        <PhysicalUnderlayChain bridgeResourceId={resource.id} highlighted={onPath} />
+                      ) : null}
+                      <div
                       role="button"
                       tabIndex={0}
                       className={`ocs-net-topo-resource ocs-net-topo-resource--${resource.status}${
                         highlighted ? " ocs-net-topo-resource--highlight" : ""
                       }${peerHighlighted ? " ocs-net-topo-resource--peer-highlight" : ""}${
+                        onPath ? " ocs-net-topo-resource--path-active" : ""
+                      }${pathDimmed ? " ocs-net-topo-resource--path-dim" : ""}${
                         isSelected ? " ocs-net-topo-resource--selected" : ""
                       }${isLinkSource ? " ocs-net-topo-resource--link-source" : ""}${
                         isDraggingThis ? " ocs-net-topo-resource--dragging" : ""
                       }${
                         !isDraggingThis ? " ocs-net-topo-resource--animated" : ""
                       }`}
-                      style={{ left: pos.x, top: pos.y, borderColor: kindColor }}
+                      style={{ borderColor: kindColor }}
                       onPointerDown={(e) => {
                         if ((e.target as HTMLElement).closest(".ocs-net-topo-resource__connector")) return;
                         handleResourcePointerDown(e, group, resource);
@@ -3361,6 +3667,7 @@ export default function NetworkTopologyPanel({
                       >
                         <span aria-hidden>›</span>
                       </button>
+                    </div>
                     </div>
                   );
                 })}
@@ -3424,7 +3731,9 @@ export default function NetworkTopologyPanel({
                       resource={resource}
                       isLogical
                       logicalLane={logicalLaneLayout}
-                      peerHighlighted={isPeerHighlighted(resource.id)}
+                      peerHighlighted={isPathHighlighted(resource.id)}
+                      pathActive={isPathHighlighted(resource.id)}
+                      pathDimmed={pathTraversalActive && !isPathHighlighted(resource.id)}
                       highlighted={
                         isHighlighted(resource) ||
                         isPeerHighlighted(resource.id) ||
@@ -3449,7 +3758,9 @@ export default function NetworkTopologyPanel({
                 key={resource.id}
                 resource={resource}
                 isLogical={false}
-                peerHighlighted={isPeerHighlighted(resource.id)}
+                peerHighlighted={isPathHighlighted(resource.id)}
+                pathActive={isPathHighlighted(resource.id)}
+                pathDimmed={pathTraversalActive && !isPathHighlighted(resource.id)}
                 highlighted={
                   isHighlighted(resource) ||
                   isPeerHighlighted(resource.id) ||

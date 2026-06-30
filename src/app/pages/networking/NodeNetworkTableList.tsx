@@ -1,7 +1,13 @@
 import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useNavigate } from "react-router";
 import {
   Button,
   Content,
+  Dropdown,
+  DropdownItem,
+  DropdownList,
+  Flex,
+  MenuToggle,
   Pagination,
   PaginationVariant,
   ToolbarGroup,
@@ -16,6 +22,8 @@ import {
 } from "@patternfly/react-data-view";
 import AngleDownIcon from "@patternfly/react-icons/dist/esm/icons/angle-down-icon";
 import AngleRightIcon from "@patternfly/react-icons/dist/esm/icons/angle-right-icon";
+import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
+import ExternalLinkAltIcon from "@patternfly/react-icons/dist/esm/icons/external-link-alt-icon";
 import { Tbody, Td, Th, Thead, Tr, Table } from "@patternfly/react-table";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import {
@@ -36,6 +44,8 @@ import {
   type NodeNetworkStateRow,
 } from "./nodeNetworkStateMockData";
 import type { WorkerNodeGroup } from "./networkTopologyData";
+import type { ResourceLifecycleAction, ResourceLifecycleTarget } from "./networkTopologyState";
+import TopologyResourceActionsMenu from "./TopologyResourceActionsMenu";
 
 const INTERFACE_TYPE_LABELS: Record<NodeNetworkInterfaceType, string> = {
   ethernet: "ethernet",
@@ -60,9 +70,24 @@ type NnsListFilters = {
 
 type SortColumn = "name";
 
+export type TableResourceConnection = {
+  peerId: string;
+  peerLabel: string;
+  direction: "in" | "out";
+};
+
 type NodeNetworkTableListProps = {
   groups: WorkerNodeGroup[];
   viewToggle?: ReactNode;
+  selectedGroupId?: string | null;
+  selectedResourceId?: string | null;
+  onSelectWorkerGroup: (group: WorkerNodeGroup) => void;
+  onSelectResource: (group: WorkerNodeGroup, resourceId: string) => void;
+  onSelectPeer: (peerId: string) => void;
+  getResourceConnections: (groupId: string, resourceId: string) => TableResourceConnection[];
+  onResourceLifecycleAction?: (target: ResourceLifecycleTarget, action: ResourceLifecycleAction) => void;
+  onNotice?: (notice: { title: string; variant: "success" | "warning" | "info" }) => void;
+  onResourceDeleted?: (resourceId: string) => void;
 };
 
 function groupInterfacesByType(row: NodeNetworkStateRow) {
@@ -105,12 +130,30 @@ function sortNodeRows(rows: NodeNetworkStateRow[], column: SortColumn, direction
   });
 }
 
-export default function NodeNetworkTableList({ groups, viewToggle }: NodeNetworkTableListProps) {
+function groupById(groups: WorkerNodeGroup[], groupId: string) {
+  return groups.find((group) => group.id === groupId);
+}
+
+export default function NodeNetworkTableList({
+  groups,
+  viewToggle,
+  selectedGroupId,
+  selectedResourceId,
+  onSelectWorkerGroup,
+  onSelectResource,
+  onSelectPeer,
+  getResourceConnections,
+  onResourceLifecycleAction,
+  onNotice,
+  onResourceDeleted,
+}: NodeNetworkTableListProps) {
+  const navigate = useNavigate();
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<NnsListFilters>({
     filters: { name: "", interface: "", interfaceType: [] },
   });
   const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
   const [expandedNodeIds, setExpandedNodeIds] = useState<Set<string>>(() => new Set());
+  const [openMenuKey, setOpenMenuKey] = useState<string | null>(null);
 
   const allRows = useMemo(() => nodeNetworkStateRowsFromGroups(groups), [groups]);
   const filtered = useMemo(
@@ -127,6 +170,18 @@ export default function NodeNetworkTableList({ groups, viewToggle }: NodeNetwork
     setPage(1);
   }, [filters.name, filters.interface, filters.interfaceType, perPage, setPage]);
 
+  useEffect(() => {
+    if (!selectedResourceId) return;
+    const row = allRows.find((entry) => entry.interfaces.some((iface) => iface.id === selectedResourceId));
+    if (!row) return;
+    setExpandedNodeIds((prev) => {
+      if (prev.has(row.id)) return prev;
+      const next = new Set(prev);
+      next.add(row.id);
+      return next;
+    });
+  }, [selectedResourceId, allRows]);
+
   const toggleNode = (nodeId: string) => {
     setExpandedNodeIds((prev) => {
       const next = new Set(prev);
@@ -136,10 +191,7 @@ export default function NodeNetworkTableList({ groups, viewToggle }: NodeNetwork
     });
   };
 
-  const expandAll = () => setExpandedNodeIds(new Set(sorted.map((row) => row.id)));
-  const collapseAll = () => setExpandedNodeIds(new Set());
-
-  const colSpan = 3;
+  const colSpan = 4;
 
   return (
     <NetworkingTablePanel>
@@ -156,19 +208,11 @@ export default function NodeNetworkTableList({ groups, viewToggle }: NodeNetwork
               onChange={(_id, partial) => onSetFilters(partial)}
               breakpoint="xl"
               midContent={
-                <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }} alignItems="center">
-                  <ToolbarItem>
-                    <Button variant="link" onClick={expandAll}>
-                      Expand all
-                    </Button>
-                  </ToolbarItem>
-                  <ToolbarItem>
-                    <Button variant="link" onClick={collapseAll}>
-                      Collapse all
-                    </Button>
-                  </ToolbarItem>
-                  {viewToggle ? <ToolbarItem>{viewToggle}</ToolbarItem> : null}
-                </ToolbarGroup>
+                viewToggle ? (
+                  <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }} alignItems="center">
+                    <ToolbarItem>{viewToggle}</ToolbarItem>
+                  </ToolbarGroup>
+                ) : null
               }
             >
               <DataViewTextFilter
@@ -234,6 +278,7 @@ export default function NodeNetworkTableList({ groups, viewToggle }: NodeNetwork
               <Th dataLabel="Network interface">
                 <PlainTableHeader label="Network interface" />
               </Th>
+              <Th modifier="fitContent" screenReaderText="Actions" />
             </Tr>
           </Thead>
           <Tbody>
@@ -247,11 +292,14 @@ export default function NodeNetworkTableList({ groups, viewToggle }: NodeNetwork
               </Tr>
             ) : (
               paginated.map((row) => {
+                const group = groupById(groups, row.id);
                 const isExpanded = expandedNodeIds.has(row.id);
+                const isGroupSelected = selectedGroupId === row.id;
                 const grouped = groupInterfacesByType(row);
+                const nodeMenuKey = `node-${row.id}`;
                 return (
                   <Fragment key={row.id}>
-                    <Tr>
+                    <Tr className={isGroupSelected ? "ocs-node-network-table__row--selected" : undefined}>
                       <Td modifier="fitContent">
                         <Button
                           variant="plain"
@@ -261,44 +309,157 @@ export default function NodeNetworkTableList({ groups, viewToggle }: NodeNetwork
                           icon={isExpanded ? <AngleDownIcon aria-hidden /> : <AngleRightIcon aria-hidden />}
                         />
                       </Td>
-                      <Td dataLabel="Name">{row.hostname}</Td>
+                      <Td dataLabel="Name">
+                        <Button
+                          variant="link"
+                          isInline
+                          className="ocs-node-network-table__resource-link"
+                          onClick={() => group && onSelectWorkerGroup(group)}
+                        >
+                          {row.hostname}
+                        </Button>
+                      </Td>
                       <Td dataLabel="Network interface">
                         Network details {row.interfaceCount} interfaces
+                      </Td>
+                      <Td isActionCell hasAction modifier="fitContent">
+                        <Dropdown
+                          isOpen={openMenuKey === nodeMenuKey}
+                          onOpenChange={(open) => setOpenMenuKey(open ? nodeMenuKey : null)}
+                          onSelect={() => setOpenMenuKey(null)}
+                          popperProps={{ position: "right" }}
+                          toggle={(toggleRef) => (
+                            <MenuToggle
+                              ref={toggleRef}
+                              variant="plain"
+                              aria-label={`Actions for ${row.hostname}`}
+                              onClick={() => setOpenMenuKey((cur) => (cur === nodeMenuKey ? null : nodeMenuKey))}
+                            >
+                              <EllipsisVIcon aria-hidden />
+                            </MenuToggle>
+                          )}
+                        >
+                          <DropdownList aria-label={`Actions for ${row.hostname}`}>
+                            <DropdownItem
+                              itemId="open-panel"
+                              onClick={() => group && onSelectWorkerGroup(group)}
+                            >
+                              View details
+                            </DropdownItem>
+                            <DropdownItem
+                              itemId="view-node"
+                              icon={<ExternalLinkAltIcon aria-hidden />}
+                              onClick={() =>
+                                navigate(`/compute/nodes/${encodeURIComponent(row.hostname)}`)
+                              }
+                            >
+                              View node details
+                            </DropdownItem>
+                          </DropdownList>
+                        </Dropdown>
                       </Td>
                     </Tr>
                     {isExpanded ? (
                       <Tr isExpanded>
                         <Td />
-                        <Td colSpan={2} className="ocs-node-network-table__details-cell">
+                        <Td colSpan={3} className="ocs-node-network-table__details-cell">
                           <Table variant="compact" borders={false} aria-label={`Interfaces for ${row.hostname}`}>
                             <Thead>
                               <Tr>
                                 <Th>Name</Th>
+                                <Th>Links</Th>
                                 <Th>IP address</Th>
                                 <Th>Ports</Th>
                                 <Th>MAC address</Th>
                                 <Th>LLDP</Th>
                                 <Th>MTU</Th>
+                                <Th modifier="fitContent" screenReaderText="Actions" />
                               </Tr>
                             </Thead>
                             <Tbody>
                               {[...grouped.entries()].map(([type, interfaces]) => (
                                 <Fragment key={`${row.id}-${type}`}>
                                   <Tr className="ocs-node-network-table__type-row">
-                                    <Td colSpan={6}>
+                                    <Td colSpan={8}>
                                       {INTERFACE_TYPE_LABELS[type]} ({interfaces.length})
                                     </Td>
                                   </Tr>
-                                  {interfaces.map((iface) => (
-                                    <Tr key={iface.id}>
-                                      <Td dataLabel="Name">{iface.name}</Td>
-                                      <Td dataLabel="IP address">{iface.ipAddress}</Td>
-                                      <Td dataLabel="Ports">{iface.ports}</Td>
-                                      <Td dataLabel="MAC address">{iface.macAddress}</Td>
-                                      <Td dataLabel="LLDP">{iface.lldp}</Td>
-                                      <Td dataLabel="MTU">{iface.mtu}</Td>
-                                    </Tr>
-                                  ))}
+                                  {interfaces.map((iface) => {
+                                    const connections = getResourceConnections(row.id, iface.id);
+                                    const isResourceSelected = selectedResourceId === iface.id;
+                                    const resourceMenuKey = `resource-${iface.id}`;
+                                    const resource = group?.resources.find((entry) => entry.id === iface.id);
+                                    const lifecycleTarget: ResourceLifecycleTarget | null = resource
+                                      ? {
+                                          resourceId: resource.id,
+                                          placement: "group",
+                                          groupId: row.id,
+                                          label: resource.label,
+                                        }
+                                      : null;
+                                    return (
+                                      <Tr
+                                        key={iface.id}
+                                        className={
+                                          isResourceSelected ? "ocs-node-network-table__row--selected" : undefined
+                                        }
+                                      >
+                                        <Td dataLabel="Name">
+                                          <Button
+                                            variant="link"
+                                            isInline
+                                            className="ocs-node-network-table__resource-link"
+                                            onClick={() => group && onSelectResource(group, iface.id)}
+                                          >
+                                            {iface.name}
+                                          </Button>
+                                        </Td>
+                                        <Td dataLabel="Links">
+                                          {connections.length === 0 ? (
+                                            "—"
+                                          ) : (
+                                            <Flex
+                                              gap={{ default: "gapXs" }}
+                                              flexWrap={{ default: "wrap" }}
+                                              className="ocs-node-network-table__links"
+                                            >
+                                              {connections.map((connection) => (
+                                                <Button
+                                                  key={`${iface.id}-${connection.peerId}-${connection.direction}`}
+                                                  variant="link"
+                                                  isInline
+                                                  className="ocs-node-network-table__resource-link"
+                                                  onClick={() => onSelectPeer(connection.peerId)}
+                                                >
+                                                  {connection.direction === "out" ? "→" : "←"} {connection.peerLabel}
+                                                </Button>
+                                              ))}
+                                            </Flex>
+                                          )}
+                                        </Td>
+                                        <Td dataLabel="IP address">{iface.ipAddress}</Td>
+                                        <Td dataLabel="Ports">{iface.ports}</Td>
+                                        <Td dataLabel="MAC address">{iface.macAddress}</Td>
+                                        <Td dataLabel="LLDP">{iface.lldp}</Td>
+                                        <Td dataLabel="MTU">{iface.mtu}</Td>
+                                        <Td isActionCell hasAction modifier="fitContent">
+                                          {lifecycleTarget ? (
+                                            <TopologyResourceActionsMenu
+                                              label={lifecycleTarget.label}
+                                              lifecycleTarget={lifecycleTarget}
+                                              onResourceLifecycleAction={onResourceLifecycleAction}
+                                              onNotice={onNotice}
+                                              onDeleted={() => onResourceDeleted?.(lifecycleTarget.resourceId)}
+                                              isOpen={openMenuKey === resourceMenuKey}
+                                              onOpenChange={(open) =>
+                                                setOpenMenuKey(open ? resourceMenuKey : null)
+                                              }
+                                            />
+                                          ) : null}
+                                        </Td>
+                                      </Tr>
+                                    );
+                                  })}
                                 </Fragment>
                               ))}
                             </Tbody>

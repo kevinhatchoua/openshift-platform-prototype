@@ -163,7 +163,36 @@ export interface NncpRecord {
 
 let nadRecords: NadRecord[] = [...INITIAL_NAD_RECORDS];
 let udnRecords: UdnRecord[] = [...INITIAL_UDN_RECORDS];
-let nncpRecords: NncpRecord[] = [];
+let nncpRecords: NncpRecord[] = [{ name: "nncp-br-localnet", status: "Progressing" }];
+
+export type NamespacePropagationTarget = {
+  namespace: string;
+  namespaceSelector?: string;
+  nadName: string;
+};
+
+const NAMESPACE_PROPAGATION: Record<string, NamespacePropagationTarget[]> = {
+  "CUDN:cluster-udn-lime-giraffe": [
+    {
+      namespace: PROTOTYPE_NS,
+      namespaceSelector: "kubernetes.io/metadata.name",
+      nadName: "nad-black-landfowl",
+    },
+    {
+      namespace: "openshift-ovn-kubernetes",
+      namespaceSelector: "networking.openshift.io/cudn",
+      nadName: "nad-amber-dragonfly",
+    },
+  ],
+  "UDN:project-udn-teal-walrus": [{ namespace: PROTOTYPE_NS, nadName: "nad-black-landfowl" }],
+};
+
+export function getNamespacePropagationTargets(
+  networkName: string,
+  kind: "UDN" | "CUDN"
+): NamespacePropagationTarget[] {
+  return NAMESPACE_PROPAGATION[`${kind}:${networkName}`] ?? [];
+}
 
 const resourceListeners = new Set<() => void>();
 
