@@ -133,11 +133,11 @@ import {
   writeTopologyLayoutMode,
   type CanvasLayoutMode,
 } from "./topologyCanvasLayout";
-import { computeGroupHullPath, HULL_RADIAL_PADDING } from "./topologyGroupHull";
+import { computeGroupHullPath, HULL_RADIAL_PADDING, RESOURCE_VISUAL_BLEED } from "./topologyGroupHull";
 import { NetworkResourceCreateDropdown, type NetworkCreateResource } from "./networkingCreateModals";
 import NodeNetworkTableList, { type TableResourceConnection } from "./NodeNetworkTableList";
 import TopologyResourceActionsMenu from "./TopologyResourceActionsMenu";
-import NetworkViewToggle from "./NetworkViewToggle";
+import TopologyViewToggle from "./TopologyViewToggle";
 import type { NodeNetworkViewMode } from "./nodeNetworkViewMode";
 import type { NadRecord, NncpRecord, UdnRecord } from "./networkingMockData";
 import type {
@@ -285,7 +285,7 @@ function posKey(groupId: string, resourceId: string) {
   return `${groupId}::${resourceId}`;
 }
 
-const GROUP_PAD = 16;
+const GROUP_SURFACE_INSET = HULL_RADIAL_PADDING + RESOURCE_VISUAL_BLEED;
 const GROUP_FOOTER_H = 40;
 const GROUP_FOOTER_GAP = 14;
 const BOTTOM_CANVAS_PAD = 56;
@@ -497,10 +497,10 @@ function computeGroupLayout(
   const preliminary: GroupLayout = {
     minX,
     minY,
-    width: Math.max(GROUP_W, minWidth, maxX - minX + GROUP_PAD * 2),
+    width: Math.max(GROUP_W, minWidth, maxX - minX + GROUP_SURFACE_INSET * 2),
     surfaceHeight: Math.max(
       minSurfaceHeight,
-      maxY - minY + GROUP_PAD * 2 + BRIDGE_UNDERLAY_HEIGHT
+      maxY - minY + GROUP_SURFACE_INSET * 2 + BRIDGE_UNDERLAY_HEIGHT
     ),
     totalHeight: 0,
     hullPath: "",
@@ -533,8 +533,8 @@ function computeGroupLayout(
 
 function displayPos(pos: { x: number; y: number }, layout: GroupLayout) {
   return {
-    x: pos.x - layout.minX + GROUP_PAD,
-    y: pos.y - layout.minY + GROUP_PAD,
+    x: pos.x - layout.minX + GROUP_SURFACE_INSET,
+    y: pos.y - layout.minY + GROUP_SURFACE_INSET,
   };
 }
 
@@ -2595,8 +2595,8 @@ export default function NetworkTopologyPanel({
         const displayX = canvas.x - groupPos.x - session.startX;
         const displayY = canvas.y - groupPos.y - session.startY;
         const next = {
-          x: displayX + layout.minX - GROUP_PAD,
-          y: displayY + layout.minY - GROUP_PAD,
+          x: displayX + layout.minX - GROUP_SURFACE_INSET,
+          y: displayY + layout.minY - GROUP_SURFACE_INSET,
         };
         setPositions((prev) => dragWithPush(group, session.resourceId, next, prev));
       }
@@ -3152,7 +3152,6 @@ export default function NetworkTopologyPanel({
           timeout={5000}
         />
       ) : null}
-      {viewMode === "topology" ? (
       <div className="ocs-net-topo-panel__toolbar">
         <Flex
           alignItems={{ default: "alignItemsCenter" }}
@@ -3160,84 +3159,88 @@ export default function NetworkTopologyPanel({
           flexWrap={{ default: "wrap" }}
           className="ocs-net-topo-panel__toolbar-row"
         >
-          <div className="ocs-net-topo-panel__search">
-            <SearchIcon aria-hidden className="ocs-net-topo-panel__search-icon" />
-            <input
-              type="search"
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              placeholder="Find by name..."
-              aria-label="Find by name"
-            />
-          </div>
+          {viewMode === "topology" ? (
+            <>
+              <div className="ocs-net-topo-panel__search">
+                <SearchIcon aria-hidden className="ocs-net-topo-panel__search-icon" />
+                <input
+                  type="search"
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  placeholder="Find by name..."
+                  aria-label="Find by name"
+                />
+              </div>
 
-          <Select
-            id="net-topo-resource-filter"
-            aria-label="Filter by resource type"
-            isOpen={filterSelectOpen}
-            selected={filterKind}
-            onSelect={(_event, value) => {
-              setFilterKind(String(value) as ResourceFilterValue);
-              setFilterSelectOpen(false);
-            }}
-            onOpenChange={setFilterSelectOpen}
-            toggle={(toggleRef) => (
-              <MenuToggle
-                ref={toggleRef}
-                variant={filterKind !== "all" ? "primary" : "default"}
-                onClick={() => setFilterSelectOpen((open) => !open)}
-                isExpanded={filterSelectOpen}
-                icon={<FilterIcon aria-hidden />}
-                aria-label={
-                  filterKind === "all"
-                    ? "Filter by resource type"
-                    : `Resource filter: ${RESOURCE_KIND_LABELS[filterKind]}`
-                }
+              <Select
+                id="net-topo-resource-filter"
+                aria-label="Filter by resource type"
+                isOpen={filterSelectOpen}
+                selected={filterKind}
+                onSelect={(_event, value) => {
+                  setFilterKind(String(value) as ResourceFilterValue);
+                  setFilterSelectOpen(false);
+                }}
+                onOpenChange={setFilterSelectOpen}
+                toggle={(toggleRef) => (
+                  <MenuToggle
+                    ref={toggleRef}
+                    variant={filterKind !== "all" ? "primary" : "default"}
+                    onClick={() => setFilterSelectOpen((open) => !open)}
+                    isExpanded={filterSelectOpen}
+                    icon={<FilterIcon aria-hidden />}
+                    aria-label={
+                      filterKind === "all"
+                        ? "Filter by resource type"
+                        : `Resource filter: ${RESOURCE_KIND_LABELS[filterKind]}`
+                    }
+                  >
+                    <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                      <span>
+                        {filterKind === "all" ? "Filter by resource" : RESOURCE_KIND_LABELS[filterKind]}
+                      </span>
+                      {filterKind !== "all" ? (
+                        <Badge isRead aria-hidden>
+                          {resourceKindCounts[filterKind]}
+                        </Badge>
+                      ) : null}
+                    </Flex>
+                  </MenuToggle>
+                )}
               >
-                <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-                  <span>
-                    {filterKind === "all" ? "Filter by resource" : RESOURCE_KIND_LABELS[filterKind]}
-                  </span>
-                  {filterKind !== "all" ? (
-                    <Badge isRead aria-hidden>
-                      {resourceKindCounts[filterKind]}
-                    </Badge>
-                  ) : null}
-                </Flex>
-              </MenuToggle>
-            )}
-          >
-            <SelectList aria-label="Resource type options">
-              <SelectOption value="all">
-                <ResourceFilterOption label="All types" count={resourceKindCounts.all} />
-              </SelectOption>
-              {RESOURCE_FILTER_KINDS.map((kind) => (
-                <SelectOption key={kind} value={kind}>
-                  <ResourceFilterOption label={RESOURCE_KIND_LABELS[kind]} count={resourceKindCounts[kind]} />
-                </SelectOption>
-              ))}
-            </SelectList>
-          </Select>
+                <SelectList aria-label="Resource type options">
+                  <SelectOption value="all">
+                    <ResourceFilterOption label="All types" count={resourceKindCounts.all} />
+                  </SelectOption>
+                  {RESOURCE_FILTER_KINDS.map((kind) => (
+                    <SelectOption key={kind} value={kind}>
+                      <ResourceFilterOption label={RESOURCE_KIND_LABELS[kind]} count={resourceKindCounts[kind]} />
+                    </SelectOption>
+                  ))}
+                </SelectList>
+              </Select>
 
-          {isCreateEnabled ? <NetworkResourceCreateDropdown onSelect={handleCreateSelect} /> : null}
+              {isCreateEnabled ? <NetworkResourceCreateDropdown onSelect={handleCreateSelect} /> : null}
 
-          {onOpenWorkerNodeModal ? (
-            <Button
-              variant="link"
-              icon={<PlusCircleIcon aria-hidden />}
-              onClick={onOpenWorkerNodeModal}
-              aria-label="Add worker node to topology"
-            >
-              Add worker node
-            </Button>
-          ) : null}
+              {onOpenWorkerNodeModal ? (
+                <Button
+                  variant="link"
+                  icon={<PlusCircleIcon aria-hidden />}
+                  onClick={onOpenWorkerNodeModal}
+                  aria-label="Add worker node to topology"
+                >
+                  Add worker node
+                </Button>
+              ) : null}
 
-          {physicalNetworkName && provisionGeneration > 0 && onPhysicalNetworkChange ? (
-            <NncProfileSwitcher
-              profiles={nncProfiles}
-              selectedPhysicalNetwork={physicalNetworkName}
-              onSelect={onPhysicalNetworkChange}
-            />
+              {physicalNetworkName && provisionGeneration > 0 && onPhysicalNetworkChange ? (
+                <NncProfileSwitcher
+                  profiles={nncProfiles}
+                  selectedPhysicalNetwork={physicalNetworkName}
+                  onSelect={onPhysicalNetworkChange}
+                />
+              ) : null}
+            </>
           ) : null}
 
           <FlexItem flex={{ default: "flex_1" }} />
@@ -3247,21 +3250,22 @@ export default function NetworkTopologyPanel({
             gap={{ default: "gapMd" }}
             className="ocs-net-topo-panel__layout-controls"
           >
-            {viewMode === "topology" ? (
-              <Switch
-                id="net-topo-grid-layout"
-                label="Grid layout"
-                isChecked={layoutMode === "grid"}
-                onChange={(_event, checked) => handleLayoutModeChange(checked ? "grid" : "freeform")}
-              />
-            ) : null}
+            <div className="ocs-net-topo-panel__layout-switch-slot" aria-hidden={viewMode !== "topology"}>
+              {viewMode === "topology" ? (
+                <Switch
+                  id="net-topo-grid-layout"
+                  label="Grid layout"
+                  isChecked={layoutMode === "grid"}
+                  onChange={(_event, checked) => handleLayoutModeChange(checked ? "grid" : "freeform")}
+                />
+              ) : null}
+            </div>
             {onViewModeChange ? (
-              <NetworkViewToggle active={viewMode} onChange={onViewModeChange} />
+              <TopologyViewToggle currentView={viewMode} onChange={onViewModeChange} />
             ) : null}
           </Flex>
         </Flex>
       </div>
-      ) : null}
 
       <div className="ocs-net-topo-panel__stage">
         {viewMode === "table" ? (
@@ -3270,11 +3274,6 @@ export default function NetworkTopologyPanel({
               <DrawerContentBody className="ocs-net-topo-panel__drawer-body ocs-net-topo-panel__drawer-body--table">
                 <NodeNetworkTableList
                   groups={visibleGroupsFiltered}
-                  viewToggle={
-                    onViewModeChange ? (
-                      <NetworkViewToggle active={viewMode} onChange={onViewModeChange} />
-                    ) : undefined
-                  }
                   selectedGroupId={selection?.type === "workerGroup" ? selection.group.id : null}
                   selectedResourceId={
                     selection?.type === "resource" && selection.resource.placement === "group"

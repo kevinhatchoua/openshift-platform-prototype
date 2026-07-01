@@ -172,6 +172,17 @@ export function calculateDynamicHull(
   return computeGroupHullPath(resourceRects, fallbackWidth, fallbackHeight, padding, cornerRadius);
 }
 
+/** Maps child card rects to a smoothed convex-hull SVG path. */
+export function calculateFlexibleHull(
+  resourceRects: HullRect[],
+  fallbackWidth: number,
+  fallbackHeight: number,
+  padding = HULL_RADIAL_PADDING,
+  cornerRadius = HULL_CORNER_RADIUS
+): string {
+  return computeGroupHullPath(resourceRects, fallbackWidth, fallbackHeight, padding, cornerRadius).path;
+}
+
 export function computeGroupHullPath(
   resourceRects: HullRect[],
   fallbackWidth: number,
@@ -180,38 +191,39 @@ export function computeGroupHullPath(
   cornerRadius = HULL_CORNER_RADIUS
 ): { path: string; bounds: { minX: number; minY: number; maxX: number; maxY: number } } {
   if (resourceRects.length === 0) {
-    const width = Math.max(96, fallbackWidth - padding);
-    const height = Math.max(96, fallbackHeight - padding);
-    const origin = padding / 2;
+    const inset = padding + RESOURCE_VISUAL_BLEED;
+    const width = Math.max(96, fallbackWidth - inset * 2);
+    const height = Math.max(96, fallbackHeight - inset * 2);
     return {
-      path: roundedRectPath(origin, origin, width, height, cornerRadius),
-      bounds: { minX: origin, minY: origin, maxX: origin + width, maxY: origin + height },
+      path: roundedRectPath(inset, inset, width, height, cornerRadius),
+      bounds: { minX: inset, minY: inset, maxX: inset + width, maxY: inset + height },
     };
   }
 
   const bleed = RESOURCE_VISUAL_BLEED;
-  const expandedRects = resourceRects.map((rect) => ({
-    x: rect.x - bleed,
-    y: rect.y - bleed,
-    w: rect.w + bleed * 2,
-    h: rect.h + bleed * 2,
+  const paddedRects = resourceRects.map((rect) => ({
+    x: rect.x - bleed - padding,
+    y: rect.y - bleed - padding,
+    w: rect.w + (bleed + padding) * 2,
+    h: rect.h + (bleed + padding) * 2,
   }));
 
-  const rawBounds = boundsFromRects(expandedRects);
-  const padded = padBounds(rawBounds, padding);
-  const width = padded.maxX - padded.minX;
-  const height = padded.maxY - padded.minY;
+  const hullPoints = convexHull(paddedRects.flatMap(resourceRectHullPoints));
+  if (hullPoints.length === 0) {
+    const rawBounds = boundsFromRects(paddedRects);
+    const padded = padBounds(rawBounds, 0);
+    const width = padded.maxX - padded.minX;
+    const height = padded.maxY - padded.minY;
+    return {
+      path: roundedRectPath(padded.minX, padded.minY, width, height, cornerRadius),
+      bounds: padded,
+    };
+  }
 
-  const cornerPoints: HullPoint[] = [
-    { x: padded.minX, y: padded.minY },
-    { x: padded.maxX, y: padded.minY },
-    { x: padded.maxX, y: padded.maxY },
-    { x: padded.minX, y: padded.maxY },
-  ];
-
+  const bounds = hullBounds(hullPoints);
   return {
-    path: roundedPolygonPath(cornerPoints, cornerRadius),
-    bounds: padded,
+    path: roundedPolygonPath(hullPoints, cornerRadius),
+    bounds,
   };
 }
 

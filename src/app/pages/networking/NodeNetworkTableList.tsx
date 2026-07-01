@@ -1,4 +1,4 @@
-import { Fragment, useEffect, useMemo, useState, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Button,
@@ -10,8 +10,6 @@ import {
   MenuToggle,
   Pagination,
   PaginationVariant,
-  ToolbarGroup,
-  ToolbarItem,
 } from "@patternfly/react-core";
 import {
   DataView,
@@ -78,7 +76,6 @@ export type TableResourceConnection = {
 
 type NodeNetworkTableListProps = {
   groups: WorkerNodeGroup[];
-  viewToggle?: ReactNode;
   selectedGroupId?: string | null;
   selectedResourceId?: string | null;
   onSelectWorkerGroup: (group: WorkerNodeGroup) => void;
@@ -136,7 +133,6 @@ function groupById(groups: WorkerNodeGroup[], groupId: string) {
 
 export default function NodeNetworkTableList({
   groups,
-  viewToggle,
   selectedGroupId,
   selectedResourceId,
   onSelectWorkerGroup,
@@ -207,13 +203,7 @@ export default function NodeNetworkTableList({
               values={filters}
               onChange={(_id, partial) => onSetFilters(partial)}
               breakpoint="xl"
-              midContent={
-                viewToggle ? (
-                  <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }} alignItems="center">
-                    <ToolbarItem>{viewToggle}</ToolbarItem>
-                  </ToolbarGroup>
-                ) : null
-              }
+              midContent={null}
             >
               <DataViewTextFilter
                 title="Name"
