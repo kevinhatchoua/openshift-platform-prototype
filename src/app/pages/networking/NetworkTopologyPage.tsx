@@ -1,23 +1,24 @@
 import { Content } from "@patternfly/react-core";
-import { useToast } from "../../contexts/ToastContext";
-import NodeNetworkConfigurationStage from "./NodeNetworkConfigurationStage";
+import OVToolsTopologyStage from "./OVToolsTopologyStage";
 import { NetworkingPageShell } from "./networkingShared";
 
 export default function NetworkTopologyPage() {
-  const { pushToast, dismissToast } = useToast();
-
   return (
     <NetworkingPageShell
       title="Topology"
       path="/networking/topology"
       extraHeader={
         <Content component="p" className="ocs-net-topo-page-desc">
-          Visualize, scale, and manage your cluster topology. Right-click the canvas to add nodes, or manage worker
-          node groups from the toolbar.
+          OVTools-style infrastructure topology. Explore node, VM, network, and storage relationships with drill-down,
+          filters, and persistent view state — aligned with{" "}
+          <a href="https://github.com/linuxelitebr/ovtools-release" target="_blank" rel="noopener noreferrer">
+            OpenShift Virtualization Tools
+          </a>
+          .
         </Content>
       }
     >
-      <NodeNetworkConfigurationStage pushToast={pushToast} dismissToast={dismissToast} />
+      <OVToolsTopologyStage />
     </NetworkingPageShell>
   );
 }

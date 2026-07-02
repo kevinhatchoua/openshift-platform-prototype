@@ -2278,6 +2278,82 @@ html.dark .ocs-net-topo-panel__stage .ocs-net-topo-create-drawer.pf-v6-c-drawer_
   min-width: 2.25rem;
 }
 
+/* ── OVTools-style topology (mvp branch) ── */
+.ocs-ovtools-topo {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - 14rem);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--medium);
+  overflow: hidden;
+  background: #0f1218;
+}
+
+.ocs-ovtools-topo__toolbar {
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  border-bottom: 1px solid color-mix(in srgb, #fff 8%, transparent);
+  background: #161b22;
+}
+
+.ocs-ovtools-topo__modes .pf-v6-c-toggle-group__button {
+  min-width: 5.5rem;
+}
+
+.ocs-ovtools-topo__search {
+  min-width: 14rem;
+  max-width: 20rem;
+}
+
+.ocs-ovtools-topo__stage-body {
+  padding: 0;
+  flex: 1;
+  min-height: 0;
+}
+
+.ocs-ovtools-topo__canvas-wrap {
+  position: relative;
+  height: min(72vh, 820px);
+  min-height: 480px;
+}
+
+.ocs-ovtools-topo__canvas {
+  width: 100%;
+  height: 100%;
+  background:
+    radial-gradient(circle at 20% 20%, color-mix(in srgb, #3b82f6 8%, transparent), transparent 45%),
+    radial-gradient(circle at 80% 0%, color-mix(in srgb, #2dd4bf 6%, transparent), transparent 40%),
+    #0f1218;
+}
+
+.ocs-ovtools-topo__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: #94a3b8;
+  pointer-events: none;
+}
+
+.ocs-ovtools-topo__hover-hint {
+  position: absolute;
+  left: var(--pf-t--global--spacer--md);
+  bottom: var(--pf-t--global--spacer--md);
+  color: #cbd5e1;
+  background: color-mix(in srgb, #0f1218 80%, transparent);
+  padding: 0.25rem 0.5rem;
+  border-radius: var(--pf-t--global--border--radius--small);
+}
+
+.ocs-ovtools-topo__drawer {
+  background: var(--pf-t--global--background--color--primary--default);
+}
+
+.ocs-ovtools-topo__drawer-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  color: var(--pf-t--global--color--brand--default);
+}
+
 .ocs-node-network-table__details-cell {
   padding-block: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
   background: var(--pf-t--global--background--color--secondary--default);
