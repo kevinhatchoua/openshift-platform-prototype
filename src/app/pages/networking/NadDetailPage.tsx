@@ -109,7 +109,7 @@ export default function NadDetailPage() {
               eventKey="virtualization"
               title={
                 <TabTitleText>
-                  Virtualization <NetworkVmTabBadge count={vmCount} />
+                  Virtual Machines <NetworkVmTabBadge count={vmCount} />
                 </TabTitleText>
               }
             />
