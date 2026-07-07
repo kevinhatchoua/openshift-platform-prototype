@@ -70,6 +70,8 @@ import OperatorInstalledPage from "./pages/ecosystem/OperatorInstalledPage";
 
 import NodeDetailPage from "./pages/compute/NodeDetailPage";
 import ConsoleStubPage from "./pages/ConsoleStubPage";
+import StakeholderPortal from "@/components/LandingPage/StakeholderPortal";
+import PortalRedirect from "@/components/LandingPage/PortalRedirect";
 
 const consoleStubRoutes = collectStubPaths().map((fullPath) => ({
   path: fullPath.replace(/^\//, ""),
@@ -85,7 +87,9 @@ export const router = createBrowserRouter([
         /** Pathless layout: matches `/` and all child paths (avoids empty-string segment issues). */
         Component: Layout,
         children: [
-          { index: true, Component: HomePage },
+          { index: true, Component: StakeholderPortal },
+          { path: "portal", Component: PortalRedirect },
+          { path: "overview", Component: HomePage },
           { path: "favorites", Component: FavoritesPage },
           { path: "ecosystem", Component: EcosystemPage },
           { path: "ecosystem/software-catalog", Component: SoftwareCatalogPage },

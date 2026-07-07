@@ -54,6 +54,7 @@ import UserIcon from "@patternfly/react-icons/dist/esm/icons/user-icon";
 import UsersIcon from "@patternfly/react-icons/dist/esm/icons/users-icon";
 import RhMicronsCaretDownIcon from "@patternfly/react-icons/dist/esm/icons/rh-microns-caret-down-icon";
 import SyncAltIcon from "@patternfly/react-icons/dist/esm/icons/sync-alt-icon";
+import ReturnToPortalBanner from "@/components/LandingPage/ReturnToPortalBanner";
 import ImpersonateUserModal from "./ImpersonateUserModal";
 import { MastheadFedoraMark } from "./MastheadFedoraMark";
 import { usePermissions } from "../contexts/PermissionsContext";
@@ -375,6 +376,8 @@ export default function Layout() {
   const { favorites } = useFavorites();
   const { activeCount: activeToastCount } = useToast();
 
+  const isPortalHome = location.pathname === "/";
+
   const handleImpersonate = (user: {
     id: string;
     name: string;
@@ -415,11 +418,14 @@ export default function Layout() {
   const masthead = (
     <Masthead display={{ default: "inline" }} className="ocs-console-masthead">
       <MastheadMain>
-        <MastheadToggle>
-          <PageToggleButton id="layout-nav-toggle" aria-label="Global navigation" isHamburgerButton />
-        </MastheadToggle>
+        {!isPortalHome ? (
+          <MastheadToggle>
+            <PageToggleButton id="layout-nav-toggle" aria-label="Global navigation" isHamburgerButton />
+          </MastheadToggle>
+        ) : null}
         <MastheadBrandLink />
       </MastheadMain>
+      {!isPortalHome ? (
       <MastheadContent>
         <Toolbar id="layout-masthead-toolbar-end" ouiaId="layout-masthead-toolbar-end" isFullHeight>
           <ToolbarContent alignItems="center">
@@ -463,6 +469,7 @@ export default function Layout() {
           </ToolbarContent>
         </Toolbar>
       </MastheadContent>
+      ) : null}
     </Masthead>
   );
 
@@ -610,6 +617,8 @@ export default function Layout() {
       </Banner>
     ) : undefined;
 
+  const pageBanner = impersonationBanner;
+
   return (
     <>
       <div
@@ -630,16 +639,17 @@ export default function Layout() {
           )}
           style={{ minHeight: "var(--pf-t--global--spacer--0, 0px)" }}
         >
+          {!isPortalHome ? <ReturnToPortalBanner /> : null}
           <Page
             className={css(sizingStyles.h_100, "ocs-console-page")}
-            isManagedSidebar
+            isManagedSidebar={!isPortalHome}
             isContentFilled
             masthead={masthead}
-            sidebar={sidebar}
+            sidebar={isPortalHome ? undefined : sidebar}
             skipToContent={<SkipToContent href="#app-main-container">Skip to content</SkipToContent>}
             mainContainerId="app-main-container"
             mainAriaLabel="OpenShift console"
-            banner={impersonationBanner}
+            banner={pageBanner}
           >
             <div
               className={css(

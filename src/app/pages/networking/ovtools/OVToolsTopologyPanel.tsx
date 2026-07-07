@@ -33,7 +33,11 @@ import SearchPlusIcon from "@patternfly/react-icons/dist/esm/icons/search-plus-i
 import SearchMinusIcon from "@patternfly/react-icons/dist/esm/icons/search-minus-icon";
 import { buildOvtoolsTopologyElements, workerFilterOptions } from "./ovtoolsTopologyData";
 import { OVTOOLS_CY_STYLES } from "./ovtoolsTopologyStyles";
-import type { OvtoolsNodeKind } from "./ovtoolsTopologyTypes";
+import {
+  OVTOOLS_TOPO_MODES,
+  OVTOOLS_VM_STATUS_OPTIONS,
+  type OvtoolsNodeKind,
+} from "./ovtoolsTopologyTypes";
 import { useOvtoolsTopologyState } from "./useOvtoolsTopologyState";
 
 const KIND_LABELS: Record<OvtoolsNodeKind, string> = {
