@@ -136,7 +136,7 @@ export const EPIC_CARDS: EpicCardProps[] = [
       { type: "text", value: " / RFE-9483" },
     ],
     description:
-      "List-level aggregated endpoint readiness: Health / Backend health columns (icon + ready/total), Unknown when unloaded, Auto-refresh off by default.",
+      "List-level aggregated endpoint readiness: Health column on Services and Routes (icon + ready/total), Unknown when unloaded, Auto-refresh off by default.",
     status: "in-progress",
     ctaLabel: "Open Services list",
     ctaTo: "/networking/services",

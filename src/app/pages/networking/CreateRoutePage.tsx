@@ -164,8 +164,8 @@ export default function CreateRoutePage() {
           ) : (
             <div className="app-glass-panel pf-v6-u-p-lg">
               <Content component="p">
-                Expose a Service at a hostname. Form fields sync with the YAML manifest. Backend health on the Routes
-                list reflects the referenced Service&apos;s endpoint readiness.
+                Expose a Service at a hostname. Form fields sync with the YAML manifest. Health on the Routes list
+                reflects the referenced Service&apos;s endpoint readiness.
               </Content>
               <Form className="pf-v6-u-mt-md">
                 <FormGroup label="Name" isRequired fieldId="route-name">

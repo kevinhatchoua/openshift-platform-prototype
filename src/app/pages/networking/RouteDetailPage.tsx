@@ -160,9 +160,9 @@ export default function RouteDetailPage() {
                   </DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
-                  <DescriptionListTerm>Backend health</DescriptionListTerm>
+                  <DescriptionListTerm>Health</DescriptionListTerm>
                   <DescriptionListDescription>
-                    <EndpointHealthCell health={health} label="Backend health" />
+                    <EndpointHealthCell health={health} />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>

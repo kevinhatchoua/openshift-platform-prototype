@@ -190,9 +190,9 @@ export default function RoutesPage() {
                     onSort={toggleSort}
                   />
                 </Th>
-                <Th dataLabel="Backend health" modifier="fitContent">
+                <Th dataLabel="Health" modifier="fitContent">
                   <SortableTableHeader
-                    label="Backend health"
+                    label="Health"
                     column="backendHealth"
                     sortColumn={sortColumn}
                     sortDirection={sortDirection}
@@ -264,8 +264,8 @@ export default function RoutesPage() {
                           </Button>
                         </Flex>
                       </Td>
-                      <Td dataLabel="Backend health">
-                        <EndpointHealthCell health={health} label="Backend health" />
+                      <Td dataLabel="Health">
+                        <EndpointHealthCell health={health} />
                       </Td>
                       <Td dataLabel="Location">
                         <Content component="small">{route.location}</Content>

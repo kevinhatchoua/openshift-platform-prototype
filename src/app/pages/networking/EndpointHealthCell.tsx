@@ -49,7 +49,7 @@ export function EndpointHealthCell({
   label = "Health",
 }: {
   health: EndpointHealth;
-  /** Accessible name prefix, e.g. "Health" or "Backend health" */
+  /** Accessible name prefix for the cell */
   label?: string;
 }) {
   const count = health.status === "unknown" ? null : `${health.ready}/${health.total}`;
