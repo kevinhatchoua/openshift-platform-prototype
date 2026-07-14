@@ -334,3 +334,71 @@ export const SERVICE_YAML_SCHEMA: YamlSchemaField[] = [
     description: "List of ports exposed by this Service (port, targetPort, protocol).",
   },
 ];
+
+export type RouteFormState = {
+  name: string;
+  namespace: string;
+  hostname: string;
+  serviceName: string;
+  tlsTermination: string;
+};
+
+function readRouteToServiceName(yaml: string): string | undefined {
+  const toBlock = yaml.match(/to:\s*\n((?:\s+.+\n?)+)/)?.[1] ?? "";
+  return readScalar(toBlock, "name");
+}
+
+function readTlsTermination(yaml: string): string | undefined {
+  const tls = yaml.match(/tls:\s*\n((?:\s+.+\n?)+)/)?.[1] ?? "";
+  return readScalar(tls, "termination") ?? "None";
+}
+
+export function routeFormToYaml(state: RouteFormState): string {
+  const termination = (state.tlsTermination || "edge").trim();
+  const host = (state.hostname || "").trim();
+  const hostLine = host ? `  host: ${host}\n` : "";
+  const tlsBlock =
+    termination === "None"
+      ? ""
+      : `  tls:
+    termination: ${termination}
+    insecureEdgeTerminationPolicy: Redirect
+`;
+  return `apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ${state.name}
+  namespace: ${state.namespace}
+spec:
+${hostLine}  to:
+    kind: Service
+    name: ${state.serviceName}
+    weight: 100
+  port:
+    targetPort: http
+${tlsBlock}`;
+}
+
+export function routeYamlToForm(yaml: string): ParseYamlResult<RouteFormState> {
+  return parseResult(
+    yaml,
+    {
+      name: readMetadataField(yaml, "name"),
+      namespace: readMetadataField(yaml, "namespace") ?? "default",
+      hostname: readSpecScalar(yaml, "host") ?? "",
+      serviceName: readRouteToServiceName(yaml) ?? "frontend",
+      tlsTermination: readTlsTermination(yaml) ?? "edge",
+    },
+    /alternateBackends:|wildcardPolicy:|certificate:/m.test(yaml)
+  );
+}
+
+export const ROUTE_YAML_SCHEMA: YamlSchemaField[] = [
+  { name: "apiVersion", type: "string", description: "API version for OpenShift Route (route.openshift.io/v1)." },
+  { name: "kind", type: "string", description: "Must be Route." },
+  { name: "metadata.name", type: "string", description: "Unique name of the Route within the namespace." },
+  { name: "metadata.namespace", type: "string", description: "Target project/namespace for the Route." },
+  { name: "spec.host", type: "string", description: "Optional public hostname for the Route." },
+  { name: "spec.to", type: "object", description: "Backing Service reference (kind Service + name)." },
+  { name: "spec.tls.termination", type: "string", description: "TLS termination mode: edge, passthrough, reencrypt, or None." },
+];

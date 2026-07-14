@@ -18,6 +18,8 @@ import ServicesPage from "./pages/networking/ServicesPage";
 import CreateServicePage from "./pages/networking/CreateServicePage";
 import ServiceDetailPage from "./pages/networking/ServiceDetailPage";
 import RoutesPage from "./pages/networking/RoutesPage";
+import CreateRoutePage from "./pages/networking/CreateRoutePage";
+import RouteDetailPage from "./pages/networking/RouteDetailPage";
 import IngressesPage from "./pages/networking/IngressesPage";
 import PhysicalNetworksPage from "./pages/networking/PhysicalNetworksPage";
 import NetworkPoliciesPage from "./pages/networking/NetworkPoliciesPage";
@@ -125,6 +127,8 @@ export const router = createBrowserRouter([
           { path: "networking/services/:namespace/:name", Component: ServiceDetailPage },
           { path: "networking/topology", Component: NetworkTopologyPage },
           { path: "networking/routes", Component: RoutesPage },
+          { path: "networking/routes/create", Component: CreateRoutePage },
+          { path: "networking/routes/:namespace/:name", Component: RouteDetailPage },
           { path: "networking/ingresses", Component: IngressesPage },
           { path: "networking/physical-networks", Component: PhysicalNetworksPage },
           { path: "networking/networkpolicies", Component: NetworkPoliciesPage },

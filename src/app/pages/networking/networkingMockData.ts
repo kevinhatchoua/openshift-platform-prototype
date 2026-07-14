@@ -550,6 +550,78 @@ export function getRouteRecords(): RouteRecord[] {
   return routeRecords;
 }
 
+export function getRoute(namespace: string, name: string): RouteRecord | undefined {
+  return routeRecords.find((r) => r.namespace === namespace && r.name === name);
+}
+
+export interface CreateRouteInput {
+  name: string;
+  namespace: string;
+  hostname: string;
+  serviceName: string;
+  tlsTermination: string;
+}
+
+export function createRoute(input: CreateRouteInput): RouteRecord {
+  const name = input.name.trim();
+  const namespace = input.namespace.trim() || "default";
+  const serviceName = input.serviceName.trim();
+  const service = getService(namespace, serviceName);
+  const host =
+    input.hostname.trim() ||
+    `${name}-${namespace}.apps.cluster.example.com`;
+  const termination = (input.tlsTermination || "edge").trim();
+  const record: RouteRecord = {
+    name,
+    namespace,
+    host,
+    serviceName,
+    serviceNamespace: namespace,
+    endpointReady: service?.endpointReady ?? 1,
+    endpointTotal: service?.endpointTotal ?? 1,
+    endpointHealthLoaded: service?.endpointHealthLoaded ?? true,
+    tlsTermination: termination === "None" ? "None" : termination,
+    location: termination === "None" ? "HTTP" : "HTTPS",
+  };
+  const existing = routeRecords.findIndex(
+    (r) => r.name === record.name && r.namespace === record.namespace
+  );
+  routeRecords =
+    existing >= 0
+      ? routeRecords.map((r, i) => (i === existing ? record : r))
+      : [...routeRecords, record];
+  notifyResourceListeners();
+  return record;
+}
+
+export function routeDetailPath(namespace: string, name: string): string {
+  return `/networking/routes/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`;
+}
+
+export function routeYaml(record: RouteRecord): string {
+  const tlsBlock =
+    record.tlsTermination === "None"
+      ? ""
+      : `  tls:
+    termination: ${record.tlsTermination}
+    insecureEdgeTerminationPolicy: Redirect
+`;
+  return `apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ${record.name}
+  namespace: ${record.namespace}
+spec:
+  host: ${record.host}
+  to:
+    kind: Service
+    name: ${record.serviceName}
+    weight: 100
+  port:
+    targetPort: http
+${tlsBlock}`;
+}
+
 /**
  * Prototype-only: nudge endpoint readiness when Auto-refresh is on (HPUX-1868).
  * Production uses watch/poll against Endpoints / EndpointSlice aggregates.

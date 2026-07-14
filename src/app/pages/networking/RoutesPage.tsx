@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { Link, useNavigate } from "react-router";
 import {
   Button,
   Content,
@@ -38,6 +39,7 @@ import {
   healthSortKey,
 } from "./EndpointHealthCell";
 import type { RouteRecord } from "./networkingMockData";
+import { routeDetailPath, serviceDetailPath } from "./networkingMockData";
 import { NetworkingPageShell, NetworkingTablePanel } from "./networkingShared";
 import { useEndpointHealthAutoRefresh } from "./useEndpointHealthAutoRefresh";
 import { useNetworkingResources } from "./useNetworkingResources";
@@ -80,6 +82,7 @@ function sortRoutes(rows: RouteRecord[], column: SortColumn, direction: SortDire
 }
 
 export default function RoutesPage() {
+  const navigate = useNavigate();
   const { routeRecords } = useNetworkingResources();
   const { autoRefresh, setAutoRefresh } = useEndpointHealthAutoRefresh();
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<RouteFilters>({
@@ -104,7 +107,12 @@ export default function RoutesPage() {
   const colSpan = 6;
 
   return (
-    <NetworkingPageShell title="Routes" path="/networking/routes" createLabel="Create Route">
+    <NetworkingPageShell
+      title="Routes"
+      path="/networking/routes"
+      createLabel="Create Route"
+      onCreate={() => navigate("/networking/routes/create")}
+    >
       <NetworkingTablePanel>
         <DataView ouiaId="routes-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
           <DataViewToolbar
@@ -246,7 +254,12 @@ export default function RoutesPage() {
                           <Label color="blue" isCompact className="ocs-resource-label">
                             RT
                           </Label>
-                          <Button variant="link" isInline>
+                          <Button
+                            variant="link"
+                            isInline
+                            component={Link}
+                            to={routeDetailPath(route.namespace, route.name)}
+                          >
                             {route.name}
                           </Button>
                         </Flex>
@@ -258,7 +271,12 @@ export default function RoutesPage() {
                         <Content component="small">{route.location}</Content>
                       </Td>
                       <Td dataLabel="Service">
-                        <Button variant="link" isInline>
+                        <Button
+                          variant="link"
+                          isInline
+                          component={Link}
+                          to={serviceDetailPath(route.serviceNamespace, route.serviceName)}
+                        >
                           {route.serviceName}
                         </Button>
                       </Td>
