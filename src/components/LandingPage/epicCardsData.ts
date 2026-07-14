@@ -94,4 +94,14 @@ export const EPIC_CARDS: EpicCardProps[] = [
     ctaLabel: "Launch Cluster Update",
     ctaTo: "/administration/cluster-update",
   },
+  {
+    id: "hpux-1867",
+    title: "Service creation form (Form / YAML)",
+    track: "HPUX-1867 / HPUX-1717 / RFE-7581",
+    description:
+      "Dual-mode Service create for OpenShift Console 5.0: Form view alongside the existing YAML path, with bidirectional sync — same pattern as network resource creation in HPUX-1717.",
+    status: "in-progress",
+    ctaLabel: "Open Create Service",
+    ctaTo: "/networking/services/create",
+  },
 ];

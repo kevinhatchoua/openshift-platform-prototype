@@ -1,4 +1,5 @@
 import { useEffect, useMemo } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import {
   Button,
   Content,
@@ -89,6 +90,8 @@ function sortServices(rows: Service[], column: SortColumn, direction: SortDirect
 }
 
 export default function ServicesPage() {
+  const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<ServiceFilters>({
     filters: { name: "" },
   });
@@ -108,10 +111,23 @@ export default function ServicesPage() {
     setPage(1);
   }, [filters.name, perPage, setPage]);
 
+  useEffect(() => {
+    if (searchParams.get("create") !== "service") return;
+    const next = new URLSearchParams(searchParams);
+    next.delete("create");
+    setSearchParams(next, { replace: true });
+    navigate("/networking/services/create");
+  }, [navigate, searchParams, setSearchParams]);
+
   const colSpan = 5;
 
   return (
-    <NetworkingPageShell title="Services" path="/networking" createLabel="Create Service">
+    <NetworkingPageShell
+      title="Services"
+      path="/networking"
+      createLabel="Create Service"
+      onCreate={() => navigate("/networking/services/create")}
+    >
       <NetworkingTablePanel>
         <DataView ouiaId="services-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
           <DataViewToolbar

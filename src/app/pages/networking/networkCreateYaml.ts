@@ -10,6 +10,14 @@ export type NadFormState = { name: string; namespace: string; type: string };
 export type UdnFormState = { project: string; name: string; cidr: string };
 export type CudnFormState = { name: string; cidr: string; matchLabels: string };
 export type NncpFormState = { name: string };
+/** Ports as one entry per line: `port:targetPort/PROTOCOL` (e.g. `80:9376/TCP`). */
+export type ServiceFormState = {
+  name: string;
+  namespace: string;
+  type: string;
+  selector: string;
+  ports: string;
+};
 
 export type ParseYamlResult<T> = {
   partial: Partial<T> | null;
@@ -78,7 +86,7 @@ function parseResult<T>(yaml: string, partial: Partial<T>, hasUnmappedContent = 
 }
 
 export function nadFormToYaml(state: NadFormState): string {
-  const cniType = state.type.toLowerCase().includes("bridge") ? "bridge" : "overlay";
+  const cniType = (state.type ?? "").toLowerCase().includes("bridge") ? "bridge" : "overlay";
   return `apiVersion: k8s.cni.cncf.io/v1
 kind: NetworkAttachmentDefinition
 metadata:
@@ -197,4 +205,131 @@ export const NNCP_YAML_SCHEMA: YamlSchemaField[] = [
   { name: "metadata.name", type: "string", description: "Policy name applied to selected nodes." },
   { name: "spec.nodeSelector", type: "object", description: "Label query matching target nodes." },
   { name: "spec.desiredState", type: "object", description: "Nmstate interfaces and routes to enforce." },
+];
+
+function selectorFromYaml(yaml: string): string | undefined {
+  const block =
+    yaml.match(/^\s*selector:\s*\n((?:\s+.+\n?)+)/m)?.[1] ??
+    yaml.match(/^\s*selector:\s*\{([^}]+)\}/m)?.[1];
+  if (!block) return undefined;
+  const pairs: string[] = [];
+  block.split("\n").forEach((line) => {
+    const match = line.match(/^\s*([^:{}]+):\s*(.+)$/);
+    if (match) pairs.push(`${match[1].trim()}=${stripQuotes(match[2])}`);
+  });
+  if (pairs.length === 0 && block.includes("=")) return block.trim();
+  return pairs.length > 0 ? pairs.join("\n") : undefined;
+}
+
+function selectorToYaml(text: string): string {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return "    {}";
+  const rows = lines.map((line) => {
+    const [key, ...rest] = line.split("=");
+    return `    ${key.trim()}: ${rest.join("=").trim()}`;
+  });
+  return rows.join("\n");
+}
+
+function portsFromYaml(yaml: string): string | undefined {
+  const portsBlock = yaml.match(/^\s*ports:\s*\n((?:\s+-.+\n?(?:\s+[^\n-].+\n?)*)+)/m)?.[1];
+  if (!portsBlock) return undefined;
+  const entries = portsBlock.split(/^\s*-\s+/m).map((e) => e.trim()).filter(Boolean);
+  const lines = entries.map((entry) => {
+    const port = entry.match(/port:\s*(\d+)/)?.[1] ?? "80";
+    const target = entry.match(/targetPort:\s*(\d+)/)?.[1] ?? port;
+    const protocol = entry.match(/protocol:\s*(\w+)/)?.[1] ?? "TCP";
+    return `${port}:${target}/${protocol}`;
+  });
+  return lines.length > 0 ? lines.join("\n") : undefined;
+}
+
+function portsToYaml(text: string): string {
+  const lines = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) {
+    return `  - protocol: TCP
+    port: 80
+    targetPort: 80`;
+  }
+  return lines
+    .map((line) => {
+      const match = line.match(/^(\d+)\s*:\s*(\d+)\s*\/\s*(\w+)$/i) ?? line.match(/^(\d+)\s*\/\s*(\w+)$/i);
+      if (match && match[3]) {
+        return `  - protocol: ${match[3].toUpperCase()}
+    port: ${match[1]}
+    targetPort: ${match[2]}`;
+      }
+      if (match) {
+        return `  - protocol: ${match[2].toUpperCase()}
+    port: ${match[1]}
+    targetPort: ${match[1]}`;
+      }
+      const portOnly = line.match(/^(\d+)$/);
+      if (portOnly) {
+        return `  - protocol: TCP
+    port: ${portOnly[1]}
+    targetPort: ${portOnly[1]}`;
+      }
+      return `  - protocol: TCP
+    port: 80
+    targetPort: 80`;
+    })
+    .join("\n");
+}
+
+export function serviceFormToYaml(state: ServiceFormState): string {
+  const type = (state.type || "ClusterIP").trim() || "ClusterIP";
+  return `apiVersion: v1
+kind: Service
+metadata:
+  name: ${state.name}
+  namespace: ${state.namespace}
+spec:
+  type: ${type}
+  selector:
+${selectorToYaml(state.selector)}
+  ports:
+${portsToYaml(state.ports)}`;
+}
+
+export function serviceYamlToForm(yaml: string): ParseYamlResult<ServiceFormState> {
+  return parseResult(
+    yaml,
+    {
+      name: readMetadataField(yaml, "name"),
+      namespace: readMetadataField(yaml, "namespace") ?? "default",
+      type: readSpecScalar(yaml, "type") ?? "ClusterIP",
+      selector: selectorFromYaml(yaml) ?? "app=MyApp",
+      ports: portsFromYaml(yaml) ?? "80:9376/TCP",
+    },
+    /sessionAffinity:|externalTrafficPolicy:|ipFamilyPolicy:/m.test(yaml)
+  );
+}
+
+export const SERVICE_YAML_SCHEMA: YamlSchemaField[] = [
+  { name: "apiVersion", type: "string", description: "API version for core Service resources (v1)." },
+  { name: "kind", type: "string", description: "Must be Service." },
+  { name: "metadata.name", type: "string", description: "Unique name of the Service within the namespace." },
+  { name: "metadata.namespace", type: "string", description: "Target project/namespace for the Service." },
+  {
+    name: "spec.type",
+    type: "string",
+    description: "How the Service is exposed. Allowed values: ClusterIP, NodePort, LoadBalancer, ExternalName.",
+  },
+  {
+    name: "spec.selector",
+    type: "object",
+    description: "Label selector matching the pods that back this Service.",
+  },
+  {
+    name: "spec.ports",
+    type: "array",
+    description: "List of ports exposed by this Service (port, targetPort, protocol).",
+  },
 ];

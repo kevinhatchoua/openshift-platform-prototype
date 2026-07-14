@@ -15,6 +15,7 @@ import JobsPage from "./pages/workloads/JobsPage";
 import CronJobsPage from "./pages/workloads/CronJobsPage";
 import TopologyPage from "./pages/workloads/TopologyPage";
 import ServicesPage from "./pages/networking/ServicesPage";
+import CreateServicePage from "./pages/networking/CreateServicePage";
 import RoutesPage from "./pages/networking/RoutesPage";
 import IngressesPage from "./pages/networking/IngressesPage";
 import PhysicalNetworksPage from "./pages/networking/PhysicalNetworksPage";
@@ -119,6 +120,7 @@ export const router = createBrowserRouter([
           { path: "workloads/cronjobs", Component: CronJobsPage },
           { path: "workloads/topology", Component: TopologyPage },
           { path: "networking", Component: ServicesPage },
+          { path: "networking/services/create", Component: CreateServicePage },
           { path: "networking/topology", Component: NetworkTopologyPage },
           { path: "networking/routes", Component: RoutesPage },
           { path: "networking/ingresses", Component: IngressesPage },
