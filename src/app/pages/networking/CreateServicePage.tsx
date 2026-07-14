@@ -96,8 +96,7 @@ export default function CreateServicePage() {
       type: "ClusterIP",
       selector: "app=MyApp",
       ports: "80:9376/TCP",
-    },
-    "yaml"
+    }
   );
 
   const canCreate =
