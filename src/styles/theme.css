@@ -1500,53 +1500,39 @@ html.no-glass.dark .ocs-pods-list__panel {
 
 .ocs-endpoint-health__count {
   font-variant-numeric: tabular-nums;
-  font-weight: var(--pf-t--global--font--weight--body--bold, 500);
+  color: var(--pf-t--global--text--color--regular);
 }
 
 .ocs-endpoint-health__icon {
   flex-shrink: 0;
 }
 
-/* Status color on wrapper + icon so severity reads in light/dark/glass themes */
-.ocs-endpoint-health--healthy,
-.ocs-endpoint-health--healthy .ocs-endpoint-health__icon,
-.ocs-endpoint-health--healthy .ocs-endpoint-health__count {
+/* Color only icons — count stays default text color */
+.ocs-endpoint-health--healthy .ocs-endpoint-health__icon {
   color: var(--pf-t--global--icon--color--status--success--default, #3e8635);
 }
 
-.ocs-endpoint-health--degraded,
-.ocs-endpoint-health--degraded .ocs-endpoint-health__icon,
-.ocs-endpoint-health--degraded .ocs-endpoint-health__count {
+.ocs-endpoint-health--degraded .ocs-endpoint-health__icon {
   color: var(--pf-t--global--icon--color--status--warning--default, #f0ab00);
 }
 
-.ocs-endpoint-health--down,
-.ocs-endpoint-health--down .ocs-endpoint-health__icon,
-.ocs-endpoint-health--down .ocs-endpoint-health__count {
+.ocs-endpoint-health--down .ocs-endpoint-health__icon {
   color: var(--pf-t--global--icon--color--status--danger--default, #c9190b);
 }
 
-.ocs-endpoint-health--unknown,
-.ocs-endpoint-health--unknown .ocs-endpoint-health__icon,
-.ocs-endpoint-health--unknown .ocs-endpoint-health__count {
+.ocs-endpoint-health--unknown .ocs-endpoint-health__icon {
   color: var(--pf-t--global--text--color--subtle, #a3a3a3);
 }
 
-.pf-v6-theme-dark .ocs-endpoint-health--healthy,
-.pf-v6-theme-dark .ocs-endpoint-health--healthy .ocs-endpoint-health__icon,
-.pf-v6-theme-dark .ocs-endpoint-health--healthy .ocs-endpoint-health__count {
+.pf-v6-theme-dark .ocs-endpoint-health--healthy .ocs-endpoint-health__icon {
   color: var(--pf-t--global--icon--color--status--success--default, #5ba352);
 }
 
-.pf-v6-theme-dark .ocs-endpoint-health--degraded,
-.pf-v6-theme-dark .ocs-endpoint-health--degraded .ocs-endpoint-health__icon,
-.pf-v6-theme-dark .ocs-endpoint-health--degraded .ocs-endpoint-health__count {
+.pf-v6-theme-dark .ocs-endpoint-health--degraded .ocs-endpoint-health__icon {
   color: var(--pf-t--global--icon--color--status--warning--default, #f0ab00);
 }
 
-.pf-v6-theme-dark .ocs-endpoint-health--down,
-.pf-v6-theme-dark .ocs-endpoint-health--down .ocs-endpoint-health__icon,
-.pf-v6-theme-dark .ocs-endpoint-health--down .ocs-endpoint-health__count {
+.pf-v6-theme-dark .ocs-endpoint-health--down .ocs-endpoint-health__icon {
   color: var(--pf-t--global--icon--color--status--danger--default, #fe5142);
 }
 
