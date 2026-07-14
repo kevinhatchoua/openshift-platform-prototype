@@ -2354,6 +2354,52 @@ html.dark .ocs-net-topo-panel__stage .ocs-net-topo-create-drawer.pf-v6-c-drawer_
   color: var(--pf-t--global--color--brand--default);
 }
 
+.ocs-topology-metric-tooltip {
+  position: fixed;
+  z-index: 1200;
+  max-width: 16rem;
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  border-radius: var(--pf-t--global--border--radius--medium);
+  background: var(--pf-t--global--background--color--primary--default);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  box-shadow: var(--pf-t--global--box-shadow--md);
+  pointer-events: none;
+}
+
+.ocs-topology-metric-tooltip__title {
+  margin: 0 0 var(--pf-t--global--spacer--xs);
+  font-weight: var(--pf-t--global--font--weight--body--bold);
+}
+
+.ocs-topology-metric-tooltip__list {
+  margin-block: var(--pf-t--global--spacer--xs);
+}
+
+.ocs-topology-metric-tooltip__source {
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-net-topo-panel__cytoscape-wrap,
+.ocs-net-topo-panel__cytoscape-canvas {
+  width: 100%;
+  min-height: 32rem;
+  height: calc(100vh - 16rem);
+}
+
+.ocs-net-topo-panel__cytoscape-canvas {
+  background: #0f1218;
+  border-radius: var(--pf-t--global--border--radius--medium);
+}
+
+.ocs-net-topo-edge--degraded path.ocs-net-topo-edge__stroke {
+  stroke: #fb923c;
+}
+
+.ocs-net-topo-edge--failed path.ocs-net-topo-edge__stroke {
+  stroke: #f87171;
+  stroke-width: 3;
+}
+
 .ocs-node-network-table__details-cell {
   padding-block: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
   background: var(--pf-t--global--background--color--secondary--default);
@@ -2524,13 +2570,27 @@ html.dark .ocs-net-topo-split__panel {
   min-height: 100%;
 }
 
-.ocs-dual-mode-create__toggle {
-  display: flex;
-  gap: var(--pf-t--global--spacer--lg, 1.5rem);
+/* Mirrors console-shared `.co-synced-editor__editor-toggle` */
+.ocs-editor-toggle {
+  border-block: var(--pf-t--global--border--width--divider--default, 1px) solid
+    var(--pf-t--global--border--color--default);
+  padding-block: var(--pf-t--global--spacer--sm, 0.5rem);
+  padding-inline: var(--pf-t--global--spacer--lg, 1.5rem);
+  margin-inline: calc(-1 * var(--pf-t--global--spacer--lg, 1.5rem));
+  width: calc(100% + 2 * var(--pf-t--global--spacer--lg, 1.5rem));
+  box-sizing: border-box;
 }
 
-.ocs-dual-mode-create__divider {
-  margin-block: var(--pf-t--global--spacer--md, 1rem);
+.ocs-editor-toggle__label {
+  font-size: var(--pf-t--global--font--size--sm, 0.875rem);
+  margin-bottom: 0;
+  color: var(--pf-t--global--text--color--regular);
+}
+
+.ocs-create-service-page .ocs-editor-toggle {
+  margin-inline: 0;
+  width: 100%;
+  padding-inline: 0;
 }
 
 .ocs-dual-mode-create__banner {
@@ -2560,6 +2620,260 @@ html.dark .ocs-net-topo-split__panel {
 .ocs-dual-mode-create__schema-intro {
   margin-block: var(--pf-t--global--spacer--sm, 0.5rem) var(--pf-t--global--spacer--md, 1rem);
   color: var(--pf-t--global--text--color--subtle);
+}
+
+/* —— Console-faithful Create YAML view (Service create / HPUX-1867) —— */
+.ocs-create-service-page__desc {
+  margin: 0;
+  max-width: 48rem;
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-create-service-page__footer {
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  margin-block-start: var(--pf-t--global--spacer--md, 1rem);
+  padding-block: var(--pf-t--global--spacer--md, 1rem);
+  background: color-mix(in srgb, var(--pf-t--global--background--color--primary--default) 92%, transparent);
+  border-block-start: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.ocs-console-yaml {
+  display: flex;
+  flex-direction: column;
+  min-height: 28rem;
+}
+
+.ocs-console-yaml--expanded {
+  position: fixed;
+  inset: 0;
+  z-index: 400;
+  padding: var(--pf-t--global--spacer--md, 1rem);
+  background: var(--pf-t--global--background--color--primary--default);
+}
+
+.ocs-console-yaml__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(16rem, 22rem);
+  gap: 0;
+  min-height: 26rem;
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small, 4px);
+  overflow: hidden;
+  background: #151515;
+}
+
+.ocs-console-yaml__workspace--no-sidebar {
+  grid-template-columns: 1fr;
+}
+
+.ocs-console-yaml__editor-shell {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 26rem;
+  border-inline-end: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.ocs-console-yaml__workspace--no-sidebar .ocs-console-yaml__editor-shell {
+  border-inline-end: none;
+}
+
+.ocs-console-yaml__editor-shell--drag {
+  outline: 2px dashed var(--pf-t--global--color--brand--default);
+  outline-offset: -2px;
+}
+
+.ocs-console-yaml__toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--pf-t--global--spacer--sm, 0.5rem);
+  padding: var(--pf-t--global--spacer--xs, 0.25rem) var(--pf-t--global--spacer--sm, 0.5rem);
+  border-block-end: 1px solid var(--pf-t--global--border--color--default);
+  background: #1f1f1f;
+}
+
+.ocs-console-yaml__editor {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-height: 22rem;
+  overflow: auto;
+  font-family: var(--pf-t--global--font--family--mono, ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace);
+  font-size: 13px;
+  line-height: 1.55;
+  color: #f0f0f0;
+  background: #151515;
+}
+
+.ocs-console-yaml__gutter {
+  flex: 0 0 3rem;
+  padding-block: var(--pf-t--global--spacer--sm, 0.5rem);
+  text-align: right;
+  user-select: none;
+  color: #6a6e73;
+  background: #151515;
+  border-inline-end: 1px solid #2c2c2c;
+  overflow: hidden;
+}
+
+.ocs-console-yaml__line-num {
+  padding-inline: 0.5rem 0.75rem;
+  height: 1.55em;
+}
+
+.ocs-console-yaml__line-num--active {
+  color: #f0f0f0;
+  background: color-mix(in srgb, #f0ab00 18%, transparent);
+}
+
+.ocs-console-yaml__code-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+}
+
+.ocs-console-yaml__highlight,
+.ocs-console-yaml__textarea {
+  margin: 0;
+  padding: var(--pf-t--global--spacer--sm, 0.5rem) var(--pf-t--global--spacer--md, 1rem);
+  white-space: pre;
+  word-wrap: normal;
+  overflow-wrap: normal;
+  tab-size: 2;
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  box-sizing: border-box;
+}
+
+.ocs-console-yaml__highlight {
+  pointer-events: none;
+  color: #f0f0f0;
+  overflow: hidden;
+  min-height: 100%;
+}
+
+.ocs-console-yaml__hl-line {
+  min-height: 1.55em;
+}
+
+.ocs-console-yaml__hl-line--active {
+  background: color-mix(in srgb, #f0ab00 18%, transparent);
+}
+
+.ocs-console-yaml__textarea {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  resize: none;
+  outline: none;
+  color: transparent;
+  caret-color: #f0f0f0;
+  background: transparent;
+  overflow: auto;
+}
+
+.ocs-console-yaml__tok-key {
+  color: #f0c041;
+}
+
+.ocs-console-yaml__tok-value {
+  color: #b8daff;
+}
+
+.ocs-console-yaml__tok-comment {
+  color: #6a6e73;
+}
+
+.ocs-console-yaml__tok-plain {
+  color: #f0f0f0;
+}
+
+.ocs-console-yaml__sidebar {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  background: #212427;
+  color: #f0f0f0;
+}
+
+.ocs-console-yaml__sidebar-header {
+  padding: var(--pf-t--global--spacer--md, 1rem) var(--pf-t--global--spacer--md, 1rem) var(--pf-t--global--spacer--sm, 0.5rem);
+}
+
+.ocs-console-yaml__sidebar-tabs {
+  display: flex;
+  gap: var(--pf-t--global--spacer--md, 1rem);
+  padding-inline: var(--pf-t--global--spacer--md, 1rem);
+  border-block-end: 1px solid #3c3f42;
+}
+
+.ocs-console-yaml__sidebar-tab {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  color: #c7c7c7;
+  font: inherit;
+  font-weight: 600;
+  padding: 0.5rem 0;
+  cursor: pointer;
+}
+
+.ocs-console-yaml__sidebar-tab--active {
+  color: #fff;
+  box-shadow: inset 0 -2px 0 #0066cc;
+}
+
+.ocs-console-yaml__sidebar-body {
+  flex: 1;
+  overflow: auto;
+  padding: var(--pf-t--global--spacer--md, 1rem);
+}
+
+.ocs-console-yaml__sidebar-intro {
+  margin: 0 0 var(--pf-t--global--spacer--md, 1rem);
+  color: #c7c7c7;
+}
+
+.ocs-console-yaml__field-name {
+  margin-bottom: 0.25rem;
+}
+
+.ocs-console-yaml__field-type {
+  color: #8a8d90;
+  font-weight: 400;
+}
+
+.ocs-console-yaml__field-desc,
+.ocs-console-yaml__field-allowed {
+  margin: 0.25rem 0;
+  color: #c7c7c7;
+}
+
+.ocs-console-yaml__field-divider {
+  margin-block: var(--pf-t--global--spacer--md, 1rem);
+}
+
+html:not(.dark) .ocs-console-yaml__workspace,
+html:not(.dark) .ocs-console-yaml__editor,
+html:not(.dark) .ocs-console-yaml__gutter {
+  background: #151515;
+}
+
+@media (max-width: 768px) {
+  .ocs-console-yaml__workspace {
+    grid-template-columns: 1fr;
+  }
+
+  .ocs-console-yaml__editor-shell {
+    border-inline-end: none;
+    border-block-end: 1px solid var(--pf-t--global--border--color--default);
+  }
 }
 
 

@@ -12,9 +12,10 @@ export type SyncedFormYamlConfig<T extends Record<string, unknown>> = {
 
 export function useSyncedFormYaml<T extends Record<string, unknown>>(
   config: SyncedFormYamlConfig<T>,
-  initialState: T
+  initialState: T,
+  initialViewMode: ConfigureViewMode = "form"
 ) {
-  const [viewMode, setViewMode] = useState<ConfigureViewMode>("form");
+  const [viewMode, setViewMode] = useState<ConfigureViewMode>(initialViewMode);
   const [formState, setFormState] = useState<T>(initialState);
   const [yamlText, setYamlText] = useState(() => config.toYaml(initialState));
   const [yamlError, setYamlError] = useState<string | null>(null);
@@ -26,7 +27,10 @@ export function useSyncedFormYaml<T extends Record<string, unknown>>(
       setYamlError(result.error);
       setHasUnmappedContent(result.hasUnmappedContent);
       if (!result.error && result.partial) {
-        setFormState((prev) => ({ ...prev, ...result.partial }));
+        const definedPatch = Object.fromEntries(
+          Object.entries(result.partial).filter(([, value]) => value !== undefined)
+        ) as Partial<T>;
+        setFormState((prev) => ({ ...prev, ...definedPatch }));
       }
       return result;
     },

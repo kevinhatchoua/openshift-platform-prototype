@@ -285,14 +285,15 @@ function portsToYaml(text: string): string {
 
 export function serviceFormToYaml(state: ServiceFormState): string {
   const type = (state.type || "ClusterIP").trim() || "ClusterIP";
+  // Match console default seed: omit ClusterIP (API default) from YAML.
+  const typeLine = type === "ClusterIP" ? "" : `  type: ${type}\n`;
   return `apiVersion: v1
 kind: Service
 metadata:
   name: ${state.name}
   namespace: ${state.namespace}
 spec:
-  type: ${type}
-  selector:
+${typeLine}  selector:
 ${selectorToYaml(state.selector)}
   ports:
 ${portsToYaml(state.ports)}`;

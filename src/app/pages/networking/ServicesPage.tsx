@@ -32,43 +32,24 @@ import {
   useTableSort,
   type SortDirection,
 } from "../../components/dataView/OcsPrototypeListTable";
+import type { ServiceRecord } from "./networkingMockData";
 import { NetworkingPageShell, NetworkingTablePanel } from "./networkingShared";
+import { useNetworkingResources } from "./useNetworkingResources";
 
 type ServiceFilters = { name: string };
 
 type SortColumn = "name" | "labels" | "podSelector" | "location";
 
-interface Service {
-  name: string;
-  labels: { key: string; value: string }[];
-  podSelector: string;
-  location: string;
-}
-
-const SERVICES: Service[] = [
-  {
-    name: "kubernetes",
-    labels: [
-      { key: "component", value: "apiserver" },
-      { key: "provider", value: "kubernetes" },
-    ],
-    podSelector: "All pods within default",
-    location: "172.30.0.1:443",
-  },
-  {
-    name: "openshift",
-    labels: [],
-    podSelector: "All pods within default",
-    location: "",
-  },
-];
-
-function rowMatchesFilters(row: Service, filters: ServiceFilters): boolean {
+function rowMatchesFilters(row: ServiceRecord, filters: ServiceFilters): boolean {
   const q = (filters.name ?? "").trim().toLowerCase();
   return !q || row.name.toLowerCase().includes(q);
 }
 
-function sortServices(rows: Service[], column: SortColumn, direction: SortDirection): Service[] {
+function sortServices(
+  rows: ServiceRecord[],
+  column: SortColumn,
+  direction: SortDirection
+): ServiceRecord[] {
   return [...rows].sort((a, b) => {
     switch (column) {
       case "name":
@@ -92,14 +73,15 @@ function sortServices(rows: Service[], column: SortColumn, direction: SortDirect
 export default function ServicesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { serviceRecords } = useNetworkingResources();
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<ServiceFilters>({
     filters: { name: "" },
   });
   const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
 
   const filtered = useMemo(
-    () => SERVICES.filter((s) => rowMatchesFilters(s, filters)),
-    [filters]
+    () => serviceRecords.filter((s) => rowMatchesFilters(s, filters)),
+    [filters, serviceRecords]
   );
   const sorted = useMemo(
     () => sortServices(filtered, sortColumn, sortDirection),
@@ -239,7 +221,7 @@ export default function ServicesPage() {
                 </Tr>
               ) : (
                 paginated.map((svc) => (
-                  <Tr key={svc.name}>
+                  <Tr key={`${svc.namespace}/${svc.name}`}>
                     <Td dataLabel="Name">
                       <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
                         <Label color="green" isCompact className="ocs-resource-label">

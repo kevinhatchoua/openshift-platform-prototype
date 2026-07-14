@@ -12,6 +12,8 @@ export interface NetworkResourceRef {
 
 export type VmNetworkTarget = NetworkResourceRef | { kind: "pod" };
 
+export type NetworkHealth = "healthy" | "degraded" | "down";
+
 export interface VmNetworkInterface {
   name: string;
   model: string;
@@ -19,6 +21,28 @@ export interface VmNetworkInterface {
   state: string;
   type: string;
   macAddress: string;
+}
+
+export interface VmNetworkAlert {
+  severity: "warning" | "danger";
+  message: string;
+  network: NetworkResourceRef;
+  interfaceName: string;
+}
+
+export interface VirtManagedNetworkRow {
+  ref: NetworkResourceRef;
+  name: string;
+  kind: NetworkResourceKind;
+  namespace?: string;
+  description: string;
+  attachedVmCount: number;
+  health: NetworkHealth;
+}
+
+export interface VmCondition {
+  type: string;
+  status: string;
 }
 
 export interface VirtualMachineRecord {
@@ -32,6 +56,12 @@ export interface VirtualMachineRecord {
   description?: string;
   cpu?: string;
   memory?: string;
+  conditions?: VmCondition[];
+  node?: string;
+  ipAddress?: string;
+  createdAt?: string;
+  deletionProtection?: boolean;
+  storageClass?: string;
   interfaces: VmNetworkInterface[];
 }
 
@@ -60,30 +90,17 @@ export interface AttachedVmRow {
   interfaceName: string;
 }
 
-const VM_POOL: VirtualMachineRecord[] = [
-  vm("amber-fox-01", [
-    iface("default", { kind: "pod" }),
-    iface("nic-amber-fox-01", { kind: "NAD", name: "nad-black-landfowl", namespace: PROTOTYPE_NS }),
-  ]),
-  vm("bronze-elk-06", [
-    iface("default", { kind: "pod" }),
-    iface("nic-bronze-elk-06", { kind: "NAD", name: "nad-black-landfowl", namespace: PROTOTYPE_NS }),
-  ]),
-  vm("copper-bear-07", [
-    iface("default", { kind: "pod" }),
-    iface("nic-copper-bear-07", { kind: "NAD", name: "nad-black-landfowl", namespace: PROTOTYPE_NS }),
-  ]),
-  vm("dart-hawk-02", [
-    iface("default", { kind: "pod" }),
-    iface("nic-dart-hawk-02", { kind: "NAD", name: "nad-black-landfowl", namespace: PROTOTYPE_NS }),
-  ]),
-  vm("emerald-jay-03", [iface("default", { kind: "pod" })]),
-  vm("frost-lynx-04", [iface("default", { kind: "pod" })]),
-  vm("gold-mole-05", [iface("default", { kind: "pod" })]),
-  vm("hazel-owl-08", [iface("default", { kind: "pod" })]),
+const DEFAULT_ERROR_CONDITIONS: VmCondition[] = [
+  { type: "Ready", status: "False" },
+  { type: "DataVolumesReady", status: "False" },
+  { type: "PodScheduled", status: "False" },
 ];
 
-function vm(name: string, interfaces: VmNetworkInterface[]): VirtualMachineRecord {
+function vm(
+  name: string,
+  interfaces: VmNetworkInterface[],
+  overrides: Partial<VirtualMachineRecord> = {}
+): VirtualMachineRecord {
   return {
     name,
     namespace: PROTOTYPE_NS,
@@ -91,19 +108,76 @@ function vm(name: string, interfaces: VmNetworkInterface[]): VirtualMachineRecor
     instanceType: "u1.medium",
     preference: "rhel.10",
     hostname: name,
+    conditions: DEFAULT_ERROR_CONDITIONS,
+    cpu: "2 CPU",
+    memory: "4 GiB Memory",
+    createdAt: "Nov 14, 2025, 3:42 PM",
+    deletionProtection: false,
+    storageClass: "ocs-storagecluster-ceph-rbd",
     interfaces,
+    ...overrides,
   };
 }
 
-function iface(name: string, network: VmNetworkTarget): VmNetworkInterface {
+function iface(name: string, network: VmNetworkTarget, state = "up"): VmNetworkInterface {
   return {
     name,
-    model: network.kind === "pod" ? "virtio" : "virtio",
+    model: "virtio",
     network,
-    state: network.kind === "pod" ? "up" : "up",
+    state,
     type: network.kind === "pod" ? "masquerade" : "bridge",
     macAddress: "52:54:00:12:34:56",
   };
+}
+
+const VM_POOL: VirtualMachineRecord[] = [
+  vm("amber-fox-01", [
+    iface("default", { kind: "pod" }),
+    iface("nic-amber-fox-01", { kind: "NAD", name: "nad-black-landfowl", namespace: PROTOTYPE_NS }, "down"),
+  ]),
+  vm("bronze-elk-06", [
+    iface("default", { kind: "pod" }),
+    iface("nic-bronze-elk-06", { kind: "NAD", name: "nad-black-landfowl", namespace: PROTOTYPE_NS }, "down"),
+  ]),
+  vm("copper-bear-07", [
+    iface("default", { kind: "pod" }),
+    iface("nic-copper-bear-07", { kind: "NAD", name: "nad-black-landfowl", namespace: PROTOTYPE_NS }, "down"),
+  ]),
+  vm("dart-hawk-02", [
+    iface("default", { kind: "pod" }),
+    iface("nic-dart-hawk-02", { kind: "NAD", name: "nad-black-landfowl", namespace: PROTOTYPE_NS }, "down"),
+  ]),
+  vm("emerald-jay-03", [iface("default", { kind: "pod" })]),
+  vm("frost-lynx-04", [iface("default", { kind: "pod" })]),
+  vm("gold-mole-05", [iface("default", { kind: "pod" })]),
+  vm("hazel-owl-08", [iface("default", { kind: "pod" })]),
+];
+
+const NETWORK_HEALTH: Record<string, NetworkHealth> = {
+  [`NAD/${PROTOTYPE_NS}/nad-black-landfowl`]: "down",
+  "CUDN//cluster-udn-lime-giraffe": "degraded",
+};
+
+function networkHealthKey(ref: NetworkResourceRef): string {
+  return `${ref.kind}/${ref.namespace ?? ""}/${ref.name}`;
+}
+
+export function getNetworkHealth(ref: NetworkResourceRef): NetworkHealth {
+  return NETWORK_HEALTH[networkHealthKey(ref)] ?? "healthy";
+}
+
+export function getVmNetworkAlerts(vm: VirtualMachineRecord): VmNetworkAlert[] {
+  return vm.interfaces.flatMap((iface) => {
+    if (iface.network.kind === "pod") return [];
+    const health = getNetworkHealth(iface.network);
+    if (health === "healthy" && iface.state === "up") return [];
+    const severity = health === "down" || iface.state === "down" ? "danger" : "warning";
+    const message =
+      health === "down"
+        ? `Network ${iface.network.name} is unreachable — interface ${iface.name} cannot pass traffic.`
+        : `Network ${iface.network.name} is degraded — monitor interface ${iface.name}.`;
+    return [{ severity, message, network: iface.network, interfaceName: iface.name }];
+  });
 }
 
 const INITIAL_NAD_RECORDS: NadRecord[] = [
@@ -161,9 +235,41 @@ export interface NncpRecord {
   status: string;
 }
 
+export interface ServiceRecord {
+  name: string;
+  namespace: string;
+  labels: { key: string; value: string }[];
+  podSelector: string;
+  location: string;
+  type: string;
+}
+
+const INITIAL_SERVICE_RECORDS: ServiceRecord[] = [
+  {
+    name: "kubernetes",
+    namespace: "default",
+    labels: [
+      { key: "component", value: "apiserver" },
+      { key: "provider", value: "kubernetes" },
+    ],
+    podSelector: "All pods within default",
+    location: "172.30.0.1:443",
+    type: "ClusterIP",
+  },
+  {
+    name: "openshift",
+    namespace: "default",
+    labels: [],
+    podSelector: "All pods within default",
+    location: "",
+    type: "ClusterIP",
+  },
+];
+
 let nadRecords: NadRecord[] = [...INITIAL_NAD_RECORDS];
 let udnRecords: UdnRecord[] = [...INITIAL_UDN_RECORDS];
 let nncpRecords: NncpRecord[] = [{ name: "nncp-br-localnet", status: "Progressing" }];
+let serviceRecords: ServiceRecord[] = [...INITIAL_SERVICE_RECORDS];
 
 export type NamespacePropagationTarget = {
   namespace: string;
@@ -222,6 +328,10 @@ export function getUdnRecords(): UdnRecord[] {
 
 export function getNncpRecords(): NncpRecord[] {
   return nncpRecords;
+}
+
+export function getServiceRecords(): ServiceRecord[] {
+  return serviceRecords;
 }
 
 export interface CreateNadInput {
@@ -295,6 +405,60 @@ export function createNncp(input: CreateNncpInput): NncpRecord {
     status: "Progressing",
   };
   nncpRecords = [...nncpRecords, record];
+  notifyResourceListeners();
+  return record;
+}
+
+export interface CreateServiceInput {
+  name: string;
+  namespace: string;
+  type: string;
+  selector: string;
+  ports: string;
+}
+
+function parseServiceSelector(selector: string, namespace: string): string {
+  const pairs = selector
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (pairs.length === 0) return `All pods within ${namespace}`;
+  return pairs.join(", ");
+}
+
+function parseServiceLocation(type: string, ports: string, name: string): string {
+  if (type === "ExternalName") return "";
+  const firstPort = ports
+    .split("\n")
+    .map((line) => line.trim())
+    .find(Boolean);
+  if (!firstPort) return "";
+  const portMatch = firstPort.match(/^(\d+)/);
+  const port = portMatch?.[1] ?? "80";
+  // Stable fake ClusterIP for the prototype (deterministic from name length).
+  const octet = (name.length * 17) % 250 || 10;
+  return `172.30.${octet}.${(octet * 3) % 250 || 1}:${port}`;
+}
+
+export function createService(input: CreateServiceInput): ServiceRecord {
+  const name = input.name.trim();
+  const namespace = input.namespace.trim() || "default";
+  const type = input.type.trim() || "ClusterIP";
+  const record: ServiceRecord = {
+    name,
+    namespace,
+    labels: [],
+    podSelector: parseServiceSelector(input.selector, namespace),
+    location: parseServiceLocation(type, input.ports, name),
+    type,
+  };
+  const existing = serviceRecords.findIndex(
+    (s) => s.name === record.name && s.namespace === record.namespace
+  );
+  serviceRecords =
+    existing >= 0
+      ? serviceRecords.map((s, i) => (i === existing ? record : s))
+      : [...serviceRecords, record];
   notifyResourceListeners();
   return record;
 }
@@ -435,6 +599,54 @@ export function vmDetailPath(namespace: string, name: string): string {
   return `/virtualization/virtualmachines/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`;
 }
 
+export function virtVmNetworkDetailPath(ref: NetworkResourceRef): string {
+  switch (ref.kind) {
+    case "NAD":
+      return `/virtualization/virtualmachinenetworks/nad/${encodeURIComponent(ref.namespace ?? PROTOTYPE_NS)}/${encodeURIComponent(ref.name)}`;
+    case "UDN":
+      return `/virtualization/virtualmachinenetworks/udn/${encodeURIComponent(ref.namespace ?? PROTOTYPE_NS)}/${encodeURIComponent(ref.name)}`;
+    case "CUDN":
+      return `/virtualization/virtualmachinenetworks/cudn/${encodeURIComponent(ref.name)}`;
+    default:
+      return "/virtualization/virtualmachinenetworks";
+  }
+}
+
+export function listVirtManagedNetworks(): VirtManagedNetworkRow[] {
+  const nadRows: VirtManagedNetworkRow[] = nadRecords
+    .filter((nad) => nad.namespace === PROTOTYPE_NS || nad.name.startsWith("nad-"))
+    .map((nad) => {
+      const ref: NetworkResourceRef = { kind: "NAD", name: nad.name, namespace: nad.namespace };
+      return {
+        ref,
+        name: nad.name,
+        kind: "NAD",
+        namespace: nad.namespace,
+        description: nad.description,
+        attachedVmCount: getAttachedVmsForNetwork(ref).length,
+        health: getNetworkHealth(ref),
+      };
+    });
+
+  const udnRows: VirtManagedNetworkRow[] = udnRecords.map((udn) => {
+    const ref: NetworkResourceRef =
+      udn.kind === "CUDN"
+        ? { kind: "CUDN", name: udn.name }
+        : { kind: "UDN", name: udn.name, namespace: udn.namespace };
+    return {
+      ref,
+      name: udn.name,
+      kind: udn.kind,
+      namespace: udn.namespace,
+      description: udn.description,
+      attachedVmCount: getAttachedVmsForNetwork(ref).length,
+      health: getNetworkHealth(ref),
+    };
+  });
+
+  return [...nadRows, ...udnRows];
+}
+
 export interface CreateVirtualMachineInput {
   name: string;
   namespace: string;
@@ -457,6 +669,10 @@ export function createVirtualMachine(input: CreateVirtualMachineInput): VirtualM
     description: input.description,
     cpu: input.cpu ?? "1 CPU",
     memory: input.memory ?? "4 GiB Memory",
+    conditions: DEFAULT_ERROR_CONDITIONS,
+    createdAt: "Just now",
+    deletionProtection: false,
+    storageClass: "ocs-storagecluster-ceph-rbd",
     interfaces: [iface("default", { kind: "pod" })],
   };
   vmStore = [...vmStore, record];
