@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, type ReactNode } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Button,
@@ -23,6 +23,10 @@ import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import {
+  type ManageColumnDef,
+  useManageColumns,
+} from "../../components/dataView/ManageColumnsModal";
+import {
   OCS_PROTOTYPE_DATAVIEW_CLASS,
   OCS_PROTOTYPE_TOOLBAR_CLASS,
   OcsPrototypeListTable,
@@ -46,7 +50,19 @@ import { useNetworkingResources } from "./useNetworkingResources";
 
 type RouteFilters = { name: string };
 
-type SortColumn = "name" | "backendHealth" | "location" | "service" | "host";
+type RouteColumnId = "name" | "health" | "location" | "service" | "host" | "tls" | "actions";
+
+type SortColumn = "name" | "health" | "location" | "service" | "host" | "tls";
+
+const ROUTE_COLUMNS: ManageColumnDef<RouteColumnId>[] = [
+  { id: "name", label: "Name", isLocked: true, isDefault: true },
+  { id: "health", label: "Health", isDefault: true },
+  { id: "location", label: "Location", isDefault: true },
+  { id: "service", label: "Service", isDefault: true },
+  { id: "host", label: "Hostname", isDefault: true },
+  { id: "actions", label: "Actions", isDefault: true },
+  { id: "tls", label: "TLS termination" },
+];
 
 function rowMatchesFilters(row: RouteRecord, filters: RouteFilters): boolean {
   const q = (filters.name ?? "").trim().toLowerCase();
@@ -63,7 +79,7 @@ function sortRoutes(rows: RouteRecord[], column: SortColumn, direction: SortDire
     switch (column) {
       case "name":
         return compareStrings(a.name, b.name, direction);
-      case "backendHealth": {
+      case "health": {
         const ha = deriveEndpointHealth(a.endpointReady, a.endpointTotal, a.endpointHealthLoaded !== false);
         const hb = deriveEndpointHealth(b.endpointReady, b.endpointTotal, b.endpointHealthLoaded !== false);
         const diff = healthSortKey(ha) - healthSortKey(hb);
@@ -75,16 +91,95 @@ function sortRoutes(rows: RouteRecord[], column: SortColumn, direction: SortDire
         return compareStrings(a.serviceName, b.serviceName, direction);
       case "host":
         return compareStrings(a.host, b.host, direction);
+      case "tls":
+        return compareStrings(a.tlsTermination, b.tlsTermination, direction);
       default:
         return 0;
     }
   });
 }
 
+function renderRouteHeader(
+  colId: RouteColumnId,
+  sortColumn: SortColumn,
+  sortDirection: SortDirection,
+  toggleSort: (column: SortColumn) => void
+): ReactNode {
+  if (colId === "actions") return <PlainTableHeader label="Actions" />;
+  return (
+    <SortableTableHeader
+      label={ROUTE_COLUMNS.find((c) => c.id === colId)?.label ?? colId}
+      column={colId as SortColumn}
+      sortColumn={sortColumn}
+      sortDirection={sortDirection}
+      onSort={toggleSort}
+    />
+  );
+}
+
+function renderRouteCell(colId: RouteColumnId, route: RouteRecord): ReactNode {
+  switch (colId) {
+    case "name":
+      return (
+        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+          <Label color="blue" isCompact className="ocs-resource-label">
+            RT
+          </Label>
+          <Button
+            variant="link"
+            isInline
+            component={Link}
+            to={routeDetailPath(route.namespace, route.name)}
+          >
+            {route.name}
+          </Button>
+        </Flex>
+      );
+    case "health":
+      return (
+        <EndpointHealthCell
+          health={deriveEndpointHealth(
+            route.endpointReady,
+            route.endpointTotal,
+            route.endpointHealthLoaded !== false
+          )}
+        />
+      );
+    case "location":
+      return <Content component="small">{route.location}</Content>;
+    case "service":
+      return (
+        <Button
+          variant="link"
+          isInline
+          component={Link}
+          to={serviceDetailPath(route.serviceNamespace, route.serviceName)}
+        >
+          {route.serviceName}
+        </Button>
+      );
+    case "host":
+      return (
+        <Content component="small" className="ocs-pods-list__mono">
+          {route.host}
+        </Content>
+      );
+    case "tls":
+      return <Content component="small">{route.tlsTermination}</Content>;
+    case "actions":
+      return (
+        <Button variant="plain" aria-label={`Actions for ${route.name}`} icon={<EllipsisVIcon />} />
+      );
+    default:
+      return null;
+  }
+}
+
 export default function RoutesPage() {
   const navigate = useNavigate();
   const { routeRecords } = useNetworkingResources();
   const { autoRefresh, setAutoRefresh } = useEndpointHealthAutoRefresh();
+  const columns = useManageColumns(ROUTE_COLUMNS);
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<RouteFilters>({
     filters: { name: "" },
   });
@@ -104,7 +199,7 @@ export default function RoutesPage() {
     setPage(1);
   }, [filters.name, perPage, setPage]);
 
-  const colSpan = 6;
+  const colSpan = Math.max(1, columns.visibleOrderedColumns.length);
 
   return (
     <NetworkingPageShell
@@ -137,6 +232,7 @@ export default function RoutesPage() {
                         ouiaId="routes-auto-refresh"
                       />
                     </ToolbarItem>
+                    {columns.manageColumnsButton}
                     <ToolbarItem>
                       <Button variant="plain" aria-label="List view" isAriaPressed icon={<ListIcon />} />
                     </ToolbarItem>
@@ -181,54 +277,15 @@ export default function RoutesPage() {
           <OcsPrototypeListTable ariaLabel="Routes">
             <Thead>
               <Tr>
-                <Th dataLabel="Name">
-                  <SortableTableHeader
-                    label="Name"
-                    column="name"
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={toggleSort}
-                  />
-                </Th>
-                <Th dataLabel="Health" modifier="fitContent">
-                  <SortableTableHeader
-                    label="Health"
-                    column="backendHealth"
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={toggleSort}
-                  />
-                </Th>
-                <Th dataLabel="Location">
-                  <SortableTableHeader
-                    label="Location"
-                    column="location"
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={toggleSort}
-                  />
-                </Th>
-                <Th dataLabel="Service">
-                  <SortableTableHeader
-                    label="Service"
-                    column="service"
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={toggleSort}
-                  />
-                </Th>
-                <Th dataLabel="Hostname">
-                  <SortableTableHeader
-                    label="Hostname"
-                    column="host"
-                    sortColumn={sortColumn}
-                    sortDirection={sortDirection}
-                    onSort={toggleSort}
-                  />
-                </Th>
-                <Th modifier="fitContent" dataLabel="Actions">
-                  <PlainTableHeader label="Actions" />
-                </Th>
+                {columns.visibleOrderedColumns.map((col) => (
+                  <Th
+                    key={col.id}
+                    dataLabel={col.label}
+                    modifier={col.id === "health" || col.id === "actions" ? "fitContent" : undefined}
+                  >
+                    {renderRouteHeader(col.id, sortColumn, sortDirection, toggleSort)}
+                  </Th>
+                ))}
               </Tr>
             </Thead>
             <Tbody>
@@ -241,61 +298,26 @@ export default function RoutesPage() {
                   </Td>
                 </Tr>
               ) : (
-                paginated.map((route) => {
-                  const health = deriveEndpointHealth(
-                    route.endpointReady,
-                    route.endpointTotal,
-                    route.endpointHealthLoaded !== false
-                  );
-                  return (
-                    <Tr key={`${route.namespace}/${route.name}`}>
-                      <Td dataLabel="Name">
-                        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-                          <Label color="blue" isCompact className="ocs-resource-label">
-                            RT
-                          </Label>
-                          <Button
-                            variant="link"
-                            isInline
-                            component={Link}
-                            to={routeDetailPath(route.namespace, route.name)}
-                          >
-                            {route.name}
-                          </Button>
-                        </Flex>
+                paginated.map((route) => (
+                  <Tr key={`${route.namespace}/${route.name}`}>
+                    {columns.visibleOrderedColumns.map((col) => (
+                      <Td
+                        key={col.id}
+                        dataLabel={col.label}
+                        isActionCell={col.id === "actions" ? true : undefined}
+                        hasAction={col.id === "actions" ? true : undefined}
+                      >
+                        {renderRouteCell(col.id, route)}
                       </Td>
-                      <Td dataLabel="Health">
-                        <EndpointHealthCell health={health} />
-                      </Td>
-                      <Td dataLabel="Location">
-                        <Content component="small">{route.location}</Content>
-                      </Td>
-                      <Td dataLabel="Service">
-                        <Button
-                          variant="link"
-                          isInline
-                          component={Link}
-                          to={serviceDetailPath(route.serviceNamespace, route.serviceName)}
-                        >
-                          {route.serviceName}
-                        </Button>
-                      </Td>
-                      <Td dataLabel="Hostname">
-                        <Content component="small" className="ocs-pods-list__mono">
-                          {route.host}
-                        </Content>
-                      </Td>
-                      <Td dataLabel="Actions" isActionCell hasAction>
-                        <Button variant="plain" aria-label={`Actions for ${route.name}`} icon={<EllipsisVIcon />} />
-                      </Td>
-                    </Tr>
-                  );
-                })
+                    ))}
+                  </Tr>
+                ))
               )}
             </Tbody>
           </OcsPrototypeListTable>
         </DataView>
       </NetworkingTablePanel>
+      {columns.manageColumnsModal}
     </NetworkingPageShell>
   );
 }
