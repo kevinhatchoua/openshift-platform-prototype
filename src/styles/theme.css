@@ -1492,6 +1492,40 @@ html.no-glass.dark .ocs-pods-list__panel {
   justify-content: center;
 }
 
+/* Endpoint health column — Services / Routes (HPUX-1868 / RFE-9483) */
+.ocs-endpoint-health {
+  display: inline-flex;
+  white-space: nowrap;
+}
+
+.ocs-endpoint-health__count {
+  font-variant-numeric: tabular-nums;
+}
+
+.ocs-endpoint-health__icon {
+  flex-shrink: 0;
+}
+
+.ocs-endpoint-health__icon--healthy {
+  color: var(--pf-t--global--icon--color--status--success);
+}
+
+.ocs-endpoint-health__icon--degraded {
+  color: var(--pf-t--global--icon--color--status--warning);
+}
+
+.ocs-endpoint-health__icon--down {
+  color: var(--pf-t--global--icon--color--status--danger);
+}
+
+.ocs-endpoint-health__icon--unknown {
+  color: var(--pf-t--global--icon--color--subtle);
+}
+
+.ocs-endpoint-health--unknown {
+  color: var(--pf-t--global--text--color--subtle);
+}
+
 .ocs-pods-list__mono {
   font-family: var(--pf-t--global--font--family--monospace, monospace);
 }

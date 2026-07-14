@@ -235,13 +235,96 @@ export interface NncpRecord {
   status: string;
 }
 
+export interface ServicePortMapping {
+  name: string;
+  port: string;
+  protocol: string;
+  targetPort: string;
+}
+
 export interface ServiceRecord {
   name: string;
   namespace: string;
   labels: { key: string; value: string }[];
+  /** Display string for list + pod selector link */
   podSelector: string;
+  /** Raw selector key=value pairs (empty when selecting all pods) */
+  selectorPairs: string[];
   location: string;
+  clusterIP: string;
   type: string;
+  sessionAffinity: string;
+  annotationCount: number;
+  createdAt: string;
+  owner: string;
+  ports: ServicePortMapping[];
+  /** Ready endpoint addresses (Endpoints / EndpointSlice aggregate) — RFE-9483 */
+  endpointReady: number;
+  /** Total endpoint addresses */
+  endpointTotal: number;
+  /** When false, list shows Unknown until first health load */
+  endpointHealthLoaded?: boolean;
+}
+
+/** Route list row with backing Service endpoint health (RFE-9483 / HPUX-1868). */
+export interface RouteRecord {
+  name: string;
+  namespace: string;
+  host: string;
+  serviceName: string;
+  serviceNamespace: string;
+  endpointReady: number;
+  endpointTotal: number;
+  endpointHealthLoaded?: boolean;
+  tlsTermination: string;
+  location: string;
+}
+
+function clusterIpFromName(name: string): string {
+  const octet = (name.length * 17) % 250 || 10;
+  return `172.30.${octet}.${(octet * 3) % 250 || 1}`;
+}
+
+function parsePortMappings(ports: string): ServicePortMapping[] {
+  return ports
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line, index) => {
+      const full = line.match(/^(\d+)\s*:\s*(\d+)\s*\/\s*(\w+)$/i);
+      if (full) {
+        return {
+          name: `${full[3].toLowerCase()}-${full[1]}`,
+          port: full[1],
+          protocol: full[3].toUpperCase(),
+          targetPort: full[2],
+        };
+      }
+      const simple = line.match(/^(\d+)\s*\/\s*(\w+)$/i);
+      if (simple) {
+        return {
+          name: `${simple[2].toLowerCase()}-${simple[1]}`,
+          port: simple[1],
+          protocol: simple[2].toUpperCase(),
+          targetPort: simple[1],
+        };
+      }
+      const portOnly = line.match(/^(\d+)$/);
+      if (portOnly) {
+        return {
+          name: `port-${portOnly[1]}`,
+          port: portOnly[1],
+          protocol: "TCP",
+          targetPort: portOnly[1],
+        };
+      }
+      return {
+        name: `port-${index + 1}`,
+        port: "80",
+        protocol: "TCP",
+        targetPort: "80",
+      };
+    });
 }
 
 const INITIAL_SERVICE_RECORDS: ServiceRecord[] = [
@@ -253,16 +336,144 @@ const INITIAL_SERVICE_RECORDS: ServiceRecord[] = [
       { key: "provider", value: "kubernetes" },
     ],
     podSelector: "All pods within default",
+    selectorPairs: [],
     location: "172.30.0.1:443",
+    clusterIP: "172.30.0.1",
     type: "ClusterIP",
+    sessionAffinity: "None",
+    annotationCount: 1,
+    createdAt: "Jul 14, 2026, 2:53 AM",
+    owner: "No owner",
+    ports: [{ name: "https", port: "443", protocol: "TCP", targetPort: "443" }],
+    endpointReady: 3,
+    endpointTotal: 3,
+    endpointHealthLoaded: true,
   },
   {
     name: "openshift",
     namespace: "default",
     labels: [],
     podSelector: "All pods within default",
+    selectorPairs: [],
     location: "",
+    clusterIP: "",
     type: "ClusterIP",
+    sessionAffinity: "None",
+    annotationCount: 0,
+    createdAt: "Jul 14, 2026, 2:53 AM",
+    owner: "No owner",
+    ports: [],
+    endpointReady: 0,
+    endpointTotal: 0,
+    endpointHealthLoaded: true,
+  },
+  {
+    name: "frontend",
+    namespace: "openshift-console",
+    labels: [
+      { key: "app", value: "console" },
+      { key: "component", value: "ui" },
+    ],
+    podSelector: "app=console, component=ui",
+    selectorPairs: ["app=console", "component=ui"],
+    location: "172.30.12.40:443",
+    clusterIP: "172.30.12.40",
+    type: "ClusterIP",
+    sessionAffinity: "None",
+    annotationCount: 2,
+    createdAt: "Jul 10, 2026, 9:12 AM",
+    owner: "Deployment/console",
+    ports: [{ name: "https", port: "443", protocol: "TCP", targetPort: "8443" }],
+    endpointReady: 2,
+    endpointTotal: 3,
+    endpointHealthLoaded: true,
+  },
+  {
+    name: "catalog-server",
+    namespace: "openshift-marketplace",
+    labels: [{ key: "app", value: "catalog" }],
+    podSelector: "app=catalog",
+    selectorPairs: ["app=catalog"],
+    location: "172.30.88.10:50051",
+    clusterIP: "172.30.88.10",
+    type: "ClusterIP",
+    sessionAffinity: "None",
+    annotationCount: 0,
+    createdAt: "Jul 12, 2026, 4:01 PM",
+    owner: "Deployment/catalog-server",
+    ports: [{ name: "grpc", port: "50051", protocol: "TCP", targetPort: "50051" }],
+    endpointReady: 0,
+    endpointTotal: 2,
+    endpointHealthLoaded: true,
+  },
+  {
+    name: "metrics",
+    namespace: "monitoring",
+    labels: [{ key: "app", value: "metrics" }],
+    podSelector: "app=metrics",
+    selectorPairs: ["app=metrics"],
+    location: "172.30.44.7:9090",
+    clusterIP: "172.30.44.7",
+    type: "ClusterIP",
+    sessionAffinity: "None",
+    annotationCount: 1,
+    createdAt: "Jul 13, 2026, 11:20 AM",
+    owner: "No owner",
+    ports: [{ name: "http", port: "9090", protocol: "TCP", targetPort: "9090" }],
+    endpointReady: 0,
+    endpointTotal: 0,
+    endpointHealthLoaded: false,
+  },
+];
+
+const INITIAL_ROUTE_RECORDS: RouteRecord[] = [
+  {
+    name: "console",
+    namespace: "openshift-console",
+    host: "console-openshift-console.apps.cluster.example.com",
+    serviceName: "frontend",
+    serviceNamespace: "openshift-console",
+    endpointReady: 2,
+    endpointTotal: 3,
+    endpointHealthLoaded: true,
+    tlsTermination: "reencrypt",
+    location: "HTTPS",
+  },
+  {
+    name: "oauth-openshift",
+    namespace: "openshift-authentication",
+    host: "oauth-openshift.apps.cluster.example.com",
+    serviceName: "oauth-openshift",
+    serviceNamespace: "openshift-authentication",
+    endpointReady: 2,
+    endpointTotal: 2,
+    endpointHealthLoaded: true,
+    tlsTermination: "edge",
+    location: "HTTPS",
+  },
+  {
+    name: "downloads",
+    namespace: "openshift-console",
+    host: "downloads-openshift-console.apps.cluster.example.com",
+    serviceName: "downloads",
+    serviceNamespace: "openshift-console",
+    endpointReady: 0,
+    endpointTotal: 1,
+    endpointHealthLoaded: true,
+    tlsTermination: "edge",
+    location: "HTTPS",
+  },
+  {
+    name: "alertmanager-main",
+    namespace: "openshift-monitoring",
+    host: "alertmanager-main-openshift-monitoring.apps.cluster.example.com",
+    serviceName: "alertmanager-main",
+    serviceNamespace: "openshift-monitoring",
+    endpointReady: 0,
+    endpointTotal: 0,
+    endpointHealthLoaded: false,
+    tlsTermination: "reencrypt",
+    location: "HTTPS",
   },
 ];
 
@@ -270,6 +481,7 @@ let nadRecords: NadRecord[] = [...INITIAL_NAD_RECORDS];
 let udnRecords: UdnRecord[] = [...INITIAL_UDN_RECORDS];
 let nncpRecords: NncpRecord[] = [{ name: "nncp-br-localnet", status: "Progressing" }];
 let serviceRecords: ServiceRecord[] = [...INITIAL_SERVICE_RECORDS];
+let routeRecords: RouteRecord[] = [...INITIAL_ROUTE_RECORDS];
 
 export type NamespacePropagationTarget = {
   namespace: string;
@@ -332,6 +544,34 @@ export function getNncpRecords(): NncpRecord[] {
 
 export function getServiceRecords(): ServiceRecord[] {
   return serviceRecords;
+}
+
+export function getRouteRecords(): RouteRecord[] {
+  return routeRecords;
+}
+
+/**
+ * Prototype-only: nudge endpoint readiness when Auto-refresh is on (HPUX-1868).
+ * Production uses watch/poll against Endpoints / EndpointSlice aggregates.
+ */
+export function simulateEndpointHealthTick(): void {
+  serviceRecords = serviceRecords.map((s) => {
+    if (!s.endpointHealthLoaded || s.endpointTotal <= 0) return s;
+    // Keep kubernetes healthy; vary frontend between degraded and healthy for demo
+    if (s.name === "frontend" && s.namespace === "openshift-console") {
+      const ready = s.endpointReady === s.endpointTotal ? s.endpointTotal - 1 : s.endpointTotal;
+      return { ...s, endpointReady: ready };
+    }
+    return s;
+  });
+  routeRecords = routeRecords.map((r) => {
+    if (r.name === "console" && r.namespace === "openshift-console") {
+      const ready = r.endpointReady === r.endpointTotal ? r.endpointTotal - 1 : r.endpointTotal;
+      return { ...r, endpointReady: ready };
+    }
+    return r;
+  });
+  notifyResourceListeners();
 }
 
 export interface CreateNadInput {
@@ -417,40 +657,53 @@ export interface CreateServiceInput {
   ports: string;
 }
 
-function parseServiceSelector(selector: string, namespace: string): string {
+function parseServiceSelector(selector: string, namespace: string): { display: string; pairs: string[] } {
   const pairs = selector
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  if (pairs.length === 0) return `All pods within ${namespace}`;
-  return pairs.join(", ");
+  if (pairs.length === 0) return { display: `All pods within ${namespace}`, pairs: [] };
+  return { display: pairs.join(", "), pairs };
 }
 
-function parseServiceLocation(type: string, ports: string, name: string): string {
-  if (type === "ExternalName") return "";
-  const firstPort = ports
-    .split("\n")
-    .map((line) => line.trim())
-    .find(Boolean);
-  if (!firstPort) return "";
-  const portMatch = firstPort.match(/^(\d+)/);
-  const port = portMatch?.[1] ?? "80";
-  // Stable fake ClusterIP for the prototype (deterministic from name length).
-  const octet = (name.length * 17) % 250 || 10;
-  return `172.30.${octet}.${(octet * 3) % 250 || 1}:${port}`;
+function parseServiceLocation(type: string, ports: ServicePortMapping[], clusterIP: string): string {
+  if (type === "ExternalName" || !clusterIP) return "";
+  const firstPort = ports[0]?.port;
+  return firstPort ? `${clusterIP}:${firstPort}` : clusterIP;
 }
 
 export function createService(input: CreateServiceInput): ServiceRecord {
   const name = input.name.trim();
   const namespace = input.namespace.trim() || "default";
   const type = input.type.trim() || "ClusterIP";
+  const { display, pairs } = parseServiceSelector(input.selector, namespace);
+  const portMappings = parsePortMappings(input.ports);
+  const clusterIP = type === "ExternalName" ? "" : clusterIpFromName(name);
+  const hasSelector = pairs.length > 0;
   const record: ServiceRecord = {
     name,
     namespace,
     labels: [],
-    podSelector: parseServiceSelector(input.selector, namespace),
-    location: parseServiceLocation(type, input.ports, name),
+    podSelector: display,
+    selectorPairs: pairs,
+    location: parseServiceLocation(type, portMappings, clusterIP),
+    clusterIP,
     type,
+    sessionAffinity: "None",
+    annotationCount: 0,
+    createdAt: new Date().toLocaleString("en-US", {
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    }),
+    owner: "No owner",
+    ports: portMappings,
+    // New services: healthy snapshot until auto-refresh / API loads real Endpoints
+    endpointReady: hasSelector ? 1 : 0,
+    endpointTotal: hasSelector ? 1 : 0,
+    endpointHealthLoaded: true,
   };
   const existing = serviceRecords.findIndex(
     (s) => s.name === record.name && s.namespace === record.namespace
@@ -502,6 +755,10 @@ export function getVirtualMachine(namespace: string, name: string): VirtualMachi
 
 export function getNad(namespace: string, name: string): NadRecord | undefined {
   return nadRecords.find((n) => n.namespace === namespace && n.name === name);
+}
+
+export function getService(namespace: string, name: string): ServiceRecord | undefined {
+  return serviceRecords.find((s) => s.namespace === namespace && s.name === name);
 }
 
 export function getUdn(name: string, namespace?: string): UdnRecord | undefined {
@@ -573,6 +830,10 @@ export function networkDisplayName(network: VmNetworkTarget): string {
 
 export function nadDetailPath(namespace: string, name: string): string {
   return `/networking/networkattachmentdefinitions/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`;
+}
+
+export function serviceDetailPath(namespace: string, name: string): string {
+  return `/networking/services/${encodeURIComponent(namespace)}/${encodeURIComponent(name)}`;
 }
 
 export function udnDetailPath(record: UdnRecord): string {
@@ -696,6 +957,46 @@ metadata:
   namespace: ${record.namespace}
 spec:
   config: '{ "cniVersion": "0.3.1", "type": "${record.networkType}", "bridge": "${record.name}" }'`;
+}
+
+export function serviceYaml(record: ServiceRecord): string {
+  const labelLines =
+    record.labels.length > 0
+      ? `\n  labels:\n${record.labels.map((l) => `    ${l.key}: ${l.value}`).join("\n")}`
+      : "";
+  const selectorLines =
+    record.selectorPairs.length > 0
+      ? record.selectorPairs
+          .map((pair) => {
+            const [key, ...rest] = pair.split("=");
+            return `    ${key}: ${rest.join("=") || '""'}`;
+          })
+          .join("\n")
+      : "    {}";
+  const portLines =
+    record.ports.length > 0
+      ? record.ports
+          .map(
+            (p) => `  - name: ${p.name}
+    port: ${p.port}
+    protocol: ${p.protocol}
+    targetPort: ${p.targetPort}`
+          )
+          .join("\n")
+      : "  []";
+  const typeLine = record.type === "ClusterIP" ? "" : `  type: ${record.type}\n`;
+  const clusterIpLine = record.clusterIP ? `  clusterIP: ${record.clusterIP}\n` : "";
+  return `apiVersion: v1
+kind: Service
+metadata:
+  name: ${record.name}
+  namespace: ${record.namespace}${labelLines}
+spec:
+${typeLine}${clusterIpLine}  sessionAffinity: ${record.sessionAffinity}
+  selector:
+${selectorLines}
+  ports:
+${portLines}`;
 }
 
 export function udnYaml(record: UdnRecord): string {

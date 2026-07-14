@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   Button,
   Content,
@@ -7,6 +7,7 @@ import {
   Label,
   Pagination,
   PaginationVariant,
+  Switch,
   ToolbarGroup,
   ToolbarItem,
 } from "@patternfly/react-core";
@@ -32,13 +33,20 @@ import {
   useTableSort,
   type SortDirection,
 } from "../../components/dataView/OcsPrototypeListTable";
+import {
+  EndpointHealthCell,
+  deriveEndpointHealth,
+  healthSortKey,
+} from "./EndpointHealthCell";
 import type { ServiceRecord } from "./networkingMockData";
+import { serviceDetailPath } from "./networkingMockData";
 import { NetworkingPageShell, NetworkingTablePanel } from "./networkingShared";
+import { useEndpointHealthAutoRefresh } from "./useEndpointHealthAutoRefresh";
 import { useNetworkingResources } from "./useNetworkingResources";
 
 type ServiceFilters = { name: string };
 
-type SortColumn = "name" | "labels" | "podSelector" | "location";
+type SortColumn = "name" | "health" | "labels" | "podSelector" | "location";
 
 function rowMatchesFilters(row: ServiceRecord, filters: ServiceFilters): boolean {
   const q = (filters.name ?? "").trim().toLowerCase();
@@ -54,6 +62,12 @@ function sortServices(
     switch (column) {
       case "name":
         return compareStrings(a.name, b.name, direction);
+      case "health": {
+        const ha = deriveEndpointHealth(a.endpointReady, a.endpointTotal, a.endpointHealthLoaded !== false);
+        const hb = deriveEndpointHealth(b.endpointReady, b.endpointTotal, b.endpointHealthLoaded !== false);
+        const diff = healthSortKey(ha) - healthSortKey(hb);
+        return direction === "asc" ? diff : -diff;
+      }
       case "labels":
         return compareStrings(
           a.labels.map((l) => `${l.key}=${l.value}`).join(", "),
@@ -74,6 +88,7 @@ export default function ServicesPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { serviceRecords } = useNetworkingResources();
+  const { autoRefresh, setAutoRefresh } = useEndpointHealthAutoRefresh();
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<ServiceFilters>({
     filters: { name: "" },
   });
@@ -101,7 +116,7 @@ export default function ServicesPage() {
     navigate("/networking/services/create");
   }, [navigate, searchParams, setSearchParams]);
 
-  const colSpan = 5;
+  const colSpan = 6;
 
   return (
     <NetworkingPageShell
@@ -125,6 +140,15 @@ export default function ServicesPage() {
                 breakpoint="xl"
                 midContent={
                   <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }}>
+                    <ToolbarItem>
+                      <Switch
+                        id="services-endpoint-health-auto-refresh"
+                        label="Auto-refresh"
+                        isChecked={autoRefresh}
+                        onChange={(_e, checked) => setAutoRefresh(checked)}
+                        ouiaId="services-auto-refresh"
+                      />
+                    </ToolbarItem>
                     <ToolbarItem>
                       <Button variant="plain" aria-label="List view" isAriaPressed icon={<ListIcon />} />
                     </ToolbarItem>
@@ -178,6 +202,15 @@ export default function ServicesPage() {
                     onSort={toggleSort}
                   />
                 </Th>
+                <Th dataLabel="Health" modifier="fitContent">
+                  <SortableTableHeader
+                    label="Health"
+                    column="health"
+                    sortColumn={sortColumn}
+                    sortDirection={sortDirection}
+                    onSort={toggleSort}
+                  />
+                </Th>
                 <Th dataLabel="Labels">
                   <SortableTableHeader
                     label="Labels"
@@ -220,44 +253,59 @@ export default function ServicesPage() {
                   </Td>
                 </Tr>
               ) : (
-                paginated.map((svc) => (
-                  <Tr key={`${svc.namespace}/${svc.name}`}>
-                    <Td dataLabel="Name">
-                      <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-                        <Label color="green" isCompact className="ocs-resource-label">
-                          S
-                        </Label>
-                        <Button variant="link" isInline>
-                          {svc.name}
-                        </Button>
-                      </Flex>
-                    </Td>
-                    <Td dataLabel="Labels">
-                      {svc.labels.length === 0 ? (
-                        <Content component="small">No labels</Content>
-                      ) : (
-                        <Flex gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
-                          {svc.labels.map((l) => (
-                            <Label key={l.key} color="green" isCompact>
-                              {l.key}={l.value}
-                            </Label>
-                          ))}
+                paginated.map((svc) => {
+                  const health = deriveEndpointHealth(
+                    svc.endpointReady,
+                    svc.endpointTotal,
+                    svc.endpointHealthLoaded !== false
+                  );
+                  return (
+                    <Tr key={`${svc.namespace}/${svc.name}`}>
+                      <Td dataLabel="Name">
+                        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                          <Label color="green" isCompact className="ocs-resource-label">
+                            S
+                          </Label>
+                          <Button
+                            variant="link"
+                            isInline
+                            component={Link}
+                            to={serviceDetailPath(svc.namespace, svc.name)}
+                          >
+                            {svc.name}
+                          </Button>
                         </Flex>
-                      )}
-                    </Td>
-                    <Td dataLabel="Pod selector">
-                      <Button variant="link" isInline>
-                        {svc.podSelector}
-                      </Button>
-                    </Td>
-                    <Td dataLabel="Location">
-                      <Content component="small">{svc.location || "—"}</Content>
-                    </Td>
-                    <Td dataLabel="Actions" isActionCell hasAction>
-                      <Button variant="plain" aria-label={`Actions for ${svc.name}`} icon={<EllipsisVIcon />} />
-                    </Td>
-                  </Tr>
-                ))
+                      </Td>
+                      <Td dataLabel="Health">
+                        <EndpointHealthCell health={health} />
+                      </Td>
+                      <Td dataLabel="Labels">
+                        {svc.labels.length === 0 ? (
+                          <Content component="small">No labels</Content>
+                        ) : (
+                          <Flex gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
+                            {svc.labels.map((l) => (
+                              <Label key={l.key} color="green" isCompact>
+                                {l.key}={l.value}
+                              </Label>
+                            ))}
+                          </Flex>
+                        )}
+                      </Td>
+                      <Td dataLabel="Pod selector">
+                        <Button variant="link" isInline>
+                          {svc.podSelector}
+                        </Button>
+                      </Td>
+                      <Td dataLabel="Location">
+                        <Content component="small">{svc.location || "—"}</Content>
+                      </Td>
+                      <Td dataLabel="Actions" isActionCell hasAction>
+                        <Button variant="plain" aria-label={`Actions for ${svc.name}`} icon={<EllipsisVIcon />} />
+                      </Td>
+                    </Tr>
+                  );
+                })
               )}
             </Tbody>
           </OcsPrototypeListTable>
