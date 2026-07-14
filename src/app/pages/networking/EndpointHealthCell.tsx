@@ -3,6 +3,7 @@ import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle
 import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon";
 import ExclamationTriangleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-triangle-icon";
 import QuestionCircleIcon from "@patternfly/react-icons/dist/esm/icons/question-circle-icon";
+import type { CSSProperties, ComponentType, SVGProps } from "react";
 
 /** Aggregated endpoint readiness for Services / Routes list health columns (RFE-9483 / HPUX-1868). */
 export type EndpointHealthStatus = "healthy" | "degraded" | "down" | "unknown";
@@ -27,21 +28,25 @@ const STATUS_LABEL: Record<EndpointHealthStatus, string> = {
   unknown: "Unknown",
 };
 
+/** Icon-only status colors (text stays default body color). */
+const ICON_COLOR: Record<EndpointHealthStatus, string> = {
+  healthy: "var(--pf-t--global--icon--color--status--success--default, #5ba352)",
+  degraded: "var(--pf-t--global--icon--color--status--warning--default, #f0ab00)",
+  down: "var(--pf-t--global--icon--color--status--danger--default, #fe5142)",
+  unknown: "var(--pf-t--global--text--color--subtle, #a3a3a3)",
+};
+
 function HealthIcon({ status }: { status: EndpointHealthStatus }) {
-  switch (status) {
-    case "healthy":
-      return <CheckCircleIcon className="ocs-endpoint-health__icon ocs-endpoint-health__icon--healthy" aria-hidden />;
-    case "degraded":
-      return (
-        <ExclamationTriangleIcon className="ocs-endpoint-health__icon ocs-endpoint-health__icon--degraded" aria-hidden />
-      );
-    case "down":
-      return <ExclamationCircleIcon className="ocs-endpoint-health__icon ocs-endpoint-health__icon--down" aria-hidden />;
-    default:
-      return (
-        <QuestionCircleIcon className="ocs-endpoint-health__icon ocs-endpoint-health__icon--unknown" aria-hidden />
-      );
-  }
+  const style: CSSProperties = { color: ICON_COLOR[status], flexShrink: 0 };
+  const Icon: ComponentType<SVGProps<SVGSVGElement>> =
+    status === "healthy"
+      ? CheckCircleIcon
+      : status === "degraded"
+        ? ExclamationTriangleIcon
+        : status === "down"
+          ? ExclamationCircleIcon
+          : QuestionCircleIcon;
+  return <Icon className="ocs-endpoint-health__icon" style={style} aria-hidden />;
 }
 
 export function EndpointHealthCell({
@@ -61,7 +66,7 @@ export function EndpointHealthCell({
   return (
     <Tooltip content={tooltip}>
       <Flex
-        className={`ocs-endpoint-health ocs-endpoint-health--${health.status}`}
+        className="ocs-endpoint-health"
         alignItems={{ default: "alignItemsCenter" }}
         gap={{ default: "gapXs" }}
         aria-label={

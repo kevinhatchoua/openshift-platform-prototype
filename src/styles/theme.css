@@ -1492,41 +1492,21 @@ html.no-glass.dark .ocs-pods-list__panel {
   justify-content: center;
 }
 
-/* Endpoint health column — Services / Routes (HPUX-1868 / RFE-9483) */
+/* Endpoint health column — Services / Routes (HPUX-1868 / RFE-9483)
+   Icon color is set inline in EndpointHealthCell; count stays default text. */
 .ocs-endpoint-health {
   display: inline-flex;
   white-space: nowrap;
+  color: inherit;
 }
 
 .ocs-endpoint-health__count {
   font-variant-numeric: tabular-nums;
-  /* Keep ready/total (and Unknown label) on default text — never inherit status color */
-  color: var(--pf-t--global--text--color--regular, #c7c7c7) !important;
+  color: inherit;
 }
 
 .ocs-endpoint-health__icon {
   flex-shrink: 0;
-}
-
-/* Color only icons */
-.ocs-endpoint-health--healthy > .ocs-endpoint-health__icon,
-.ocs-endpoint-health--healthy .ocs-endpoint-health__icon {
-  color: var(--pf-t--global--icon--color--status--success--default, #5ba352);
-}
-
-.ocs-endpoint-health--degraded > .ocs-endpoint-health__icon,
-.ocs-endpoint-health--degraded .ocs-endpoint-health__icon {
-  color: var(--pf-t--global--icon--color--status--warning--default, #f0ab00);
-}
-
-.ocs-endpoint-health--down > .ocs-endpoint-health__icon,
-.ocs-endpoint-health--down .ocs-endpoint-health__icon {
-  color: var(--pf-t--global--icon--color--status--danger--default, #fe5142);
-}
-
-.ocs-endpoint-health--unknown > .ocs-endpoint-health__icon,
-.ocs-endpoint-health--unknown .ocs-endpoint-health__icon {
-  color: var(--pf-t--global--text--color--subtle, #a3a3a3);
 }
 
 .ocs-pods-list__mono {
