@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { usePatternFlyGlassActive } from "@/lib/usePatternFlyGlassActive";
 import {
@@ -36,9 +36,11 @@ import BellIcon from "@patternfly/react-icons/dist/esm/icons/bell-icon";
 import ChartLineIcon from "@patternfly/react-icons/dist/esm/icons/chart-line-icon";
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
 import CubesIcon from "@patternfly/react-icons/dist/esm/icons/cubes-icon";
+import ExclamationTriangleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-triangle-icon";
 import InfoCircleIcon from "@patternfly/react-icons/dist/esm/icons/info-circle-icon";
 import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
 import ServerIcon from "@patternfly/react-icons/dist/esm/icons/server-icon";
+import { useNotificationAlerts } from "../contexts/NotificationAlertsContext";
 
 const inventoryItems = [
   { label: "Nodes", abbr: "N", color: "purple" as const, count: 6 },
@@ -314,15 +316,98 @@ function ActivityCard({ isGlass }: { isGlass: boolean }) {
   );
 }
 
+function StatusAlertRow({
+  id,
+  name,
+  time,
+  description,
+  configPath,
+  severity,
+  onDismiss,
+}: {
+  id: string;
+  name: string;
+  time: string;
+  description: string;
+  configPath?: string;
+  severity: "warning" | "critical";
+  onDismiss: (id: string) => void;
+}) {
+  const primaryLabel = configPath ? "Configure" : "View details";
+  const primaryTo = configPath ?? `/observe/alerts?q=${encodeURIComponent(name)}&state=Firing`;
+  const iconStatus = severity === "critical" ? "danger" : "warning";
+
+  return (
+    <div className="ocs-overview-status-alert">
+      <Flex
+        alignItems={{ default: "alignItemsFlexStart" }}
+        gap={{ default: "gapSm" }}
+        className="ocs-overview-status-alert__row"
+      >
+        <Icon status={iconStatus} className="ocs-overview-status-alert__icon" aria-hidden>
+          <ExclamationTriangleIcon />
+        </Icon>
+        <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} className="ocs-overview-status-alert__body">
+          <Flex
+            justifyContent={{ default: "justifyContentSpaceBetween" }}
+            alignItems={{ default: "alignItemsFlexStart" }}
+            gap={{ default: "gapMd" }}
+            flexWrap={{ default: "nowrap" }}
+          >
+            <Content component="p" className="ocs-overview-status-alert__title">
+              {name}
+            </Content>
+            <Flex gap={{ default: "gapMd" }} flexWrap={{ default: "nowrap" }} className="ocs-overview-status-alert__actions">
+              <Button variant="link" isInline component={Link} to={primaryTo}>
+                {primaryLabel}
+              </Button>
+              <Button variant="link" isInline onClick={() => onDismiss(id)}>
+                Dismiss
+              </Button>
+            </Flex>
+          </Flex>
+          <Content component="small">{time}</Content>
+          <Content component="p">{description}</Content>
+        </Flex>
+      </Flex>
+    </div>
+  );
+}
+
 function StatusCard({ isGlass }: { isGlass: boolean }) {
+  const { alerts, dismiss, dismissMany } = useNotificationAlerts();
+  const statusAlerts = useMemo(
+    () =>
+      alerts.filter(
+        (a) => a.severity !== "recommendation" && a.state === "Firing" && (a.severity === "warning" || a.severity === "critical")
+      ),
+    [alerts]
+  );
+
   return (
     <Card isGlass={isGlass}>
       <CardHeader
         actions={{
           actions: (
-            <Button variant="link" component={Link} to="/alerts" isInline>
-              View alerts
-            </Button>
+            <Flex gap={{ default: "gapMd" }} alignItems={{ default: "alignItemsCenter" }}>
+              <Button
+                variant="link"
+                component={Link}
+                to="/observe/alerts?state=Firing&source=Platform"
+                isInline
+              >
+                View alerts
+              </Button>
+              {statusAlerts.length > 0 ? (
+                <Button
+                  variant="link"
+                  isInline
+                  onClick={() => dismissMany(statusAlerts.map((a) => a.id))}
+                >
+                  Dismiss all alerts
+                </Button>
+              ) : null}
+            </Flex>
           ),
         }}
       >
@@ -362,44 +447,25 @@ function StatusCard({ isGlass }: { isGlass: boolean }) {
             </Flex>
           </Alert>
 
-          <Divider />
-
-          <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-            <Alert isInline title="CannotRetrieveUpdates" variant="warning">
-              <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                <Content component="small">Mar 3, 2026, 10:37 AM</Content>
-                <Content component="p">
-                  Failure to retrieve updates means that cluster administrators will need to monitor for available updates on
-                  their own or risk falling behind on security or other bugfixes.
-                </Content>
-              </Flex>
-            </Alert>
-            <Alert
-              isInline
-              title="AlertmanagerReceiversNotConfigured"
-              variant="warning"
-              actionLinks={
-                <Button
-                  variant="link"
-                  isInline
-                  component="a"
-                  href="https://docs.openshift.com/container-platform/latest/monitoring/configuring-the-monitoring-stack.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Configure
-                </Button>
-              }
-            >
-              <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                <Content component="small">Mar 3, 2026, 10:36 AM</Content>
-                <Content component="p">
-                  Alerts are not configured to be sent to a notification system, meaning that you may not be notified in a timely
-                  fashion when important failures occur.
-                </Content>
-              </Flex>
-            </Alert>
-          </Flex>
+          {statusAlerts.length > 0 ? (
+            <>
+              <Divider />
+              <div className="ocs-overview-status-alerts" tabIndex={0} aria-label="Status alerts">
+                {statusAlerts.map((alert) => (
+                  <StatusAlertRow
+                    key={alert.id}
+                    id={alert.id}
+                    name={alert.name}
+                    time={alert.time}
+                    description={alert.description}
+                    configPath={alert.configPath}
+                    severity={alert.severity === "critical" ? "critical" : "warning"}
+                    onDismiss={dismiss}
+                  />
+                ))}
+              </div>
+            </>
+          ) : null}
         </Flex>
       </CardBody>
     </Card>

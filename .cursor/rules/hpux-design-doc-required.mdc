@@ -1,0 +1,32 @@
+---
+description: Every HPUX ticket creation must include a Google Design Doc linked in Design artifacts
+alwaysApply: true
+---
+
+# HPUX tickets require a Design Doc
+
+When creating **any** HPUX Epic or Story (including Consult, Make, Explore, Orient, Monitor, Enable):
+
+1. **Create a Google Design Doc** in the same session (follow `hpux-design-doc` skill).
+2. **Do not mark ticket creation complete** until the doc exists and is linked.
+3. **Always populate Design artifacts** on the ticket with the Google Doc URL before finishing.
+4. Add a Jira comment with the design doc link.
+5. Prefer Google Doc via Workspace MCP; if auth fails, use Drive upload with `gcloud` (same pattern as prior HPUX docs) — do not leave the ticket without a doc.
+6. For Consult / early work, Status may be `In progress` or `Exploration`; still create the doc with problem framing, options, screenshot placeholders, and a stakeholder feedback log.
+7. **Pageless required** — after create/import, set Google Docs format to Pageless (`documentFormat.documentMode = PAGELESS` via Docs `batchUpdate`). Never leave new design docs in Pages mode.
+
+## Doc title format
+
+`{Product area} UX — HPUX-{key}` (or descriptive title including the HPUX key)
+
+## Minimum Design artifacts block
+
+```
+Design artifacts
+- Design doc: https://docs.google.com/document/d/{id}/edit
+```
+
+## Companion skills
+
+- Ticket create/breakdown: `.cursor/skills/create-hpux-ticket/SKILL.md`
+- Design doc content + attach: `~/.cursor/skills/hpux-design-doc/SKILL.md`

@@ -98,8 +98,12 @@ export function NetworkResourceCreateDropdown({
   );
 }
 
-function isValidCidr(value: string): boolean {
-  return /^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test(value.trim());
+function isValidCidr(value: string | undefined): boolean {
+  return /^\d{1,3}(\.\d{1,3}){3}\/\d{1,2}$/.test((value ?? "").trim());
+}
+
+function hasRequiredText(value: string | undefined): boolean {
+  return (value ?? "").trim().length > 0;
 }
 
 type CreateFormProps<T> = {
@@ -141,8 +145,8 @@ export function CreateNadForm({ onCancel, onCreated }: CreateFormProps<NadRecord
 
   const canCreate =
     sync.canSubmit &&
-    sync.formState.name.trim().length > 0 &&
-    sync.formState.namespace.trim().length > 0;
+    hasRequiredText(sync.formState.name) &&
+    hasRequiredText(sync.formState.namespace);
 
   const handleCreate = () => {
     if (!canCreate) return;
@@ -210,8 +214,8 @@ export function CreateUdnForm({ onCancel, onCreated }: CreateFormProps<UdnRecord
 
   const canCreate =
     sync.canSubmit &&
-    sync.formState.project.trim().length > 0 &&
-    sync.formState.name.trim().length > 0 &&
+    hasRequiredText(sync.formState.project) &&
+    hasRequiredText(sync.formState.name) &&
     isValidCidr(sync.formState.cidr);
 
   const handleCreate = () => {
@@ -290,7 +294,7 @@ export function CreateClusterUdnForm({ onCancel, onCreated }: CreateFormProps<Ud
     { name: generateCudnName(), cidr: "10.132.0.0/16", matchLabels: "app=frontend" }
   );
 
-  const canCreate = sync.canSubmit && sync.formState.name.trim().length > 0 && isValidCidr(sync.formState.cidr);
+  const canCreate = sync.canSubmit && hasRequiredText(sync.formState.name) && isValidCidr(sync.formState.cidr);
 
   const handleCreate = () => {
     if (!canCreate) return;
@@ -365,7 +369,7 @@ export function CreateNncpForm({ onCancel, onCreated }: CreateFormProps<NncpReco
     { name: generateNncpName() }
   );
 
-  const canCreate = sync.canSubmit && sync.formState.name.trim().length > 0;
+  const canCreate = sync.canSubmit && hasRequiredText(sync.formState.name);
 
   const handleCreate = () => {
     if (!canCreate) return;

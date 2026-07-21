@@ -37,6 +37,31 @@ All Jira tool calls require the `cloudId` parameter.
 - Confirm the full ticket summary before submitting
 - When creating an Epic, always ask about parent linkage
 
+## Mandatory: Design Doc (hard requirement)
+
+**Every** HPUX Epic or Story created with this skill **must** get a Google Design Doc in the same session. Ticket creation is **not complete** until the doc exists and is linked.
+
+Follow companion skill: `~/.cursor/skills/hpux-design-doc/SKILL.md` (and workspace rule `hpux-design-doc-required`).
+
+### Required sequence (after Jira create)
+
+1. Create Google Doc (Workspace MCP `import_to_google_doc`, or Drive upload via `gcloud` if MCP auth fails).
+2. Title: `{Product area} UX — HPUX-{key}` (include the new key).
+3. Set the doc to **Pageless** (required — see `hpux-design-doc` skill).
+4. For Consult / early work: Status `In progress` or `Exploration`; include problem framing, options, screenshot placeholders, stakeholder feedback log.
+5. Update ticket **Design artifacts** with the doc URL (never leave blank on new tickets).
+6. Add a Jira comment with the design doc link.
+7. Present the Google Doc URL in the user-facing summary.
+
+### Design artifacts block (required on create)
+
+```
+Design artifacts
+- Design doc: https://docs.google.com/document/d/{id}/edit
+```
+
+Do **not** skip this for Consult, 1-point, or Done tickets. If the user already provides a design doc URL, link that URL instead of creating a duplicate.
+
 ---
 
 # Mode 1: Create Epic
@@ -167,17 +192,18 @@ Goals for the work
 [What are we trying to accomplish with this effort?]
 
 Definition of done
-[What concrete logistical things must be done for this story to be considered 'done'? Create the design doc? Link/share certain places? Share at certain meetings? "Sign off" by certain stakeholders? Make a bulleted list here.]
+[What concrete logistical things must be done for this story to be considered 'done'? Design doc created and linked? Link/share certain places? Share at certain meetings? "Sign off" by certain stakeholders? Make a bulleted list here.]
 
 Design artifacts
-[Any existing designs for this effort that should be built upon? Otherwise leave blank until deliverables are created and linked here.]
+- Design doc: [REQUIRED — create Google Doc in this session and paste URL; never leave blank on new tickets]
 ```
 
 ## Step 4: Confirm and Create
 
 1. Show the designer a complete summary of the Story
 2. Wait for their confirmation
-3. Create the Story via `createJiraIssue`
+3. Create the Story via `createJiraIssue` (or `scripts/jira-api.sh`)
+4. **Immediately create the Google Design Doc** and update Design artifacts + comment (see Mandatory: Design Doc)
 
 ---
 

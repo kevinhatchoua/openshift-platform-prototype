@@ -42,3 +42,7 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
+
+.ocs-return-portal-banner .ocs-return-portal-banner__arrow {
+  color: #151515;
+}

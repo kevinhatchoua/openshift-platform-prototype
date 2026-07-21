@@ -15,7 +15,11 @@ import JobsPage from "./pages/workloads/JobsPage";
 import CronJobsPage from "./pages/workloads/CronJobsPage";
 import TopologyPage from "./pages/workloads/TopologyPage";
 import ServicesPage from "./pages/networking/ServicesPage";
+import CreateServicePage from "./pages/networking/CreateServicePage";
+import ServiceDetailPage from "./pages/networking/ServiceDetailPage";
 import RoutesPage from "./pages/networking/RoutesPage";
+import CreateRoutePage from "./pages/networking/CreateRoutePage";
+import RouteDetailPage from "./pages/networking/RouteDetailPage";
 import IngressesPage from "./pages/networking/IngressesPage";
 import PhysicalNetworksPage from "./pages/networking/PhysicalNetworksPage";
 import NetworkPoliciesPage from "./pages/networking/NetworkPoliciesPage";
@@ -70,6 +74,11 @@ import OperatorInstalledPage from "./pages/ecosystem/OperatorInstalledPage";
 
 import NodeDetailPage from "./pages/compute/NodeDetailPage";
 import ConsoleStubPage from "./pages/ConsoleStubPage";
+import StakeholderPortal from "@/components/LandingPage/StakeholderPortal";
+import PortalRedirect from "@/components/LandingPage/PortalRedirect";
+import AlertVolumeMockPage from "./pages/mocks/AlertVolumeMockPage";
+import MonitoringAlertsPage from "./pages/monitoring/MonitoringAlertsPage";
+import AlertingPage from "./pages/observe/AlertingPage";
 
 const consoleStubRoutes = collectStubPaths().map((fullPath) => ({
   path: fullPath.replace(/^\//, ""),
@@ -85,7 +94,11 @@ export const router = createBrowserRouter([
         /** Pathless layout: matches `/` and all child paths (avoids empty-string segment issues). */
         Component: Layout,
         children: [
-          { index: true, Component: HomePage },
+          { index: true, Component: StakeholderPortal },
+          { path: "portal", Component: PortalRedirect },
+          { path: "overview", Component: HomePage },
+          { path: "mocks/alert-volume", Component: AlertVolumeMockPage },
+          { path: "monitoring/alerts", Component: MonitoringAlertsPage },
           { path: "favorites", Component: FavoritesPage },
           { path: "ecosystem", Component: EcosystemPage },
           { path: "ecosystem/software-catalog", Component: SoftwareCatalogPage },
@@ -115,8 +128,12 @@ export const router = createBrowserRouter([
           { path: "workloads/cronjobs", Component: CronJobsPage },
           { path: "workloads/topology", Component: TopologyPage },
           { path: "networking", Component: ServicesPage },
+          { path: "networking/services/create", Component: CreateServicePage },
+          { path: "networking/services/:namespace/:name", Component: ServiceDetailPage },
           { path: "networking/topology", Component: NetworkTopologyPage },
           { path: "networking/routes", Component: RoutesPage },
+          { path: "networking/routes/create", Component: CreateRoutePage },
+          { path: "networking/routes/:namespace/:name", Component: RouteDetailPage },
           { path: "networking/ingresses", Component: IngressesPage },
           { path: "networking/physical-networks", Component: PhysicalNetworksPage },
           { path: "networking/networkpolicies", Component: NetworkPoliciesPage },
@@ -143,6 +160,7 @@ export const router = createBrowserRouter([
           { path: "storage", Component: StoragePage },
           { path: "builds", Component: BuildsPage },
           { path: "observe", Component: ObservePage },
+          { path: "observe/alerts", Component: AlertingPage },
           { path: "compute", Component: ComputePage },
           { path: "compute/nodes/:nodeName", Component: NodeDetailPage },
           { path: "user-management", Component: UserManagementPage },
@@ -161,7 +179,8 @@ export const router = createBrowserRouter([
           { path: "administration/custom-resource-definitions", Component: CustomResourceDefinitionsPage },
           { path: "administration/dynamic-plugins", Component: DynamicPluginsPage },
           { path: "settings", Component: SettingsPage },
-          { path: "alerts", Component: AlertsPage },
+          { path: "alerts", Component: MonitoringAlertsPage },
+          { path: "alerts/legacy", Component: AlertsPage },
           { path: "activity/:id", Component: ActivityDetailsPage },
           { path: "inventory", Component: ClusterInventoryPage },
           ...consoleStubRoutes,

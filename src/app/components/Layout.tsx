@@ -1,4 +1,4 @@
-import { Link, Outlet, useLocation } from "react-router";
+import { Link, Outlet, useLocation, useNavigate } from "react-router";
 import { forwardRef, useEffect, useState } from "react";
 import {
   applyThemeToDocument,
@@ -6,10 +6,12 @@ import {
   writeThemePreferences,
 } from "@/lib/documentTheme";
 import {
-  Badge,
   Banner,
   Button,
   Content,
+  Drawer,
+  DrawerContent,
+  DrawerContentBody,
   Dropdown,
   DropdownGroup,
   DropdownItem,
@@ -27,6 +29,7 @@ import {
   NavGroup,
   NavItem,
   NavItemSeparator,
+  NotificationBadge,
   Page,
   PageSidebar,
   PageSidebarBody,
@@ -41,7 +44,6 @@ import { css } from "@patternfly/react-styles";
 import displayStyles from "@patternfly/react-styles/css/utilities/Display/display.mjs";
 import flexStyles from "@patternfly/react-styles/css/utilities/Flex/flex.mjs";
 import sizingStyles from "@patternfly/react-styles/css/utilities/Sizing/sizing.mjs";
-import BellIcon from "@patternfly/react-icons/dist/esm/icons/bell-icon";
 import CogIcon from "@patternfly/react-icons/dist/esm/icons/cog-icon";
 import MinusCircleIcon from "@patternfly/react-icons/dist/esm/icons/minus-circle-icon";
 import MoonIcon from "@patternfly/react-icons/dist/esm/icons/moon-icon";
@@ -54,6 +56,7 @@ import UserIcon from "@patternfly/react-icons/dist/esm/icons/user-icon";
 import UsersIcon from "@patternfly/react-icons/dist/esm/icons/users-icon";
 import RhMicronsCaretDownIcon from "@patternfly/react-icons/dist/esm/icons/rh-microns-caret-down-icon";
 import SyncAltIcon from "@patternfly/react-icons/dist/esm/icons/sync-alt-icon";
+import ReturnToPortalBanner from "@/components/LandingPage/ReturnToPortalBanner";
 import ImpersonateUserModal from "./ImpersonateUserModal";
 import { MastheadFedoraMark } from "./MastheadFedoraMark";
 import { usePermissions } from "../contexts/PermissionsContext";
@@ -61,6 +64,8 @@ import { useChat } from "../contexts/ChatContext";
 import { useFavorites } from "../contexts/FavoritesContext";
 import { useClusterUpdateDemoVariant } from "../contexts/ClusterUpdateDemoContext";
 import { useToast } from "../contexts/ToastContext";
+import { useNotificationAlerts } from "../contexts/NotificationAlertsContext";
+import ConsoleNotificationDrawerPanel from "./notifications/ConsoleNotificationDrawer";
 import {
   ADMINISTRATION_SUB,
   BUILDS_SUB,
@@ -162,7 +167,7 @@ const LIGHTSPEED_FAB_ICON_SRC =
 function MastheadBrandLink() {
   return (
     <MastheadBrand component="div">
-      <Link to="/" className="ocs-masthead-brand-link" aria-label="Red Hat OpenShift">
+      <Link to="/overview" className="ocs-masthead-brand-link" aria-label="Red Hat OpenShift">
         <div className="ocs-masthead-brand-lockup">
           <MastheadFedoraMark className="ocs-masthead-logo-hat" />
           <div className="ocs-masthead-brand-text">
@@ -344,14 +349,17 @@ function UserMenu({
         </DropdownItem>
       ) : (
         <DropdownItem
-          itemId="impersonate"
+          value="impersonate"
           icon={<UsersIcon aria-hidden />}
-          onClick={() => {
-            onImpersonate();
+          onClick={(event) => {
+            event?.preventDefault?.();
+            event?.stopPropagation?.();
             setIsOpen(false);
+            // Defer so the dropdown unmount doesn't cancel the open
+            window.setTimeout(() => onImpersonate(), 0);
           }}
         >
-          Impersonate User
+          Impersonate
         </DropdownItem>
       )}
       <Divider component="li" />
@@ -367,6 +375,7 @@ export default function Layout() {
   const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(false);
   const [isHomeExpanded, setIsHomeExpanded] = useState(true);
   const location = useLocation();
+  const navigate = useNavigate();
 
   const { impersonatedUser, setImpersonatedUser } = usePermissions();
 
@@ -374,6 +383,25 @@ export default function Layout() {
 
   const { favorites } = useFavorites();
   const { activeCount: activeToastCount } = useToast();
+  const { drawerOpen, setDrawerOpen, alerts } = useNotificationAlerts();
+  const unreadNotificationCount = alerts.filter((a) => !a.isRead && a.severity !== "recommendation").length;
+
+  const isPortalHome = location.pathname === "/";
+
+  // Deep-link: /overview?impersonate=1 (or any console route) opens the Impersonate modal
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get("impersonate") !== "1") {
+      return;
+    }
+    setIsImpersonateModalOpen(true);
+    params.delete("impersonate");
+    const nextSearch = params.toString();
+    navigate(
+      { pathname: location.pathname, search: nextSearch ? `?${nextSearch}` : "", hash: location.hash },
+      { replace: true }
+    );
+  }, [location.hash, location.pathname, location.search, navigate]);
 
   const handleImpersonate = (user: {
     id: string;
@@ -415,11 +443,14 @@ export default function Layout() {
   const masthead = (
     <Masthead display={{ default: "inline" }} className="ocs-console-masthead">
       <MastheadMain>
-        <MastheadToggle>
-          <PageToggleButton id="layout-nav-toggle" aria-label="Global navigation" isHamburgerButton />
-        </MastheadToggle>
+        {!isPortalHome ? (
+          <MastheadToggle>
+            <PageToggleButton id="layout-nav-toggle" aria-label="Global navigation" isHamburgerButton />
+          </MastheadToggle>
+        ) : null}
         <MastheadBrandLink />
       </MastheadMain>
+      {!isPortalHome ? (
       <MastheadContent>
         <Toolbar id="layout-masthead-toolbar-end" ouiaId="layout-masthead-toolbar-end" isFullHeight>
           <ToolbarContent alignItems="center">
@@ -433,18 +464,13 @@ export default function Layout() {
                 <MastheadIconButton label="Application launcher" icon={<ThIcon aria-hidden />} />
               </ToolbarItem>
               <ToolbarItem className="ocs-masthead-toolbar-item ocs-masthead-toolbar-notifications">
-                <Flex
-                  alignItems={{ default: "alignItemsCenter" }}
-                  justifyContent={{ default: "justifyContentCenter" }}
-                  gap={{ default: "gapXs" }}
-                >
-                  <MastheadIconButton label="Notifications" icon={<BellIcon aria-hidden />} />
-                  {activeToastCount > 0 ? (
-                    <Badge isRead={false} screenReaderText={`${activeToastCount} active notifications`}>
-                      {activeToastCount}
-                    </Badge>
-                  ) : null}
-                </Flex>
+                <NotificationBadge
+                  variant={unreadNotificationCount > 0 ? "attention" : "read"}
+                  isExpanded={drawerOpen}
+                  count={unreadNotificationCount || activeToastCount}
+                  aria-label="Notifications"
+                  onClick={() => setDrawerOpen(!drawerOpen)}
+                />
               </ToolbarItem>
               <ToolbarItem className="ocs-masthead-toolbar-item">
                 <MastheadIconButton label="Settings" icon={<CogIcon aria-hidden />} />
@@ -463,6 +489,7 @@ export default function Layout() {
           </ToolbarContent>
         </Toolbar>
       </MastheadContent>
+      ) : null}
     </Masthead>
   );
 
@@ -610,6 +637,8 @@ export default function Layout() {
       </Banner>
     ) : undefined;
 
+  const pageBanner = impersonationBanner;
+
   return (
     <>
       <div
@@ -630,40 +659,53 @@ export default function Layout() {
           )}
           style={{ minHeight: "var(--pf-t--global--spacer--0, 0px)" }}
         >
+          {!isPortalHome ? <ReturnToPortalBanner /> : null}
           <Page
             className={css(sizingStyles.h_100, "ocs-console-page")}
-            isManagedSidebar
+            isManagedSidebar={!isPortalHome}
             isContentFilled
             masthead={masthead}
-            sidebar={sidebar}
+            sidebar={isPortalHome ? undefined : sidebar}
             skipToContent={<SkipToContent href="#app-main-container">Skip to content</SkipToContent>}
             mainContainerId="app-main-container"
             mainAriaLabel="OpenShift console"
-            banner={impersonationBanner}
+            banner={pageBanner}
           >
-            <div
-              className={css(
-                sizingStyles.h_100,
-                displayStyles.displayFlex,
-                flexStyles.flexDirectionColumn,
-                flexStyles.flexShrink_1,
-                flexStyles.flex_1
-              )}
-              style={
-                isAIOpen
-                  ? {
-                      paddingInlineEnd: "var(--pf-v6-c-drawer__panel--m-width, 26.25rem)",
-                      transition:
-                        "padding-inline-end var(--pf-t--global--transition--Duration, 0.3s) var(--pf-t--global--transition--TimingFunction, ease-in-out)",
+            <Drawer isExpanded={!isPortalHome && drawerOpen} position="end" isInline={false}>
+              <DrawerContent
+                panelContent={
+                  !isPortalHome ? (
+                    <ConsoleNotificationDrawerPanel />
+                  ) : undefined
+                }
+              >
+                <DrawerContentBody>
+                  <div
+                    className={css(
+                      sizingStyles.h_100,
+                      displayStyles.displayFlex,
+                      flexStyles.flexDirectionColumn,
+                      flexStyles.flexShrink_1,
+                      flexStyles.flex_1
+                    )}
+                    style={
+                      isAIOpen
+                        ? {
+                            paddingInlineEnd: "var(--pf-v6-c-drawer__panel--m-width, 26.25rem)",
+                            transition:
+                              "padding-inline-end var(--pf-t--global--transition--Duration, 0.3s) var(--pf-t--global--transition--TimingFunction, ease-in-out)",
+                          }
+                        : {
+                            transition:
+                              "padding-inline-end var(--pf-t--global--transition--Duration, 0.3s) var(--pf-t--global--transition--TimingFunction, ease-in-out)",
+                          }
                     }
-                  : {
-                      transition:
-                        "padding-inline-end var(--pf-t--global--transition--Duration, 0.3s) var(--pf-t--global--transition--TimingFunction, ease-in-out)",
-                    }
-              }
-            >
-              <Outlet />
-            </div>
+                  >
+                    <Outlet />
+                  </div>
+                </DrawerContentBody>
+              </DrawerContent>
+            </Drawer>
           </Page>
         </div>
       </div>

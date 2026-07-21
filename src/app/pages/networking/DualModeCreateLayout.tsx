@@ -5,12 +5,10 @@ import {
   DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
-  Divider,
-  FormGroup,
-  Radio,
   TextArea,
   Title,
 } from "@patternfly/react-core";
+import { EditorToggle } from "./EditorToggle";
 import type { ConfigureViewMode } from "./useSyncedFormYaml";
 import type { YamlSchemaField } from "./networkCreateYaml";
 
@@ -39,26 +37,7 @@ export function DualModeCreateLayout({
 }: DualModeCreateLayoutProps) {
   return (
     <div className="ocs-dual-mode-create">
-      <FormGroup label="Configure via" fieldId="configure-via">
-        <div className="ocs-dual-mode-create__toggle" role="radiogroup" aria-label="Configure via">
-          <Radio
-            id="configure-form-view"
-            name="configure-via"
-            label="Form view"
-            isChecked={viewMode === "form"}
-            onChange={() => onViewModeChange("form")}
-          />
-          <Radio
-            id="configure-yaml-view"
-            name="configure-via"
-            label="YAML view"
-            isChecked={viewMode === "yaml"}
-            onChange={() => onViewModeChange("yaml")}
-          />
-        </div>
-      </FormGroup>
-
-      <Divider className="ocs-dual-mode-create__divider" />
+      <EditorToggle value={viewMode} onChange={onViewModeChange} idPrefix="dual-mode-create" />
 
       {hasUnmappedContent ? (
         <Alert

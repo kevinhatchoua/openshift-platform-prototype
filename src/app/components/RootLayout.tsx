@@ -4,6 +4,7 @@ import { PermissionsProvider } from "../contexts/PermissionsContext";
 import { FavoritesProvider } from "../contexts/FavoritesContext";
 import { ClusterUpdateDemoProvider } from "../contexts/ClusterUpdateDemoContext";
 import { ToastProvider } from "../contexts/ToastContext";
+import { NotificationAlertsProvider } from "../contexts/NotificationAlertsContext";
 import LightSpeedGlobalMount from "./LightSpeedGlobalMount";
 
 export default function RootLayout() {
@@ -13,8 +14,10 @@ export default function RootLayout() {
         <ChatProvider>
           <FavoritesProvider>
             <ClusterUpdateDemoProvider>
-              <Outlet />
-              <LightSpeedGlobalMount />
+              <NotificationAlertsProvider>
+                <Outlet />
+                <LightSpeedGlobalMount />
+              </NotificationAlertsProvider>
             </ClusterUpdateDemoProvider>
           </FavoritesProvider>
         </ChatProvider>

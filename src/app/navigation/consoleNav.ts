@@ -6,7 +6,7 @@
 export type SubNavEntry = { path: string; label: string } | "separator";
 
 export const HOME_SUB: SubNavEntry[] = [
-  { path: "/", label: "Overview" },
+  { path: "/overview", label: "Overview" },
   { path: "/home/projects", label: "Projects" },
   { path: "/home/search", label: "Search" },
   { path: "/home/api-explorer", label: "API Explorer" },
@@ -67,7 +67,7 @@ export const BUILDS_SUB: SubNavEntry[] = [
 ];
 
 export const OBSERVE_SUB: SubNavEntry[] = [
-  { path: "/observe", label: "Alerting" },
+  { path: "/observe/alerts", label: "Alerting" },
   { path: "/observe/metrics", label: "Metrics" },
   { path: "/observe/dashboards", label: "Dashboards" },
   { path: "/observe/targets", label: "Targets" },
@@ -136,6 +136,8 @@ export function collectStubPaths(): string[] {
   const paths = new Set<string>();
   const realPages = new Set<string>([
     "/",
+    "/overview",
+    "/portal",
     "/ecosystem/software-catalog",
     "/ecosystem/installed-operators",
     "/ecosystem/helm",
@@ -167,6 +169,8 @@ export function collectStubPaths(): string[] {
     "/storage",
     "/builds",
     "/observe",
+    "/observe/alerts",
+    "/monitoring/alerts",
     "/compute",
     "/user-management",
     "/administration/cluster-update",

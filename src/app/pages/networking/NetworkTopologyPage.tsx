@@ -1,23 +1,28 @@
-import { Content } from "@patternfly/react-core";
-import { useToast } from "../../contexts/ToastContext";
-import NodeNetworkConfigurationStage from "./NodeNetworkConfigurationStage";
+import { Alert, Content, Label } from "@patternfly/react-core";
+import OVToolsTopologyStage from "./OVToolsTopologyStage";
 import { NetworkingPageShell } from "./networkingShared";
 
 export default function NetworkTopologyPage() {
-  const { pushToast, dismissToast } = useToast();
-
   return (
     <NetworkingPageShell
       title="Topology"
       path="/networking/topology"
       extraHeader={
-        <Content component="p" className="ocs-net-topo-page-desc">
-          Visualize, scale, and manage your cluster topology. Right-click the canvas to add nodes, or manage worker
-          node groups from the toolbar.
-        </Content>
+        <>
+          <Alert variant="info" title="Phase 2 prototype" isInline className="pf-v6-u-mb-md">
+            Topology visualization is scheduled for Phase 2 (after Phase 1 link automation). The team chose a graph
+            topology over a tree view — similar to VMware vSphere port-group workflows — with simplicity prioritized for
+            large clusters.
+          </Alert>
+          <Content component="p" className="ocs-net-topo-page-desc">
+            Explore node, VM, network, and storage relationships with drill-down, filters, and collapsible NAD clusters.
+            Use <strong>Network problems only</strong> to focus on degraded paths. For connected VMs, use{" "}
+            <a href="/virtualization/virtualmachinenetworks">Virtual machine networks</a> (Phase 1).
+          </Content>
+        </>
       }
     >
-      <NodeNetworkConfigurationStage pushToast={pushToast} dismissToast={dismissToast} />
+      <OVToolsTopologyStage />
     </NetworkingPageShell>
   );
 }

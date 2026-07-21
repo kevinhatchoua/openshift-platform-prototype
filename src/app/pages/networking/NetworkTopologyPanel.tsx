@@ -144,6 +144,15 @@ import type {
   ResourceLifecycleAction,
   ResourceLifecycleTarget,
 } from "./networkTopologyState";
+import { NetworkTopologyCytoscapeView } from "./topology/NetworkTopologyCytoscapeView";
+import { countTopologyResources } from "./topology/networkTopologyCytoscapeAdapter";
+import { TopologyMetricTooltip } from "./topology/TopologyMetricTooltip";
+import { useTopologyMetrics } from "./topology/topologyMetricsService";
+import {
+  shouldUseCytoscapeEngine,
+  TOPOLOGY_SCALE_PRESETS,
+  useTopologyDeveloperMode,
+} from "./topology/topologyDeveloperMode";
 
 export type { TopologyStep };
 
@@ -184,6 +193,15 @@ type LinkDragState = {
 type PositionMap = Record<string, { x: number; y: number }>;
 type EdgeMap = Record<string, TopologyEdge[]>;
 type ResourceFilterValue = NetResourceKind | "all";
+
+function edgeHealthModifier(
+  fromStatus?: ResourceInstallStatus,
+  toStatus?: ResourceInstallStatus
+): string {
+  if (fromStatus === "failed" || toStatus === "failed") return " ocs-net-topo-edge--failed";
+  if (fromStatus !== "configured" || toStatus !== "configured") return " ocs-net-topo-edge--degraded";
+  return "";
+}
 
 const RESOURCE_FILTER_KINDS = Object.keys(RESOURCE_KIND_LABELS) as NetResourceKind[];
 
@@ -793,6 +811,7 @@ function StandaloneCanvasNode({
   onPointerCancel,
   onClick,
   onConnectorPointerDown,
+  onMetricHover,
 }: {
   resource: StandaloneTopologyResource;
   isLogical: boolean;
@@ -809,6 +828,7 @@ function StandaloneCanvasNode({
   onPointerCancel?: (e: React.PointerEvent) => void;
   onClick: (resource: StandaloneTopologyResource) => void;
   onConnectorPointerDown: (e: React.PointerEvent, resource: StandaloneTopologyResource) => void;
+  onMetricHover?: (resource: StandaloneTopologyResource | null, clientPoint?: { x: number; y: number }) => void;
 }) {
   const kindColor = RESOURCE_KIND_COLORS[resource.kind];
   const statusLabel = RESOURCE_INSTALL_STATUS_LABELS[resource.status];
@@ -851,6 +871,9 @@ function StandaloneCanvasNode({
           e.stopPropagation();
           onClick(resource);
         }}
+        onMouseEnter={(event) => onMetricHover?.(resource, { x: event.clientX, y: event.clientY })}
+        onMouseMove={(event) => onMetricHover?.(resource, { x: event.clientX, y: event.clientY })}
+        onMouseLeave={() => onMetricHover?.(null)}
         onKeyDown={(e) => {
           if (e.key === "Enter" || e.key === " ") {
             e.preventDefault();
@@ -1669,8 +1692,17 @@ function TopologySidePanel({
         )}
         {tab === "observe" && (
           <Content component="p" className="pf-v6-u-mt-md">
-            Metrics and events for <strong>{resource.label}</strong> ({RESOURCE_INSTALL_STATUS_LABELS[resource.status]})
-            would appear here in a connected cluster.
+            {resource.kind === "bridge" || resource.kind === "interface" || resource.kind === "port" ? (
+              <>
+                Live CPU, memory, and IOPS for <strong>{resource.label}</strong> appear on canvas hover.
+                Open the Form view in create flows to avoid YAML-only configuration for standard device links.
+              </>
+            ) : (
+              <>
+                Metrics and events for <strong>{resource.label}</strong> ({RESOURCE_INSTALL_STATUS_LABELS[resource.status]})
+                would appear here in a connected cluster.
+              </>
+            )}
           </Content>
         )}
       </DrawerPanelBody>
@@ -1920,6 +1952,17 @@ export default function NetworkTopologyPanel({
   onViewModeChange?: (mode: NodeNetworkViewMode) => void;
 }) {
   const canvasRef = useRef<HTMLDivElement>(null);
+  const { enabled: developerMode, scaleTarget, setEnabled: setDeveloperMode, setScaleTarget } =
+    useTopologyDeveloperMode();
+  const [metricHover, setMetricHover] = useState<{
+    id: string;
+    kind: string;
+    label: string;
+    x: number;
+    y: number;
+  } | null>(null);
+  const [scaleSelectOpen, setScaleSelectOpen] = useState(false);
+  const metricSnapshot = useTopologyMetrics(metricHover?.id ?? null, metricHover?.kind, metricHover?.label);
   const [zoom, setZoom] = useState(0.92);
   const [pan, setPan] = useState({ x: 24, y: 48 });
   const [selection, setSelection] = useState<TopologySelection | null>(null);
@@ -2148,6 +2191,29 @@ export default function NetworkTopologyPanel({
   const visibleBridgeStandalones = useMemo(
     () => visibleStandalones.filter((resource) => !isLogicalNetworkStandalone(resource)),
     [visibleStandalones]
+  );
+
+  const topologyResourceCount = useMemo(
+    () => countTopologyResources(visibleGroupsFiltered, visibleStandalones),
+    [visibleGroupsFiltered, visibleStandalones]
+  );
+  const useCytoscapeEngine = shouldUseCytoscapeEngine(topologyResourceCount, developerMode);
+
+  const handleMetricHover = useCallback(
+    (resource: StandaloneTopologyResource | null, clientPoint?: { x: number; y: number }) => {
+      if (!resource || !clientPoint) {
+        setMetricHover(null);
+        return;
+      }
+      setMetricHover({
+        id: resource.id,
+        kind: resource.kind,
+        label: resource.label,
+        x: clientPoint.x + 12,
+        y: clientPoint.y + 12,
+      });
+    },
+    []
   );
 
   const logicalLaneLayout = useMemo(
@@ -2984,7 +3050,7 @@ export default function NetworkTopologyPanel({
           pathActive ? " ocs-net-topo-edge--path-active" : ""
         }${pathTraversalActive && !pathActive ? " ocs-net-topo-edge--path-dim" : ""}${
           edgeFocused ? " ocs-net-topo-edge--selected" : ""
-        }`}
+        }${edgeHealthModifier(from.status, to.status)}`}
         onMouseEnter={() => setHoveredEdgeKey(edgeKey)}
         onMouseLeave={() => setHoveredEdgeKey((current) => (current === edgeKey ? null : current))}
       >
@@ -3013,7 +3079,7 @@ export default function NetworkTopologyPanel({
           strokeWidth={active ? 2.5 : 2}
           strokeOpacity={active ? 1 : 0.65}
           markerEnd="url(#net-topo-arrow)"
-          className="ocs-net-topo-edge__line"
+          className="ocs-net-topo-edge__line ocs-net-topo-edge__stroke"
           pointerEvents="none"
         />
         <EdgeDeleteHandle
@@ -3252,12 +3318,51 @@ export default function NetworkTopologyPanel({
           >
             <div className="ocs-net-topo-panel__layout-switch-slot" aria-hidden={viewMode !== "topology"}>
               {viewMode === "topology" ? (
-                <Switch
-                  id="net-topo-grid-layout"
-                  label="Grid layout"
-                  isChecked={layoutMode === "grid"}
-                  onChange={(_event, checked) => handleLayoutModeChange(checked ? "grid" : "freeform")}
-                />
+                <>
+                  <Switch
+                    id="net-topo-developer-mode"
+                    label="Developer mode"
+                    isChecked={developerMode}
+                    onChange={(_event, checked) => setDeveloperMode(checked)}
+                  />
+                  {developerMode ? (
+                    <Select
+                      id="net-topo-scale-target"
+                      aria-label="Scale mock target"
+                      selected={String(scaleTarget)}
+                      isOpen={scaleSelectOpen}
+                      onOpenChange={setScaleSelectOpen}
+                      onSelect={(_event, value) => {
+                        setScaleTarget(Number(value));
+                        setScaleSelectOpen(false);
+                      }}
+                      toggle={(toggleRef) => (
+                        <MenuToggle
+                          ref={toggleRef}
+                          onClick={() => setScaleSelectOpen((open) => !open)}
+                          isExpanded={scaleSelectOpen}
+                        >
+                          {scaleTarget.toLocaleString()} NADs
+                        </MenuToggle>
+                      )}
+                    >
+                      <SelectList>
+                        {TOPOLOGY_SCALE_PRESETS.map((preset) => (
+                          <SelectOption key={preset} value={String(preset)}>
+                            {preset.toLocaleString()} NADs
+                          </SelectOption>
+                        ))}
+                      </SelectList>
+                    </Select>
+                  ) : null}
+                  <Switch
+                    id="net-topo-grid-layout"
+                    label="Grid layout"
+                    isChecked={layoutMode === "grid"}
+                    onChange={(_event, checked) => handleLayoutModeChange(checked ? "grid" : "freeform")}
+                    isDisabled={useCytoscapeEngine}
+                  />
+                </>
               ) : null}
             </div>
             {onViewModeChange ? (
@@ -3269,7 +3374,16 @@ export default function NetworkTopologyPanel({
 
       <div className="ocs-net-topo-panel__stage">
         {viewMode === "table" ? (
-          <Drawer isExpanded={isDetailDrawerExpanded} isInline position="end">
+          <Drawer
+            isExpanded={isDetailDrawerExpanded}
+            isInline
+            position="end"
+            onExpand={() => {
+              window.setTimeout(() => {
+                window.dispatchEvent(new Event("resize"));
+              }, 250);
+            }}
+          >
             <DrawerContent panelContent={detailPanelContent}>
               <DrawerContentBody className="ocs-net-topo-panel__drawer-body ocs-net-topo-panel__drawer-body--table">
                 <NodeNetworkTableList
@@ -3306,9 +3420,66 @@ export default function NetworkTopologyPanel({
           </Drawer>
         ) : (
         <TopologyResizableSplit isPanelOpen={isCreateDrawerExpanded} panel={createPanelContent}>
-          <Drawer isExpanded={isDetailDrawerExpanded} isInline position="end">
+          <Drawer
+            isExpanded={isDetailDrawerExpanded}
+            isInline
+            position="end"
+            onExpand={() => {
+              window.setTimeout(() => {
+                window.dispatchEvent(new Event("resize"));
+              }, 250);
+            }}
+          >
             <DrawerContent panelContent={detailPanelContent}>
               <DrawerContentBody className="ocs-net-topo-panel__drawer-body">
+            {useCytoscapeEngine ? (
+              <NetworkTopologyCytoscapeView
+                groups={visibleGroupsFiltered}
+                standalones={visibleStandalones}
+                crossEdges={crossEdges}
+                scaleRevision={`${developerMode}:${scaleTarget}`}
+                canvasReflowKey={isDetailDrawerExpanded}
+                selectedResourceId={selected?.id ?? null}
+                onSelectResourceId={(resourceId) => {
+                  if (!resourceId) {
+                    setSelection(null);
+                    return;
+                  }
+                  const standalone = visibleStandalones.find((entry) => entry.id === resourceId || `standalone:${entry.id}` === resourceId);
+                  if (standalone) {
+                    setSelection({ type: "resource", resource: { ...standalone, placement: "standalone" } });
+                    return;
+                  }
+                  for (const group of visibleGroupsFiltered) {
+                    const resource = group.resources.find((entry) => entry.id === resourceId);
+                    if (resource) {
+                      setSelection({ type: "resource", resource: { ...resource, group, placement: "group" } });
+                      return;
+                    }
+                  }
+                }}
+                onNodeHover={(resourceId, position) => {
+                  if (!resourceId || !position) {
+                    setMetricHover(null);
+                    return;
+                  }
+                  const rect = canvasRef.current?.getBoundingClientRect();
+                  const standalone = visibleStandalones.find((entry) => entry.id === resourceId || `standalone:${entry.id}` === resourceId);
+                  const grouped = visibleGroupsFiltered
+                    .flatMap((group) => group.resources.map((resource) => ({ group, resource })))
+                    .find((entry) => entry.resource.id === resourceId);
+                  const target = standalone ?? grouped?.resource;
+                  if (!target) return;
+                  setMetricHover({
+                    id: target.id,
+                    kind: target.kind,
+                    label: target.label,
+                    x: (rect?.left ?? 0) + position.x + 12,
+                    y: (rect?.top ?? 0) + position.y + 12,
+                  });
+                }}
+              />
+            ) : (
             <div
               ref={canvasRef}
               className={`ocs-net-topo-panel__canvas${
@@ -3379,7 +3550,7 @@ export default function NetworkTopologyPanel({
                     key={edge.id}
                     className={`ocs-net-topo-edge${peerLit ? " ocs-net-topo-edge--peer-highlight" : ""}${
                       edgeFocused ? " ocs-net-topo-edge--selected" : ""
-                    }`}
+                    }${edgeHealthModifier(from.status, to.status)}`}
                     onMouseEnter={() => setHoveredEdgeKey(edgeKey)}
                     onMouseLeave={() => setHoveredEdgeKey((current) => (current === edgeKey ? null : current))}
                   >
@@ -3409,7 +3580,7 @@ export default function NetworkTopologyPanel({
                       strokeWidth={peerLit ? 2.5 : 2}
                       strokeOpacity={peerLit ? 1 : 0.65}
                       markerEnd="url(#net-topo-arrow)"
-                      className="ocs-net-topo-edge__line"
+                      className="ocs-net-topo-edge__line ocs-net-topo-edge__stroke"
                       pointerEvents="none"
                     />
                     <EdgeDeleteHandle
@@ -3455,7 +3626,7 @@ export default function NetworkTopologyPanel({
                       peerLit ? " ocs-net-topo-edge--peer-highlight ocs-net-topo-edge--path-active" : ""
                     }${pathTraversalActive && !peerLit ? " ocs-net-topo-edge--path-dim" : ""}${
                       edgeFocused ? " ocs-net-topo-edge--selected" : ""
-                    }`}
+                    }${edgeHealthModifier(from.status, bridge.status)}`}
                     onMouseEnter={() => setHoveredEdgeKey(edgeKey)}
                     onMouseLeave={() => setHoveredEdgeKey((current) => (current === edgeKey ? null : current))}
                   >
@@ -3746,6 +3917,7 @@ export default function NetworkTopologyPanel({
                       onPointerCancel={handleDragRelease}
                       onClick={handleStandaloneClick}
                       onConnectorPointerDown={handleStandaloneConnectorPointerDown}
+                      onMetricHover={handleMetricHover}
                     />
                   ))}
                 </div>
@@ -3777,6 +3949,7 @@ export default function NetworkTopologyPanel({
                 onPointerCancel={handleDragRelease}
                 onClick={handleStandaloneClick}
                 onConnectorPointerDown={handleStandaloneConnectorPointerDown}
+                onMetricHover={handleMetricHover}
               />
             ))}
           </div>
@@ -3816,7 +3989,6 @@ export default function NetworkTopologyPanel({
             </div>
           )}
 
-            </div>
                 {canvasContextMenu && onOpenWorkerNodeModal ? (
                   <CanvasContextMenu
                     x={canvasContextMenu.x}
@@ -3825,12 +3997,17 @@ export default function NetworkTopologyPanel({
                     onAddNode={onOpenWorkerNodeModal}
                   />
                 ) : null}
+            </div>
+            )}
               </DrawerContentBody>
             </DrawerContent>
           </Drawer>
         </TopologyResizableSplit>
         )}
       </div>
+      {metricHover && metricSnapshot ? (
+        <TopologyMetricTooltip metrics={metricSnapshot} x={metricHover.x} y={metricHover.y} />
+      ) : null}
     </div>
   );
 }
