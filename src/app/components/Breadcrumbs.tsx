@@ -29,6 +29,9 @@ export default function Breadcrumbs({ items, className, children }: BreadcrumbsP
       <Breadcrumb>
       {items.map((item, index) => {
         const isLast = index === items.length - 1;
+        // Console "Home" crumb → Overview; portal landing stays on Return to Homepage banner
+        const href =
+          item.path === "/" && item.label === "Home" ? "/overview" : item.path;
 
         if (isLast) {
           return (
@@ -38,12 +41,12 @@ export default function Breadcrumbs({ items, className, children }: BreadcrumbsP
           );
         }
 
-        if (item.path) {
+        if (href) {
           return (
             <BreadcrumbItem
               key={index}
               render={({ className: linkClass, ariaCurrent }) => (
-                <Link to={item.path!} className={linkClass} aria-current={ariaCurrent ?? undefined}>
+                <Link to={href} className={linkClass} aria-current={ariaCurrent ?? undefined}>
                   {item.label}
                 </Link>
               )}

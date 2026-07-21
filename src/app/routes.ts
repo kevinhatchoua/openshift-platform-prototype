@@ -76,6 +76,9 @@ import NodeDetailPage from "./pages/compute/NodeDetailPage";
 import ConsoleStubPage from "./pages/ConsoleStubPage";
 import StakeholderPortal from "@/components/LandingPage/StakeholderPortal";
 import PortalRedirect from "@/components/LandingPage/PortalRedirect";
+import AlertVolumeMockPage from "./pages/mocks/AlertVolumeMockPage";
+import MonitoringAlertsPage from "./pages/monitoring/MonitoringAlertsPage";
+import AlertingPage from "./pages/observe/AlertingPage";
 
 const consoleStubRoutes = collectStubPaths().map((fullPath) => ({
   path: fullPath.replace(/^\//, ""),
@@ -94,6 +97,8 @@ export const router = createBrowserRouter([
           { index: true, Component: StakeholderPortal },
           { path: "portal", Component: PortalRedirect },
           { path: "overview", Component: HomePage },
+          { path: "mocks/alert-volume", Component: AlertVolumeMockPage },
+          { path: "monitoring/alerts", Component: MonitoringAlertsPage },
           { path: "favorites", Component: FavoritesPage },
           { path: "ecosystem", Component: EcosystemPage },
           { path: "ecosystem/software-catalog", Component: SoftwareCatalogPage },
@@ -155,6 +160,7 @@ export const router = createBrowserRouter([
           { path: "storage", Component: StoragePage },
           { path: "builds", Component: BuildsPage },
           { path: "observe", Component: ObservePage },
+          { path: "observe/alerts", Component: AlertingPage },
           { path: "compute", Component: ComputePage },
           { path: "compute/nodes/:nodeName", Component: NodeDetailPage },
           { path: "user-management", Component: UserManagementPage },
@@ -173,7 +179,8 @@ export const router = createBrowserRouter([
           { path: "administration/custom-resource-definitions", Component: CustomResourceDefinitionsPage },
           { path: "administration/dynamic-plugins", Component: DynamicPluginsPage },
           { path: "settings", Component: SettingsPage },
-          { path: "alerts", Component: AlertsPage },
+          { path: "alerts", Component: MonitoringAlertsPage },
+          { path: "alerts/legacy", Component: AlertsPage },
           { path: "activity/:id", Component: ActivityDetailsPage },
           { path: "inventory", Component: ClusterInventoryPage },
           ...consoleStubRoutes,

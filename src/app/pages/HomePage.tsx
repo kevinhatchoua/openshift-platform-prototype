@@ -314,13 +314,65 @@ function ActivityCard({ isGlass }: { isGlass: boolean }) {
   );
 }
 
+function StatusAlertRow({
+  name,
+  time,
+  description,
+  configPath,
+}: {
+  name: string;
+  time: string;
+  description: string;
+  configPath: string;
+}) {
+  const [hovered, setHovered] = useState(false);
+  return (
+    <div
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      style={{ position: "relative" }}
+    >
+      <Alert
+        isInline
+        title={name}
+        variant="warning"
+        actionLinks={
+          <Flex gap={{ default: "gapSm" }}>
+            <Button variant="link" isInline component={Link} to={configPath}>
+              {name === "AlertmanagerReceiversNotConfigured" ? "Configure" : "View details"}
+            </Button>
+            <Button variant="link" isInline component={Link} to={`/observe/alerts?q=${encodeURIComponent(name)}&state=Firing`}>
+              Alerting view
+            </Button>
+            {hovered ? (
+              <Button variant="link" isInline component={Link} to={`/observe/alerts?q=${encodeURIComponent(name)}`}>
+                Silence
+              </Button>
+            ) : null}
+          </Flex>
+        }
+      >
+        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
+          <Content component="small">{time}</Content>
+          <Content component="p">{description}</Content>
+        </Flex>
+      </Alert>
+    </div>
+  );
+}
+
 function StatusCard({ isGlass }: { isGlass: boolean }) {
   return (
     <Card isGlass={isGlass}>
       <CardHeader
         actions={{
           actions: (
-            <Button variant="link" component={Link} to="/alerts" isInline>
+            <Button
+              variant="link"
+              component={Link}
+              to="/observe/alerts?state=Firing&source=Platform"
+              isInline
+            >
               View alerts
             </Button>
           ),
@@ -364,41 +416,20 @@ function StatusCard({ isGlass }: { isGlass: boolean }) {
 
           <Divider />
 
+          {/* ... existing Status card alert list — enhanced deep links + hover actions ... */}
           <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-            <Alert isInline title="CannotRetrieveUpdates" variant="warning">
-              <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                <Content component="small">Mar 3, 2026, 10:37 AM</Content>
-                <Content component="p">
-                  Failure to retrieve updates means that cluster administrators will need to monitor for available updates on
-                  their own or risk falling behind on security or other bugfixes.
-                </Content>
-              </Flex>
-            </Alert>
-            <Alert
-              isInline
-              title="AlertmanagerReceiversNotConfigured"
-              variant="warning"
-              actionLinks={
-                <Button
-                  variant="link"
-                  isInline
-                  component="a"
-                  href="https://docs.openshift.com/container-platform/latest/monitoring/configuring-the-monitoring-stack.html"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  Configure
-                </Button>
-              }
-            >
-              <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                <Content component="small">Mar 3, 2026, 10:36 AM</Content>
-                <Content component="p">
-                  Alerts are not configured to be sent to a notification system, meaning that you may not be notified in a timely
-                  fashion when important failures occur.
-                </Content>
-              </Flex>
-            </Alert>
+            <StatusAlertRow
+              name="CannotRetrieveUpdates"
+              time="Jul 21, 2026, 9:44 AM"
+              description="Failure to retrieve updates means that cluster administrators will need to monitor for available updates on their own or risk falling behind on security or other bugfixes."
+              configPath="/administration/cluster-settings"
+            />
+            <StatusAlertRow
+              name="AlertmanagerReceiversNotConfigured"
+              time="Jul 21, 2026, 8:47 AM"
+              description="Alerts are not configured to be sent to a notification system, meaning that you may not be notified in a timely fashion when important failures occur."
+              configPath="/administration/cluster-settings"
+            />
           </Flex>
         </Flex>
       </CardBody>
