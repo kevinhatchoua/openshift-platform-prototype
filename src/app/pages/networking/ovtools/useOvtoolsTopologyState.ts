@@ -10,7 +10,14 @@ type PersistedState = {
 
 const DEFAULT: PersistedState = {
   mode: "overview",
-  filters: { nodeId: "all", vmStatus: "all", search: "" },
+  filters: {
+    nodeId: "all",
+    vmStatus: "all",
+    search: "",
+    namespace: "all",
+    resourceType: "all",
+    showProblemsOnly: false,
+  },
 };
 
 function readState(): PersistedState {

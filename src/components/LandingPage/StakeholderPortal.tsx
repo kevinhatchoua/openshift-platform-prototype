@@ -20,6 +20,7 @@ import {
   Label,
   MenuToggle,
   PageSection,
+  Spinner,
   Title,
   Toolbar,
   ToolbarContent,
@@ -31,10 +32,13 @@ import SlackHashIcon from "@patternfly/react-icons/dist/esm/icons/slack-hash-ico
 import UserIcon from "@patternfly/react-icons/dist/esm/icons/user-icon";
 import {
   EPIC_CARDS,
+  JIRA_BROWSE_URL,
   STATUS_COLOR,
   STATUS_LABEL,
   type EpicCardProps,
+  type TrackSegment,
 } from "./epicCardsData";
+import { useEpicJiraStatuses } from "./useEpicJiraStatuses";
 
 type StatusFilter = "all" | "completed" | "active";
 
@@ -43,6 +47,30 @@ const FILTER_OPTIONS: { id: StatusFilter; label: string }[] = [
   { id: "completed", label: "Completed Only" },
   { id: "active", label: "In Progress / Not Started" },
 ];
+
+function TrackLine({ segments }: { segments: TrackSegment[] }) {
+  return (
+    <Content component="small">
+      {segments.map((segment, index) =>
+        segment.type === "jira" ? (
+          <Button
+            key={`${segment.key}-${index}`}
+            variant="link"
+            isInline
+            component="a"
+            href={`${JIRA_BROWSE_URL}/${segment.key}`}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            {segment.key}
+          </Button>
+        ) : (
+          <span key={`text-${index}`}>{segment.value}</span>
+        )
+      )}
+    </Content>
+  );
+}
 
 function EpicCard({ title, track, description, status, ctaLabel, ctaTo, ctaDisabled }: EpicCardProps) {
   return (
@@ -57,7 +85,7 @@ function EpicCard({ title, track, description, status, ctaLabel, ctaTo, ctaDisab
               {STATUS_LABEL[status]}
             </Label>
           </Flex>
-          <Content component="small">{track}</Content>
+          <TrackLine segments={track} />
         </Flex>
       </CardTitle>
       <CardBody>
@@ -81,15 +109,16 @@ function EpicCard({ title, track, description, status, ctaLabel, ctaTo, ctaDisab
 export default function StakeholderPortal() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [filterOpen, setFilterOpen] = useState(false);
+  const { cards: epicCards, loading: statusesLoading } = useEpicJiraStatuses(EPIC_CARDS);
 
   const filteredEpics = useMemo(
     () =>
-      EPIC_CARDS.filter((epic) => {
+      epicCards.filter((epic) => {
         if (statusFilter === "completed") return epic.status === "completed";
         if (statusFilter === "active") return epic.status === "in-progress" || epic.status === "not-started";
         return true;
       }),
-    [statusFilter]
+    [epicCards, statusFilter]
   );
 
   const activeFilterLabel = FILTER_OPTIONS.find((o) => o.id === statusFilter)?.label ?? "All Work";
@@ -102,8 +131,20 @@ export default function StakeholderPortal() {
             OpenShift Platform Prototype
           </Title>
           <Content component="p">
-            This interactive portal tracks design validation, user workflows, and high-fidelity prototypes
-            across OpenShift Console experiences — networking (HPUX-1717), operator lifecycle dates, and OLM cluster updates.
+            Two-phase OCP 5.0 network UX roadmap: <strong>Phase 1</strong> automates cross-layer links between Networking
+            and Virtualization; <strong>Phase 2</strong> delivers graph topology visualization (topology over tree view).
+            Track progress across networking (
+            <Button
+              variant="link"
+              isInline
+              component="a"
+              href={`${JIRA_BROWSE_URL}/HPUX-1717`}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
+              HPUX-1717
+            </Button>
+            ), DataView toolbar filtering, and OLM cluster updates.
           </Content>
         </Flex>
 
@@ -137,6 +178,14 @@ export default function StakeholderPortal() {
                 </DropdownList>
               </Dropdown>
             </ToolbarItem>
+            {statusesLoading ? (
+              <ToolbarItem>
+                <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
+                  <Spinner size="md" aria-label="Syncing Jira statuses" />
+                  <Content component="small">Syncing Jira statuses…</Content>
+                </Flex>
+              </ToolbarItem>
+            ) : null}
           </ToolbarContent>
         </Toolbar>
 

@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router";
 import {
+  Alert,
   Button,
   Card,
   CardBody,
@@ -36,7 +37,7 @@ import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import { VMNetworkResourceLink } from "../../components/networking/VMNetworkResourceLink";
 import { OCS_PROTOTYPE_TABLE_CLASS } from "../../components/dataView/OcsPrototypeListTable";
-import { getVirtualMachine, vmDetailPath } from "../networking/networkingMockData";
+import { getVirtualMachine, getVmNetworkAlerts, vmDetailPath } from "../networking/networkingMockData";
 import { VIRT_CRUMB } from "./virtualizationMockData";
 import { VirtualizationProjectLayout } from "./virtualizationShared";
 
@@ -72,6 +73,8 @@ export default function VirtualMachineDetailPage() {
   }
 
   const detailPath = vmDetailPath(decodedNs, decodedName);
+  const networkAlerts = getVmNetworkAlerts(vm);
+  const primaryNetworkAlert = networkAlerts[0];
 
   return (
     <div className="ocs-app-page-outer ocs-vm-detail-page h-full min-h-0 overflow-y-auto">
@@ -131,6 +134,13 @@ export default function VirtualMachineDetailPage() {
               </Dropdown>
             </Flex>
           </Flex>
+
+          {primaryNetworkAlert ? (
+            <Alert variant="danger" title="Network connectivity issue" isInline>
+              {primaryNetworkAlert.message}{" "}
+              {networkAlerts.length > 1 ? `(${networkAlerts.length} interfaces affected.)` : null}
+            </Alert>
+          ) : null}
 
           <VirtualizationProjectLayout selectedProject={decodedNs} selectedVm={decodedName}>
             <Tabs activeKey={activeTab} onSelect={(_e, key) => setActiveTab(String(key))} aria-label="VirtualMachine">
@@ -246,7 +256,7 @@ export default function VirtualMachineDetailPage() {
                   </section>
                 </GridItem>
                 <GridItem md={4}>
-                  <VmSidePanel vm={vm} />
+                  <VmSidePanel vm={vm} networkAlerts={networkAlerts} />
                 </GridItem>
               </Grid>
             ) : null}
@@ -289,7 +299,15 @@ export default function VirtualMachineDetailPage() {
                               <Td dataLabel="Network">
                                 <VMNetworkResourceLink network={iface.network} />
                               </Td>
-                              <Td dataLabel="State">{iface.state}</Td>
+                              <Td dataLabel="State">
+                                {iface.state === "down" ? (
+                                  <Label color="red" isCompact>
+                                    down
+                                  </Label>
+                                ) : (
+                                  iface.state
+                                )}
+                              </Td>
                               <Td dataLabel="Type">{iface.type}</Td>
                               <Td dataLabel="MAC address">{iface.macAddress}</Td>
                             </Tr>
@@ -322,15 +340,31 @@ export default function VirtualMachineDetailPage() {
   );
 }
 
-function VmSidePanel({ vm }: { vm: NonNullable<ReturnType<typeof getVirtualMachine>> }) {
+function VmSidePanel({
+  vm,
+  networkAlerts,
+}: {
+  vm: NonNullable<ReturnType<typeof getVirtualMachine>>;
+  networkAlerts: ReturnType<typeof getVmNetworkAlerts>;
+}) {
   return (
     <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
       <Card isCompact isPlain className="app-glass-panel">
-        <CardTitle>Alerts (0)</CardTitle>
+        <CardTitle>Alerts ({networkAlerts.length})</CardTitle>
         <CardBody>
-          <Content component="p" className="pf-v6-u-color-200">
-            No alerts
-          </Content>
+          {networkAlerts.length === 0 ? (
+            <Content component="p" className="pf-v6-u-color-200">
+              No alerts
+            </Content>
+          ) : (
+            <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
+              {networkAlerts.map((alert) => (
+                <Alert key={alert.interfaceName} variant={alert.severity} title="Network" isPlain isInline>
+                  {alert.message}
+                </Alert>
+              ))}
+            </Flex>
+          )}
         </CardBody>
       </Card>
       <Card isCompact isPlain className="app-glass-panel">

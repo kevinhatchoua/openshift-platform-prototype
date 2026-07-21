@@ -67,7 +67,7 @@ export const BUILDS_SUB: SubNavEntry[] = [
 ];
 
 export const OBSERVE_SUB: SubNavEntry[] = [
-  { path: "/observe", label: "Alerting" },
+  { path: "/observe/alerts", label: "Alerting" },
   { path: "/observe/metrics", label: "Metrics" },
   { path: "/observe/dashboards", label: "Dashboards" },
   { path: "/observe/targets", label: "Targets" },
@@ -169,6 +169,8 @@ export function collectStubPaths(): string[] {
     "/storage",
     "/builds",
     "/observe",
+    "/observe/alerts",
+    "/monitoring/alerts",
     "/compute",
     "/user-management",
     "/administration/cluster-update",

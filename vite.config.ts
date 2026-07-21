@@ -2,6 +2,7 @@ import { defineConfig, type Plugin } from 'vite'
 import path from 'path'
 import tailwindcss from '@tailwindcss/vite'
 import react from '@vitejs/plugin-react'
+import { jiraStatusesPlugin } from './vite-plugin-jira-statuses'
 
 function figmaAssetPlugin(): Plugin {
   return {
@@ -21,6 +22,7 @@ function figmaAssetPlugin(): Plugin {
 export default defineConfig({
   plugins: [
     figmaAssetPlugin(),
+    jiraStatusesPlugin(),
     react(),
     tailwindcss(),
   ],

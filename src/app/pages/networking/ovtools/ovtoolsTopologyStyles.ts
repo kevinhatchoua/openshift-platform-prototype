@@ -89,6 +89,38 @@ export const OVTOOLS_CY_STYLES: StylesheetStyle[] = [
     },
   },
   {
+    selector: "node[kind = 'cluster']",
+    style: {
+      "background-color": "#1e293b",
+      "border-color": "#64748b",
+      width: 140,
+      height: 96,
+      shape: "round-rectangle",
+      "font-weight": 600,
+    },
+  },
+  {
+    selector: "node[statusProfile = 'available']",
+    style: {
+      "background-color": "#14532d",
+      "border-color": "#22c55e",
+    },
+  },
+  {
+    selector: "node[statusProfile = 'pending']",
+    style: {
+      "background-color": "#78350f",
+      "border-color": "#f97316",
+    },
+  },
+  {
+    selector: "node[statusProfile = 'critical']",
+    style: {
+      "background-color": "#7f1d1d",
+      "border-color": "#ef4444",
+    },
+  },
+  {
     selector: ":parent",
     style: {
       "background-opacity": 0.12,
@@ -99,7 +131,7 @@ export const OVTOOLS_CY_STYLES: StylesheetStyle[] = [
       "text-valign": "top",
       "text-halign": "center",
       "text-margin-y": -6,
-      padding: 24,
+      padding: 120,
     },
   },
   {
@@ -135,6 +167,89 @@ export const OVTOOLS_CY_STYLES: StylesheetStyle[] = [
       "line-style": "dashed",
       "line-color": "#94a3b8",
       "target-arrow-color": "#94a3b8",
+    },
+  },
+  {
+    selector: "edge[edgeHealth = 'healthy']",
+    style: {
+      "line-color": "#34d399",
+      "target-arrow-color": "#34d399",
+    },
+  },
+  {
+    selector: "edge[edgeHealth = 'degraded']",
+    style: {
+      "line-color": "#fb923c",
+      "target-arrow-color": "#fb923c",
+      "line-style": "dashed",
+    },
+  },
+  {
+    selector: "edge[edgeHealth = 'failed']",
+    style: {
+      "line-color": "#f87171",
+      "target-arrow-color": "#f87171",
+      width: 3,
+    },
+  },
+  {
+    selector: "edge[kind = 'validation-failed']",
+    style: {
+      "line-color": "#ef4444",
+      "target-arrow-color": "#ef4444",
+      width: 3,
+      "line-style": "dotted",
+    },
+  },
+  {
+    selector: "node[atCapacity = 'true']",
+    style: {
+      "background-color": "#713f12",
+      "border-color": "#facc15",
+      "border-width": 4,
+    },
+  },
+  {
+    selector: "node[faultDomain = 'nad']",
+    style: {
+      "border-color": "#f472b6",
+      "border-style": "dashed",
+      "border-width": 3,
+    },
+  },
+  {
+    selector: "node[faultDomain = 'vm']",
+    style: {
+      "border-color": "#c4b5fd",
+      "border-style": "dotted",
+      "border-width": 3,
+    },
+  },
+  {
+    selector: "node[faultDomain = 'storage']",
+    style: {
+      "border-color": "#fb923c",
+      "border-style": "double",
+      "border-width": 3,
+    },
+  },
+  {
+    selector: "node.label-hidden",
+    style: {
+      "text-opacity": 0,
+    },
+  },
+  {
+    selector: "node.cluster-hidden",
+    style: {
+      display: "none",
+    },
+  },
+  {
+    selector: "node.cluster-collapsed",
+    style: {
+      "border-width": 3,
+      "border-style": "double",
     },
   },
   {

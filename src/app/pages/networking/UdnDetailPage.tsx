@@ -18,14 +18,11 @@ import {
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import {
-  NetworkVirtualMachinesTab,
-  NetworkVmTabBadge,
-} from "../../components/networking/NetworkVirtualMachinesTab";
-import {
   getAttachedVmsForNetwork,
   getUdn,
   udnDetailPath,
   udnYaml,
+  virtVmNetworkDetailPath,
   type NetworkResourceRef,
 } from "./networkingMockData";
 import { NETWORKING_CRUMB as CRUMB } from "./networkingShared";
@@ -38,7 +35,6 @@ export default function UdnDetailPage() {
   const decodedNs = nsParam ? decodeURIComponent(nsParam) : undefined;
   const udn = getUdn(decodedName, decodedNs);
   const [activeTab, setActiveTab] = useState("details");
-  const [attachmentRev, setAttachmentRev] = useState(0);
 
   const networkRef: NetworkResourceRef = useMemo(
     () =>
@@ -48,10 +44,8 @@ export default function UdnDetailPage() {
     [decodedName, decodedNs, udn?.kind]
   );
 
-  const vmCount = useMemo(
-    () => getAttachedVmsForNetwork(networkRef).length,
-    [networkRef, attachmentRev]
-  );
+  const vmCount = useMemo(() => getAttachedVmsForNetwork(networkRef).length, [networkRef]);
+  const virtNetworkPath = virtVmNetworkDetailPath(networkRef);
 
   if (!udn || (isCluster && udn.kind !== "CUDN") || (!isCluster && udn.kind === "CUDN")) {
     return (
@@ -106,14 +100,6 @@ export default function UdnDetailPage() {
           >
             <Tab eventKey="details" title={<TabTitleText>Details</TabTitleText>} />
             <Tab eventKey="yaml" title={<TabTitleText>YAML</TabTitleText>} />
-            <Tab
-              eventKey="virtualization"
-              title={
-                <TabTitleText>
-                  Virtual Machines <NetworkVmTabBadge count={vmCount} />
-                </TabTitleText>
-              }
-            />
           </Tabs>
 
           {activeTab === "details" ? (
@@ -135,6 +121,15 @@ export default function UdnDetailPage() {
                     <DescriptionListGroup>
                       <DescriptionListTerm>Description</DescriptionListTerm>
                       <DescriptionListDescription>{udn.description}</DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Connected virtual machines</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        {vmCount} attached ·{" "}
+                        <Button variant="link" isInline component={Link} to={virtNetworkPath}>
+                          Manage in Virtualization
+                        </Button>
+                      </DescriptionListDescription>
                     </DescriptionListGroup>
                   </DescriptionList>
                 </GridItem>
@@ -162,14 +157,6 @@ export default function UdnDetailPage() {
             <section className="ocs-node-details__panel app-glass-panel" aria-label="YAML">
               <pre className="ocs-net-yaml">{udnYaml(udn)}</pre>
             </section>
-          ) : null}
-
-          {activeTab === "virtualization" ? (
-            <NetworkVirtualMachinesTab
-              networkRef={networkRef}
-              networkName={udn.name}
-              onAttachmentsChange={() => setAttachmentRev((r) => r + 1)}
-            />
           ) : null}
         </Flex>
       </Breadcrumbs>

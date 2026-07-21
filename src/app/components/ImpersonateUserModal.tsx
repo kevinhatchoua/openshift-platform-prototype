@@ -1,16 +1,30 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+  Alert,
+  Button,
+  Form,
+  FormGroup,
+  FormHelperText,
+  HelperText,
+  HelperTextItem,
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
   TextInput,
-  Button,
-  Flex,
-  FlexItem,
-  Content,
+  ToggleGroup,
+  ToggleGroupItem,
 } from "@patternfly/react-core";
-import SearchIcon from "@patternfly/react-icons/dist/esm/icons/search-icon";
+import {
+  ALL_NAMESPACES,
+  CLUSTER_NAMESPACES,
+  getServiceAccountsForNamespace,
+  isConcreteNamespace,
+  resolveNamespaceForServiceAccount,
+} from "../data/impersonationMockData";
+import TypeaheadSelect from "./TypeaheadSelect";
+
+type ImpersonateKind = "User" | "ServiceAccount";
 
 interface User {
   id: string;
@@ -21,143 +35,222 @@ interface User {
 }
 
 interface ImpersonateUserModalProps {
-  isOpen: boolean;
+  isOpen?: boolean;
   onClose: () => void;
   onImpersonate: (user: User) => void;
+  /** Optional prefill when opened from a user row action */
+  preselectedUser?: User | null;
+  /** Kept for call-site compatibility; not used in this production-aligned mock */
+  users?: User[];
+}
+
+function buildServiceAccountIdentity(namespace: string, name: string) {
+  return `system:serviceaccount:${namespace.trim()}:${name.trim()}`;
 }
 
 export default function ImpersonateUserModal({
-  isOpen,
+  isOpen = true,
   onClose,
   onImpersonate,
+  preselectedUser = null,
 }: ImpersonateUserModalProps) {
-  const [searchQuery, setSearchQuery] = useState("");
+  const [kind, setKind] = useState<ImpersonateKind>("User");
+  const [username, setUsername] = useState("");
+  const [groups, setGroups] = useState("");
+  const [namespace, setNamespace] = useState(ALL_NAMESPACES);
+  const [saName, setSaName] = useState("");
 
   useEffect(() => {
     if (!isOpen) {
-      setSearchQuery("");
+      setKind("User");
+      setUsername("");
+      setGroups("");
+      setNamespace(ALL_NAMESPACES);
+      setSaName("");
+      return;
     }
-  }, [isOpen]);
+    if (preselectedUser) {
+      setKind("User");
+      setUsername(preselectedUser.name);
+    }
+  }, [isOpen, preselectedUser]);
 
-  const users: User[] = [
-    { id: "1", name: "Sarah Chen", email: "sarah.chen@redhat.com", role: "Developer", department: "Engineering" },
-    { id: "2", name: "Michael Rodriguez", email: "michael.rodriguez@redhat.com", role: "DevOps Engineer", department: "Operations" },
-    { id: "3", name: "Emily Watson", email: "emily.watson@redhat.com", role: "Product Manager", department: "Product" },
-    { id: "4", name: "David Kim", email: "david.kim@redhat.com", role: "Security Analyst", department: "Security" },
-    { id: "5", name: "Lisa Anderson", email: "lisa.anderson@redhat.com", role: "QA Engineer", department: "Quality Assurance" },
-    { id: "6", name: "James Wilson", email: "james.wilson@redhat.com", role: "Site Reliability Engineer", department: "Operations" },
-    { id: "7", name: "Maria Garcia", email: "maria.garcia@redhat.com", role: "Frontend Developer", department: "Engineering" },
-    { id: "8", name: "Robert Taylor", email: "robert.taylor@redhat.com", role: "Backend Developer", department: "Engineering" },
-  ];
+  // Dependent filtering: namespace change clears trailing SA selection instantly
+  const handleNamespaceChange = (selectedNamespace: string) => {
+    setNamespace(selectedNamespace || ALL_NAMESPACES);
+    setSaName("");
+  };
 
-  const filteredUsers = users.filter(
-    (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.role.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.department.toLowerCase().includes(searchQuery.toLowerCase())
-  );
+  const namespaceOptions = useMemo(() => [ALL_NAMESPACES, ...CLUSTER_NAMESPACES], []);
+  const saOptions = useMemo(() => getServiceAccountsForNamespace(namespace), [namespace]);
 
-  const handleImpersonate = (user: User) => {
-    onImpersonate(user);
+  const resolvedSaNamespace = useMemo(() => {
+    if (!saName.trim()) {
+      return null;
+    }
+    if (isConcreteNamespace(namespace)) {
+      return namespace;
+    }
+    return resolveNamespaceForServiceAccount(saName);
+  }, [namespace, saName]);
+
+  const constructedSaName = useMemo(() => {
+    if (!resolvedSaNamespace || !saName.trim()) {
+      return "";
+    }
+    return buildServiceAccountIdentity(resolvedSaNamespace, saName);
+  }, [resolvedSaNamespace, saName]);
+
+  const canSubmit =
+    kind === "User" ? username.trim().length > 0 : Boolean(resolvedSaNamespace && saName.trim());
+
+  const handleSubmit = () => {
+    if (!canSubmit) {
+      return;
+    }
+
+    if (kind === "ServiceAccount") {
+      if (!resolvedSaNamespace) {
+        return;
+      }
+      const identity = buildServiceAccountIdentity(resolvedSaNamespace, saName);
+      onImpersonate({
+        id: identity,
+        name: identity,
+        email: `${saName.trim()}@${resolvedSaNamespace}`,
+        role: "Service Account",
+        department: resolvedSaNamespace,
+      });
+    } else {
+      onImpersonate({
+        id: username.trim(),
+        name: username.trim(),
+        email: "",
+        role: "User",
+        department: groups
+          .split(",")
+          .map((g) => g.trim())
+          .filter(Boolean)
+          .join(", "),
+      });
+    }
     onClose();
   };
 
+  const alertText =
+    kind === "User"
+      ? "Impersonating a user grants you their exact permissions. You must enter username, but you can also enter a group to simulate the permissions of a member of that group."
+      : "Impersonating a service account grants you that service account's permissions. Choose a namespace, then a service account — the console constructs the Kubernetes identity for you.";
+
   return (
     <Modal
-      variant="medium"
+      variant="small"
       isOpen={isOpen}
       onClose={onClose}
       aria-labelledby="impersonate-modal-title"
       aria-describedby="impersonate-modal-description"
     >
-      <ModalHeader
-        labelId="impersonate-modal-title"
-        descriptorId="impersonate-modal-description"
-        title="Impersonate User"
-        description="Select a user to view the console from their perspective"
-      />
-      <ModalBody>
-        <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-          <FlexItem>
-            <TextInput
-              id="impersonate-search"
-              type="search"
-              customIcon={<SearchIcon />}
-              placeholder="Search by name, email, role, or department..."
-              value={searchQuery}
-              onChange={(_e, value) => setSearchQuery(value)}
-              aria-label="Search users"
-            />
-          </FlexItem>
-          <FlexItem>
-            <div style={{ maxHeight: 400, overflowY: "auto" }}>
-              {filteredUsers.length === 0 ? (
-                <Content>
-                  <p>No users found matching &quot;{searchQuery}&quot;</p>
-                </Content>
-              ) : (
-                <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                  {filteredUsers.map((user) => (
-                    <Button
-                      key={user.id}
-                      variant="plain"
-                      isBlock
-                      onClick={() => handleImpersonate(user)}
-                      style={{ justifyContent: "flex-start", height: "auto", padding: "var(--pf-t--global--spacer--md)" }}
-                    >
-                      <Flex flexWrap={{ default: "nowrap" }} alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }} style={{ width: "100%", textAlign: "left" }}>
-                        <FlexItem>
-                          <div
-                            style={{
-                              width: 40,
-                              height: 40,
-                              borderRadius: "50%",
-                              display: "flex",
-                              alignItems: "center",
-                              justifyContent: "center",
-                              background: "var(--pf-t--global--background--color--secondary--default)",
-                              fontWeight: 600,
-                              fontSize: "14px",
-                              flexShrink: 0,
-                            }}
-                          >
-                            {user.name
-                              .split(" ")
-                              .map((n) => n[0])
-                              .join("")
-                              .toUpperCase()}
-                          </div>
-                        </FlexItem>
-                        <FlexItem grow={{ default: "grow" }} style={{ minWidth: 0 }}>
-                          <Content>
-                            <strong>{user.name}</strong>
-                            <div>
-                              <small>{user.email}</small>
-                            </div>
-                          </Content>
-                        </FlexItem>
-                        <FlexItem style={{ textAlign: "right", flexShrink: 0 }}>
-                          <Content>
-                            <strong style={{ fontSize: "12px" }}>{user.role}</strong>
-                            <div>
-                              <small>{user.department}</small>
-                            </div>
-                          </Content>
-                        </FlexItem>
-                      </Flex>
-                    </Button>
-                  ))}
-                </Flex>
-              )}
-            </div>
-          </FlexItem>
-        </Flex>
+      <ModalHeader labelId="impersonate-modal-title" title="Impersonate" />
+      <ModalBody id="impersonate-modal-description">
+        <Form>
+          <Alert variant="warning" isInline title={alertText} />
+
+          <FormGroup label="Impersonate as" fieldId="impersonate-kind">
+            <ToggleGroup aria-label="Impersonation subject type" isFill>
+              <ToggleGroupItem
+                text="User"
+                buttonId="impersonate-kind-user"
+                isSelected={kind === "User"}
+                onChange={() => setKind("User")}
+              />
+              <ToggleGroupItem
+                text="Service Account"
+                buttonId="impersonate-kind-sa"
+                isSelected={kind === "ServiceAccount"}
+                onChange={() => {
+                  setKind("ServiceAccount");
+                  setNamespace(ALL_NAMESPACES);
+                  setSaName("");
+                }}
+              />
+            </ToggleGroup>
+          </FormGroup>
+
+          {kind === "User" ? (
+            <>
+              <FormGroup label="Username" isRequired fieldId="impersonate-username">
+                <TextInput
+                  id="impersonate-username"
+                  value={username}
+                  onChange={(_e, value) => setUsername(value)}
+                  placeholder="Enter a username"
+                  aria-label="Username"
+                />
+              </FormGroup>
+              <FormGroup label="Groups" fieldId="impersonate-groups">
+                <TextInput
+                  id="impersonate-groups"
+                  value={groups}
+                  onChange={(_e, value) => setGroups(value)}
+                  placeholder="Enter groups"
+                  aria-label="Groups"
+                />
+                <FormHelperText>
+                  <HelperText>
+                    <HelperTextItem>Optional. Comma-separated group names.</HelperTextItem>
+                  </HelperText>
+                </FormHelperText>
+              </FormGroup>
+            </>
+          ) : (
+            <>
+              <FormGroup label="Namespace" isRequired fieldId="impersonate-sa-namespace">
+                <TypeaheadSelect
+                  id="impersonate-sa-namespace"
+                  aria-label="Namespace"
+                  options={namespaceOptions}
+                  value={namespace}
+                  onChange={handleNamespaceChange}
+                  placeholder="Select a namespace"
+                />
+              </FormGroup>
+              <FormGroup label="Service account name" isRequired fieldId="impersonate-sa-name">
+                <TypeaheadSelect
+                  id="impersonate-sa-name"
+                  aria-label="Service account name"
+                  options={saOptions}
+                  value={saName}
+                  onChange={setSaName}
+                  placeholder="Select a service account"
+                />
+                <FormHelperText>
+                  <HelperText>
+                    <HelperTextItem>
+                      Service account name depends on selected Namespace.
+                    </HelperTextItem>
+                  </HelperText>
+                </FormHelperText>
+              </FormGroup>
+              {constructedSaName ? (
+                <FormHelperText>
+                  <HelperText>
+                    <HelperTextItem>
+                      Will impersonate as <code>{constructedSaName}</code>
+                    </HelperTextItem>
+                  </HelperText>
+                </FormHelperText>
+              ) : null}
+            </>
+          )}
+        </Form>
       </ModalBody>
       <ModalFooter>
-        <Content component="p" style={{ fontSize: "12px", margin: 0 }}>
-          You will see the console from the selected user&apos;s perspective. All actions will be logged under your admin account.
-        </Content>
+        <Button key="impersonate" variant="primary" onClick={handleSubmit} isDisabled={!canSubmit}>
+          Impersonate
+        </Button>
+        <Button key="cancel" variant="link" onClick={onClose}>
+          Cancel
+        </Button>
       </ModalFooter>
     </Modal>
   );

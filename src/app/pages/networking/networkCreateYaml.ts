@@ -10,14 +10,79 @@ export type NadFormState = { name: string; namespace: string; type: string };
 export type UdnFormState = { project: string; name: string; cidr: string };
 export type CudnFormState = { name: string; cidr: string; matchLabels: string };
 export type NncpFormState = { name: string };
-/** Ports as one entry per line: `port:targetPort/PROTOCOL` (e.g. `80:9376/TCP`). */
+export type ServiceKeyValuePair = { key: string; value: string };
+
+export type ServicePortRow = {
+  protocol: string;
+  port: string;
+  targetPort: string;
+  name: string;
+  /** Empty string means Kubernetes auto-assigns (NodePort / LoadBalancer only). */
+  nodePort: string;
+};
+
 export type ServiceFormState = {
   name: string;
   namespace: string;
   type: string;
-  selector: string;
-  ports: string;
+  selector: ServiceKeyValuePair[];
+  ports: ServicePortRow[];
+  externalName: string;
+  externalTrafficPolicy: string;
+  loadBalancerIP: string;
+  sessionAffinity: string;
+  internalTrafficPolicy: string;
+  /** One IP per line. */
+  externalIPs: string;
+  annotations: ServiceKeyValuePair[];
 };
+
+export const EMPTY_SERVICE_SELECTOR_PAIR: ServiceKeyValuePair = { key: "", value: "" };
+
+export const EMPTY_SERVICE_PORT_ROW: ServicePortRow = {
+  protocol: "TCP",
+  port: "",
+  targetPort: "",
+  name: "",
+  nodePort: "",
+};
+
+export function createDefaultServiceFormState(): ServiceFormState {
+  return {
+    name: "example",
+    namespace: "default",
+    type: "ClusterIP",
+    selector: [{ key: "app", value: "MyApp" }],
+    ports: [{ protocol: "TCP", port: "80", targetPort: "9376", name: "http", nodePort: "" }],
+    externalName: "",
+    externalTrafficPolicy: "Cluster",
+    loadBalancerIP: "",
+    sessionAffinity: "None",
+    internalTrafficPolicy: "Cluster",
+    externalIPs: "",
+    annotations: [],
+  };
+}
+
+export function selectorPairsToLines(pairs: ServiceKeyValuePair[]): string {
+  return pairs
+    .filter((p) => p.key.trim())
+    .map((p) => `${p.key.trim()}=${p.value.trim()}`)
+    .join("\n");
+}
+
+export function selectorLinesToPairs(text: string): ServiceKeyValuePair[] {
+  const pairs = text
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean)
+    .map((line) => {
+      const eq = line.indexOf("=");
+      if (eq === -1) return { key: line, value: "" };
+      return { key: line.slice(0, eq).trim(), value: line.slice(eq + 1).trim() };
+    });
+  return pairs.length > 0 ? pairs : [{ ...EMPTY_SERVICE_SELECTOR_PAIR }];
+}
 
 export type ParseYamlResult<T> = {
   partial: Partial<T> | null;
@@ -207,109 +272,169 @@ export const NNCP_YAML_SCHEMA: YamlSchemaField[] = [
   { name: "spec.desiredState", type: "object", description: "Nmstate interfaces and routes to enforce." },
 ];
 
-function selectorFromYaml(yaml: string): string | undefined {
+function annotationsFromYaml(yaml: string): ServiceKeyValuePair[] | undefined {
+  const metadata = yaml.match(/^metadata:\s*\n([\s\S]*?)(?=^\S|\s*$)/m)?.[1] ?? "";
+  const block =
+    metadata.match(/^\s*annotations:\s*\n((?:\s+.+\n?)+)/m)?.[1] ??
+    metadata.match(/^\s*annotations:\s*\{([^}]+)\}/m)?.[1];
+  if (!block) return undefined;
+  const pairs: ServiceKeyValuePair[] = [];
+  block.split("\n").forEach((line) => {
+    const match = line.match(/^\s*([^:{}]+):\s*(.*)$/);
+    if (match) pairs.push({ key: match[1].trim(), value: stripQuotes(match[2]) });
+  });
+  return pairs;
+}
+
+function annotationsToYaml(pairs: ServiceKeyValuePair[]): string {
+  const rows = pairs
+    .filter((p) => p.key.trim())
+    .map((p) => `    ${p.key.trim()}: ${JSON.stringify(p.value)}`);
+  if (rows.length === 0) return "";
+  return `  annotations:\n${rows.join("\n")}\n`;
+}
+
+function selectorFromYaml(yaml: string): ServiceKeyValuePair[] | undefined {
   const block =
     yaml.match(/^\s*selector:\s*\n((?:\s+.+\n?)+)/m)?.[1] ??
     yaml.match(/^\s*selector:\s*\{([^}]+)\}/m)?.[1];
   if (!block) return undefined;
-  const pairs: string[] = [];
+  const pairs: ServiceKeyValuePair[] = [];
   block.split("\n").forEach((line) => {
     const match = line.match(/^\s*([^:{}]+):\s*(.+)$/);
-    if (match) pairs.push(`${match[1].trim()}=${stripQuotes(match[2])}`);
+    if (match) pairs.push({ key: match[1].trim(), value: stripQuotes(match[2]) });
   });
-  if (pairs.length === 0 && block.includes("=")) return block.trim();
-  return pairs.length > 0 ? pairs.join("\n") : undefined;
+  if (pairs.length === 0 && block.includes("=")) return selectorLinesToPairs(block.trim());
+  return pairs.length > 0 ? pairs : undefined;
 }
 
-function selectorToYaml(text: string): string {
-  const lines = text
-    .split("\n")
-    .map((line) => line.trim())
-    .filter(Boolean);
-  if (lines.length === 0) return "    {}";
-  const rows = lines.map((line) => {
-    const [key, ...rest] = line.split("=");
-    return `    ${key.trim()}: ${rest.join("=").trim()}`;
-  });
+function selectorToYaml(pairs: ServiceKeyValuePair[]): string {
+  const rows = pairs
+    .filter((p) => p.key.trim())
+    .map((p) => `    ${p.key.trim()}: ${p.value.trim()}`);
+  if (rows.length === 0) return "    {}";
   return rows.join("\n");
 }
 
-function portsFromYaml(yaml: string): string | undefined {
+function portsFromYaml(yaml: string): ServicePortRow[] | undefined {
   const portsBlock = yaml.match(/^\s*ports:\s*\n((?:\s+-.+\n?(?:\s+[^\n-].+\n?)*)+)/m)?.[1];
   if (!portsBlock) return undefined;
   const entries = portsBlock.split(/^\s*-\s+/m).map((e) => e.trim()).filter(Boolean);
-  const lines = entries.map((entry) => {
-    const port = entry.match(/port:\s*(\d+)/)?.[1] ?? "80";
-    const target = entry.match(/targetPort:\s*(\d+)/)?.[1] ?? port;
-    const protocol = entry.match(/protocol:\s*(\w+)/)?.[1] ?? "TCP";
-    return `${port}:${target}/${protocol}`;
+  const rows = entries.map((entry) => {
+    const port = entry.match(/^\s*port:\s*(\d+)/m)?.[1] ?? entry.match(/port:\s*(\d+)/)?.[1] ?? "";
+    const target = entry.match(/targetPort:\s*(\S+)/)?.[1]?.replace(/['"]/g, "") ?? port;
+    const protocol = (entry.match(/protocol:\s*(\w+)/)?.[1] ?? "TCP").toUpperCase();
+    const name = stripQuotes(entry.match(/^\s*name:\s*(.+)$/m)?.[1] ?? "");
+    const nodePort = entry.match(/nodePort:\s*(\d+)/)?.[1] ?? "";
+    return { protocol, port, targetPort: target, name, nodePort };
   });
-  return lines.length > 0 ? lines.join("\n") : undefined;
+  return rows.length > 0 ? rows : undefined;
 }
 
-function portsToYaml(text: string): string {
-  const lines = text
+function externalIPsFromYaml(yaml: string): string | undefined {
+  const block = yaml.match(/^\s*externalIPs:\s*\n((?:\s+-\s+.+\n?)+)/m)?.[1];
+  if (!block) return undefined;
+  const ips = [...block.matchAll(/^\s*-\s*(.+)$/gm)].map((m) => stripQuotes(m[1]));
+  return ips.length > 0 ? ips.join("\n") : undefined;
+}
+
+function externalIPsToYaml(text: string): string {
+  const ips = text
     .split("\n")
     .map((line) => line.trim())
     .filter(Boolean);
-  if (lines.length === 0) {
-    return `  - protocol: TCP
-    port: 80
-    targetPort: 80`;
-  }
-  return lines
-    .map((line) => {
-      const match = line.match(/^(\d+)\s*:\s*(\d+)\s*\/\s*(\w+)$/i) ?? line.match(/^(\d+)\s*\/\s*(\w+)$/i);
-      if (match && match[3]) {
-        return `  - protocol: ${match[3].toUpperCase()}
-    port: ${match[1]}
-    targetPort: ${match[2]}`;
+  if (ips.length === 0) return "";
+  return `  externalIPs:\n${ips.map((ip) => `    - ${ip}`).join("\n")}\n`;
+}
+
+function portsToYaml(rows: ServicePortRow[], includeNodePort: boolean): string {
+  const usable = rows.filter((r) => r.port.trim());
+  const list =
+    usable.length > 0
+      ? usable
+      : [{ ...EMPTY_SERVICE_PORT_ROW, protocol: "TCP", port: "80", targetPort: "80" }];
+  return list
+    .map((row) => {
+      const fields: string[] = [];
+      if (row.name.trim()) fields.push(`name: ${row.name.trim()}`);
+      fields.push(`protocol: ${(row.protocol || "TCP").toUpperCase()}`);
+      fields.push(`port: ${row.port.trim() || "80"}`);
+      fields.push(`targetPort: ${row.targetPort.trim() || row.port.trim() || "80"}`);
+      if (includeNodePort && row.nodePort.trim()) {
+        fields.push(`nodePort: ${row.nodePort.trim()}`);
       }
-      if (match) {
-        return `  - protocol: ${match[2].toUpperCase()}
-    port: ${match[1]}
-    targetPort: ${match[1]}`;
-      }
-      const portOnly = line.match(/^(\d+)$/);
-      if (portOnly) {
-        return `  - protocol: TCP
-    port: ${portOnly[1]}
-    targetPort: ${portOnly[1]}`;
-      }
-      return `  - protocol: TCP
-    port: 80
-    targetPort: 80`;
+      return `  - ${fields[0]}\n${fields
+        .slice(1)
+        .map((f) => `    ${f}`)
+        .join("\n")}`;
     })
     .join("\n");
 }
 
 export function serviceFormToYaml(state: ServiceFormState): string {
   const type = (state.type || "ClusterIP").trim() || "ClusterIP";
-  // Match console default seed: omit ClusterIP (API default) from YAML.
   const typeLine = type === "ClusterIP" ? "" : `  type: ${type}\n`;
+  const annotationsBlock = annotationsToYaml(state.annotations ?? []);
+  const sessionAffinity = (state.sessionAffinity || "None").trim();
+  const sessionLine =
+    sessionAffinity && sessionAffinity !== "None" ? `  sessionAffinity: ${sessionAffinity}\n` : "";
+  const internalPolicy = (state.internalTrafficPolicy || "Cluster").trim();
+  const internalLine =
+    internalPolicy && internalPolicy !== "Cluster" ? `  internalTrafficPolicy: ${internalPolicy}\n` : "";
+  const externalIPsBlock = externalIPsToYaml(state.externalIPs ?? "");
+
+  if (type === "ExternalName") {
+    const externalName = (state.externalName || "").trim() || "my.database.example.com";
+    return `apiVersion: v1
+kind: Service
+metadata:
+  name: ${state.name}
+  namespace: ${state.namespace}
+${annotationsBlock}spec:
+${typeLine}  externalName: ${externalName}
+${sessionLine}${internalLine}${externalIPsBlock}`.replace(/\n{3,}/g, "\n\n");
+  }
+
+  const includeNodePort = type === "NodePort" || type === "LoadBalancer";
+  const trafficPolicy = (state.externalTrafficPolicy || "Cluster").trim();
+  const trafficLine =
+    includeNodePort && trafficPolicy !== "Cluster" ? `  externalTrafficPolicy: ${trafficPolicy}\n` : "";
+  const lbIp = (state.loadBalancerIP || "").trim();
+  const lbLine = type === "LoadBalancer" && lbIp ? `  loadBalancerIP: ${lbIp}\n` : "";
+
   return `apiVersion: v1
 kind: Service
 metadata:
   name: ${state.name}
   namespace: ${state.namespace}
-spec:
+${annotationsBlock}spec:
 ${typeLine}  selector:
-${selectorToYaml(state.selector)}
+${selectorToYaml(state.selector ?? [])}
   ports:
-${portsToYaml(state.ports)}`;
+${portsToYaml(state.ports ?? [], includeNodePort)}
+${trafficLine}${lbLine}${sessionLine}${internalLine}${externalIPsBlock}`.replace(/\n{3,}/g, "\n\n");
 }
 
 export function serviceYamlToForm(yaml: string): ParseYamlResult<ServiceFormState> {
+  const type = readSpecScalar(yaml, "type") ?? "ClusterIP";
+  const defaults = createDefaultServiceFormState();
   return parseResult(
     yaml,
     {
       name: readMetadataField(yaml, "name"),
       namespace: readMetadataField(yaml, "namespace") ?? "default",
-      type: readSpecScalar(yaml, "type") ?? "ClusterIP",
-      selector: selectorFromYaml(yaml) ?? "app=MyApp",
-      ports: portsFromYaml(yaml) ?? "80:9376/TCP",
+      type,
+      selector: selectorFromYaml(yaml) ?? defaults.selector,
+      ports: portsFromYaml(yaml) ?? defaults.ports,
+      externalName: readSpecScalar(yaml, "externalName") ?? "",
+      externalTrafficPolicy: readSpecScalar(yaml, "externalTrafficPolicy") ?? "Cluster",
+      loadBalancerIP: readSpecScalar(yaml, "loadBalancerIP") ?? "",
+      sessionAffinity: readSpecScalar(yaml, "sessionAffinity") ?? "None",
+      internalTrafficPolicy: readSpecScalar(yaml, "internalTrafficPolicy") ?? "Cluster",
+      externalIPs: externalIPsFromYaml(yaml) ?? "",
+      annotations: annotationsFromYaml(yaml) ?? [],
     },
-    /sessionAffinity:|externalTrafficPolicy:|ipFamilyPolicy:/m.test(yaml)
+    /ipFamilyPolicy:|ipFamilies:|publishNotReadyAddresses:/m.test(yaml)
   );
 }
 
@@ -318,6 +443,7 @@ export const SERVICE_YAML_SCHEMA: YamlSchemaField[] = [
   { name: "kind", type: "string", description: "Must be Service." },
   { name: "metadata.name", type: "string", description: "Unique name of the Service within the namespace." },
   { name: "metadata.namespace", type: "string", description: "Target project/namespace for the Service." },
+  { name: "metadata.annotations", type: "object", description: "Arbitrary metadata attached to the Service." },
   {
     name: "spec.type",
     type: "string",
@@ -331,6 +457,104 @@ export const SERVICE_YAML_SCHEMA: YamlSchemaField[] = [
   {
     name: "spec.ports",
     type: "array",
-    description: "List of ports exposed by this Service (port, targetPort, protocol).",
+    description: "List of ports exposed by this Service (name, port, targetPort, protocol, nodePort).",
   },
+  {
+    name: "spec.externalName",
+    type: "string",
+    description: "External DNS name when type is ExternalName.",
+  },
+  {
+    name: "spec.externalTrafficPolicy",
+    type: "string",
+    description: "Cluster or Local. Applies to NodePort and LoadBalancer Services.",
+  },
+  {
+    name: "spec.loadBalancerIP",
+    type: "string",
+    description: "Optional requested load balancer IP when type is LoadBalancer.",
+  },
+  {
+    name: "spec.sessionAffinity",
+    type: "string",
+    description: "None or ClientIP.",
+  },
+  {
+    name: "spec.internalTrafficPolicy",
+    type: "string",
+    description: "Cluster or Local.",
+  },
+  {
+    name: "spec.externalIPs",
+    type: "array",
+    description: "Additional external IP addresses for the Service.",
+  },
+];
+
+export type RouteFormState = {
+  name: string;
+  namespace: string;
+  hostname: string;
+  serviceName: string;
+  tlsTermination: string;
+};
+
+function readRouteToServiceName(yaml: string): string | undefined {
+  const toBlock = yaml.match(/to:\s*\n((?:\s+.+\n?)+)/)?.[1] ?? "";
+  return readScalar(toBlock, "name");
+}
+
+function readTlsTermination(yaml: string): string | undefined {
+  const tls = yaml.match(/tls:\s*\n((?:\s+.+\n?)+)/)?.[1] ?? "";
+  return readScalar(tls, "termination") ?? "None";
+}
+
+export function routeFormToYaml(state: RouteFormState): string {
+  const termination = (state.tlsTermination || "edge").trim();
+  const host = (state.hostname || "").trim();
+  const hostLine = host ? `  host: ${host}\n` : "";
+  const tlsBlock =
+    termination === "None"
+      ? ""
+      : `  tls:
+    termination: ${termination}
+    insecureEdgeTerminationPolicy: Redirect
+`;
+  return `apiVersion: route.openshift.io/v1
+kind: Route
+metadata:
+  name: ${state.name}
+  namespace: ${state.namespace}
+spec:
+${hostLine}  to:
+    kind: Service
+    name: ${state.serviceName}
+    weight: 100
+  port:
+    targetPort: http
+${tlsBlock}`;
+}
+
+export function routeYamlToForm(yaml: string): ParseYamlResult<RouteFormState> {
+  return parseResult(
+    yaml,
+    {
+      name: readMetadataField(yaml, "name"),
+      namespace: readMetadataField(yaml, "namespace") ?? "default",
+      hostname: readSpecScalar(yaml, "host") ?? "",
+      serviceName: readRouteToServiceName(yaml) ?? "frontend",
+      tlsTermination: readTlsTermination(yaml) ?? "edge",
+    },
+    /alternateBackends:|wildcardPolicy:|certificate:/m.test(yaml)
+  );
+}
+
+export const ROUTE_YAML_SCHEMA: YamlSchemaField[] = [
+  { name: "apiVersion", type: "string", description: "API version for OpenShift Route (route.openshift.io/v1)." },
+  { name: "kind", type: "string", description: "Must be Route." },
+  { name: "metadata.name", type: "string", description: "Unique name of the Route within the namespace." },
+  { name: "metadata.namespace", type: "string", description: "Target project/namespace for the Route." },
+  { name: "spec.host", type: "string", description: "Optional public hostname for the Route." },
+  { name: "spec.to", type: "object", description: "Backing Service reference (kind Service + name)." },
+  { name: "spec.tls.termination", type: "string", description: "TLS termination mode: edge, passthrough, reencrypt, or None." },
 ];

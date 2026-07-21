@@ -3,6 +3,7 @@ import {
   getNadRecords,
   getNetworkingResourceRevision,
   getNncpRecords,
+  getRouteRecords,
   getServiceRecords,
   getUdnRecords,
   subscribeNetworkingResources,
@@ -16,5 +17,6 @@ export function useNetworkingResources() {
     udnRecords: getUdnRecords(),
     nncpRecords: getNncpRecords(),
     serviceRecords: getServiceRecords(),
+    routeRecords: getRouteRecords(),
   };
 }

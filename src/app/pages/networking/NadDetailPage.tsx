@@ -18,14 +18,11 @@ import {
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import {
-  NetworkVirtualMachinesTab,
-  NetworkVmTabBadge,
-} from "../../components/networking/NetworkVirtualMachinesTab";
-import {
   getAttachedVmsForNetwork,
   getNad,
   nadDetailPath,
   nadYaml,
+  virtVmNetworkDetailPath,
   type NetworkResourceRef,
 } from "./networkingMockData";
 import { NETWORKING_CRUMB as CRUMB } from "./networkingShared";
@@ -36,17 +33,14 @@ export default function NadDetailPage() {
   const decodedName = decodeURIComponent(name);
   const nad = getNad(decodedNs, decodedName);
   const [activeTab, setActiveTab] = useState("details");
-  const [attachmentRev, setAttachmentRev] = useState(0);
 
   const networkRef: NetworkResourceRef = useMemo(
     () => ({ kind: "NAD", name: decodedName, namespace: decodedNs }),
     [decodedName, decodedNs]
   );
 
-  const vmCount = useMemo(
-    () => getAttachedVmsForNetwork(networkRef).length,
-    [networkRef, attachmentRev]
-  );
+  const vmCount = useMemo(() => getAttachedVmsForNetwork(networkRef).length, [networkRef]);
+  const virtNetworkPath = virtVmNetworkDetailPath(networkRef);
 
   if (!nad) {
     return (
@@ -105,14 +99,6 @@ export default function NadDetailPage() {
           >
             <Tab eventKey="details" title={<TabTitleText>Details</TabTitleText>} />
             <Tab eventKey="yaml" title={<TabTitleText>YAML</TabTitleText>} />
-            <Tab
-              eventKey="virtualization"
-              title={
-                <TabTitleText>
-                  Virtual Machines <NetworkVmTabBadge count={vmCount} />
-                </TabTitleText>
-              }
-            />
           </Tabs>
 
           {activeTab === "details" ? (
@@ -134,6 +120,15 @@ export default function NadDetailPage() {
                     <DescriptionListGroup>
                       <DescriptionListTerm>Description</DescriptionListTerm>
                       <DescriptionListDescription>{nad.description}</DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Connected virtual machines</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        {vmCount} attached ·{" "}
+                        <Button variant="link" isInline component={Link} to={virtNetworkPath}>
+                          Manage in Virtualization
+                        </Button>
+                      </DescriptionListDescription>
                     </DescriptionListGroup>
                   </DescriptionList>
                 </GridItem>
@@ -157,14 +152,6 @@ export default function NadDetailPage() {
             <section className="ocs-node-details__panel app-glass-panel" aria-label="YAML">
               <pre className="ocs-net-yaml">{nadYaml(nad)}</pre>
             </section>
-          ) : null}
-
-          {activeTab === "virtualization" ? (
-            <NetworkVirtualMachinesTab
-              networkRef={networkRef}
-              networkName={nad.name}
-              onAttachmentsChange={() => setAttachmentRev((r) => r + 1)}
-            />
           ) : null}
         </Flex>
       </Breadcrumbs>
