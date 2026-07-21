@@ -36,6 +36,7 @@ import BellIcon from "@patternfly/react-icons/dist/esm/icons/bell-icon";
 import ChartLineIcon from "@patternfly/react-icons/dist/esm/icons/chart-line-icon";
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
 import CubesIcon from "@patternfly/react-icons/dist/esm/icons/cubes-icon";
+import ExclamationTriangleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-triangle-icon";
 import InfoCircleIcon from "@patternfly/react-icons/dist/esm/icons/info-circle-icon";
 import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
 import ServerIcon from "@patternfly/react-icons/dist/esm/icons/server-icon";
@@ -320,45 +321,61 @@ function StatusAlertRow({
   name,
   time,
   description,
+  configPath,
+  severity,
   onDismiss,
 }: {
   id: string;
   name: string;
   time: string;
   description: string;
+  configPath?: string;
+  severity: "warning" | "critical";
   onDismiss: (id: string) => void;
 }) {
+  const primaryLabel = configPath ? "Configure" : "View details";
+  const primaryTo = configPath ?? `/observe/alerts?q=${encodeURIComponent(name)}&state=Firing`;
+  const iconStatus = severity === "critical" ? "danger" : "warning";
+
   return (
-    <Alert
-      isInline
-      title={name}
-      variant="warning"
-      actionLinks={
-        <Flex gap={{ default: "gapSm" }}>
-          <Button
-            variant="link"
-            isInline
-            component={Link}
-            to={`/observe/alerts?q=${encodeURIComponent(name)}&state=Firing`}
+    <div className="ocs-overview-status-alert">
+      <Flex
+        alignItems={{ default: "alignItemsFlexStart" }}
+        gap={{ default: "gapSm" }}
+        className="ocs-overview-status-alert__row"
+      >
+        <Icon status={iconStatus} className="ocs-overview-status-alert__icon" aria-hidden>
+          <ExclamationTriangleIcon />
+        </Icon>
+        <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} className="ocs-overview-status-alert__body">
+          <Flex
+            justifyContent={{ default: "justifyContentSpaceBetween" }}
+            alignItems={{ default: "alignItemsFlexStart" }}
+            gap={{ default: "gapMd" }}
+            flexWrap={{ default: "nowrap" }}
           >
-            View details
-          </Button>
-          <Button variant="link" isInline onClick={() => onDismiss(id)}>
-            Dismiss
-          </Button>
+            <Content component="p" className="ocs-overview-status-alert__title">
+              {name}
+            </Content>
+            <Flex gap={{ default: "gapMd" }} flexWrap={{ default: "nowrap" }} className="ocs-overview-status-alert__actions">
+              <Button variant="link" isInline component={Link} to={primaryTo}>
+                {primaryLabel}
+              </Button>
+              <Button variant="link" isInline onClick={() => onDismiss(id)}>
+                Dismiss
+              </Button>
+            </Flex>
+          </Flex>
+          <Content component="small">{time}</Content>
+          <Content component="p">{description}</Content>
         </Flex>
-      }
-    >
-      <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-        <Content component="small">{time}</Content>
-        <Content component="p">{description}</Content>
       </Flex>
-    </Alert>
+    </div>
   );
 }
 
 function StatusCard({ isGlass }: { isGlass: boolean }) {
-  const { alerts, dismiss } = useNotificationAlerts();
+  const { alerts, dismiss, dismissMany } = useNotificationAlerts();
   const statusAlerts = useMemo(
     () =>
       alerts.filter(
@@ -372,14 +389,25 @@ function StatusCard({ isGlass }: { isGlass: boolean }) {
       <CardHeader
         actions={{
           actions: (
-            <Button
-              variant="link"
-              component={Link}
-              to="/observe/alerts?state=Firing&source=Platform"
-              isInline
-            >
-              View alerts
-            </Button>
+            <Flex gap={{ default: "gapMd" }} alignItems={{ default: "alignItemsCenter" }}>
+              <Button
+                variant="link"
+                component={Link}
+                to="/observe/alerts?state=Firing&source=Platform"
+                isInline
+              >
+                View alerts
+              </Button>
+              {statusAlerts.length > 0 ? (
+                <Button
+                  variant="link"
+                  isInline
+                  onClick={() => dismissMany(statusAlerts.map((a) => a.id))}
+                >
+                  Dismiss all alerts
+                </Button>
+              ) : null}
+            </Flex>
           ),
         }}
       >
@@ -422,7 +450,7 @@ function StatusCard({ isGlass }: { isGlass: boolean }) {
           {statusAlerts.length > 0 ? (
             <>
               <Divider />
-              <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
+              <div className="ocs-overview-status-alerts" tabIndex={0} aria-label="Status alerts">
                 {statusAlerts.map((alert) => (
                   <StatusAlertRow
                     key={alert.id}
@@ -430,10 +458,12 @@ function StatusCard({ isGlass }: { isGlass: boolean }) {
                     name={alert.name}
                     time={alert.time}
                     description={alert.description}
+                    configPath={alert.configPath}
+                    severity={alert.severity === "critical" ? "critical" : "warning"}
                     onDismiss={dismiss}
                   />
                 ))}
-              </Flex>
+              </div>
             </>
           ) : null}
         </Flex>

@@ -42,6 +42,7 @@ type NotificationAlertsContextValue = {
   markRead: (ids: string[], read?: boolean) => void;
   acknowledge: (ids: string[]) => void;
   dismiss: (id: string) => void;
+  dismissMany: (ids: string[]) => void;
   observeAlertsHref: string;
   filteredDrawerAlerts: ConsoleAlert[];
 };
@@ -56,7 +57,6 @@ const SEED_ALERTS: ConsoleAlert[] = [
     source: "Platform",
     description: "Failure to retrieve updates means cluster administrators must monitor for updates on their own.",
     time: "Jul 21, 2026, 9:44 AM",
-    configPath: "/administration/cluster-settings",
     isRead: false,
     isAcknowledged: false,
   },
@@ -191,6 +191,12 @@ export function NotificationAlertsProvider({ children }: { children: ReactNode }
     setAlerts((prev) => prev.filter((a) => a.id !== id));
   }, []);
 
+  const dismissMany = useCallback((ids: string[]) => {
+    if (ids.length === 0) return;
+    const remove = new Set(ids);
+    setAlerts((prev) => prev.filter((a) => !remove.has(a.id)));
+  }, []);
+
   const observeAlertsHref = useMemo(() => {
     const params = new URLSearchParams();
     if (alertStateFilter === "Firing") params.set("state", "Firing");
@@ -232,6 +238,7 @@ export function NotificationAlertsProvider({ children }: { children: ReactNode }
       markRead,
       acknowledge,
       dismiss,
+      dismissMany,
       observeAlertsHref,
       filteredDrawerAlerts,
     }),
@@ -247,6 +254,7 @@ export function NotificationAlertsProvider({ children }: { children: ReactNode }
       markRead,
       acknowledge,
       dismiss,
+      dismissMany,
       observeAlertsHref,
       filteredDrawerAlerts,
     ]
