@@ -24,10 +24,6 @@ import {
   MastheadMain,
   MastheadToggle,
   MenuToggle,
-  Modal,
-  ModalBody,
-  ModalFooter,
-  ModalHeader,
   Nav,
   NavExpandable,
   NavGroup,
@@ -387,13 +383,7 @@ export default function Layout() {
 
   const { favorites } = useFavorites();
   const { activeCount: activeToastCount } = useToast();
-  const {
-    drawerOpen,
-    setDrawerOpen,
-    alerts,
-    observeAlertsHref,
-  } = useNotificationAlerts();
-  const [silenceIds, setSilenceIds] = useState<string[]>([]);
+  const { drawerOpen, setDrawerOpen, alerts } = useNotificationAlerts();
   const unreadNotificationCount = alerts.filter((a) => !a.isRead && a.severity !== "recommendation").length;
 
   const isPortalHome = location.pathname === "/";
@@ -685,12 +675,7 @@ export default function Layout() {
               <DrawerContent
                 panelContent={
                   !isPortalHome ? (
-                    <ConsoleNotificationDrawerPanel
-                      onSilenceRequest={(ids) => {
-                        setSilenceIds(ids);
-                        setDrawerOpen(false);
-                      }}
-                    />
+                    <ConsoleNotificationDrawerPanel />
                   ) : undefined
                 }
               >
@@ -730,36 +715,6 @@ export default function Layout() {
         onClose={() => setIsImpersonateModalOpen(false)}
         onImpersonate={handleImpersonate}
       />
-
-      <Modal
-        isOpen={silenceIds.length > 0}
-        onClose={() => setSilenceIds([])}
-        variant="small"
-        aria-label="Create silence"
-      >
-        <ModalHeader title="Create silence" />
-        <ModalBody>
-          <Content component="p">
-            Pre-populated silence for {silenceIds.length} notification
-            {silenceIds.length === 1 ? "" : "s"}. Continue in{" "}
-            <Link to={observeAlertsHref}>Observe → Alerts</Link>.
-          </Content>
-        </ModalBody>
-        <ModalFooter>
-          <Button
-            variant="primary"
-            onClick={() => {
-              navigate(observeAlertsHref);
-              setSilenceIds([]);
-            }}
-          >
-            Open Alerting
-          </Button>
-          <Button variant="link" onClick={() => setSilenceIds([])}>
-            Cancel
-          </Button>
-        </ModalFooter>
-      </Modal>
 
       <Button
         type="button"

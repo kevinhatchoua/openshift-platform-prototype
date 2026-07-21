@@ -43,13 +43,7 @@ function variantFor(severity: AlertSeverity): "danger" | "warning" | "info" | "c
   return "info";
 }
 
-function NotificationCard({
-  alert,
-  onSilence,
-}: {
-  alert: ConsoleAlert;
-  onSilence: (id: string) => void;
-}) {
+function NotificationCard({ alert }: { alert: ConsoleAlert }) {
   const { markRead, dismiss } = useNotificationAlerts();
   return (
     <NotificationDrawerListItem
@@ -61,7 +55,7 @@ function NotificationCard({
       <NotificationDrawerListItemHeader
         variant={variantFor(alert.severity)}
         title={alert.name}
-        srTitle={`${alert.severity} alert:`}
+        srTitle={`${alert.severity} notification:`}
       >
         {!alert.isRead ? (
           <span className="ocs-console-notification-drawer__unread-dot" aria-label="Unread" />
@@ -71,26 +65,17 @@ function NotificationCard({
         <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
           <span className="ocs-console-notification-drawer__description">{alert.description}</span>
           <Flex gap={{ default: "gapMd" }} className="ocs-console-notification-drawer__actions">
-            {alert.configPath ? (
-              <Button
-                variant="link"
-                isInline
-                component={Link}
-                to={alert.configPath}
-                onClick={(e) => e.stopPropagation()}
-              >
-                Configure
-              </Button>
-            ) : null}
             <Button
               variant="link"
               isInline
+              component={Link}
+              to={`/observe/alerts?q=${encodeURIComponent(alert.name)}&state=Firing`}
               onClick={(e) => {
                 e.stopPropagation();
-                onSilence(alert.id);
+                markRead([alert.id], true);
               }}
             >
-              Silence
+              View details
             </Button>
             <Button
               variant="link"
@@ -125,17 +110,15 @@ function tabAlerts(tab: DrawerTab, alerts: ConsoleAlert[], search: string): Cons
   });
 }
 
-export default function ConsoleNotificationDrawerPanel({
-  onSilenceRequest,
-}: {
-  onSilenceRequest: (ids: string[]) => void;
-}) {
+export default function ConsoleNotificationDrawerPanel() {
   const { setDrawerOpen, search, setSearch, alerts, markRead, observeAlertsHref } = useNotificationAlerts();
   const [activeTab, setActiveTab] = useState<DrawerTab>("warning");
 
-  const counts = useMemo(() => {
+  /** Tab badges reflect unread counts so “Mark all as read” clears attention styling. */
+  const unreadCounts = useMemo(() => {
     const next = { critical: 0, warning: 0, info: 0 };
     for (const a of alerts) {
+      if (a.isRead) continue;
       next[severityBucket(a.severity)] += 1;
     }
     return next;
@@ -181,23 +164,26 @@ export default function ConsoleNotificationDrawerPanel({
           onSelect={(_e, key) => setActiveTab(key as DrawerTab)}
           aria-label="Filter notifications by severity"
         >
-          {SEVERITY_TABS.map((tab) => (
-            <Tab
-              key={tab.id}
-              eventKey={tab.id}
-              title={
-                <TabTitleText>
-                  {tab.label}{" "}
-                  <Badge
-                    isRead={counts[tab.id] === 0}
-                    className="ocs-console-notification-drawer__tab-badge"
-                  >
-                    {counts[tab.id]}
-                  </Badge>
-                </TabTitleText>
-              }
-            />
-          ))}
+          {SEVERITY_TABS.map((tab) => {
+            const unread = unreadCounts[tab.id];
+            return (
+              <Tab
+                key={tab.id}
+                eventKey={tab.id}
+                title={
+                  <TabTitleText>
+                    {tab.label}{" "}
+                    <Badge
+                      isRead={unread === 0}
+                      className="ocs-console-notification-drawer__tab-badge"
+                    >
+                      {unread}
+                    </Badge>
+                  </TabTitleText>
+                }
+              />
+            );
+          })}
         </Tabs>
       </div>
 
@@ -219,7 +205,7 @@ export default function ConsoleNotificationDrawerPanel({
             ) : (
               <NotificationDrawerList aria-label={`${activeTab} notifications`}>
                 {visible.map((alert) => (
-                  <NotificationCard key={alert.id} alert={alert} onSilence={(id) => onSilenceRequest([id])} />
+                  <NotificationCard key={alert.id} alert={alert} />
                 ))}
               </NotificationDrawerList>
             )}

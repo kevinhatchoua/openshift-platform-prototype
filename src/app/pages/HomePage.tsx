@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import { usePatternFlyGlassActive } from "@/lib/usePatternFlyGlassActive";
 import {
@@ -39,6 +39,7 @@ import CubesIcon from "@patternfly/react-icons/dist/esm/icons/cubes-icon";
 import InfoCircleIcon from "@patternfly/react-icons/dist/esm/icons/info-circle-icon";
 import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
 import ServerIcon from "@patternfly/react-icons/dist/esm/icons/server-icon";
+import { useNotificationAlerts } from "../contexts/NotificationAlertsContext";
 
 const inventoryItems = [
   { label: "Nodes", abbr: "N", color: "purple" as const, count: 6 },
@@ -315,53 +316,57 @@ function ActivityCard({ isGlass }: { isGlass: boolean }) {
 }
 
 function StatusAlertRow({
+  id,
   name,
   time,
   description,
-  configPath,
+  onDismiss,
 }: {
+  id: string;
   name: string;
   time: string;
   description: string;
-  configPath: string;
+  onDismiss: (id: string) => void;
 }) {
-  const [hovered, setHovered] = useState(false);
   return (
-    <div
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{ position: "relative" }}
-    >
-      <Alert
-        isInline
-        title={name}
-        variant="warning"
-        actionLinks={
-          <Flex gap={{ default: "gapSm" }}>
-            <Button variant="link" isInline component={Link} to={configPath}>
-              {name === "AlertmanagerReceiversNotConfigured" ? "Configure" : "View details"}
-            </Button>
-            <Button variant="link" isInline component={Link} to={`/observe/alerts?q=${encodeURIComponent(name)}&state=Firing`}>
-              Alerting view
-            </Button>
-            {hovered ? (
-              <Button variant="link" isInline component={Link} to={`/observe/alerts?q=${encodeURIComponent(name)}`}>
-                Silence
-              </Button>
-            ) : null}
-          </Flex>
-        }
-      >
-        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-          <Content component="small">{time}</Content>
-          <Content component="p">{description}</Content>
+    <Alert
+      isInline
+      title={name}
+      variant="warning"
+      actionLinks={
+        <Flex gap={{ default: "gapSm" }}>
+          <Button
+            variant="link"
+            isInline
+            component={Link}
+            to={`/observe/alerts?q=${encodeURIComponent(name)}&state=Firing`}
+          >
+            View details
+          </Button>
+          <Button variant="link" isInline onClick={() => onDismiss(id)}>
+            Dismiss
+          </Button>
         </Flex>
-      </Alert>
-    </div>
+      }
+    >
+      <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
+        <Content component="small">{time}</Content>
+        <Content component="p">{description}</Content>
+      </Flex>
+    </Alert>
   );
 }
 
 function StatusCard({ isGlass }: { isGlass: boolean }) {
+  const { alerts, dismiss } = useNotificationAlerts();
+  const statusAlerts = useMemo(
+    () =>
+      alerts.filter(
+        (a) => a.severity !== "recommendation" && a.state === "Firing" && (a.severity === "warning" || a.severity === "critical")
+      ),
+    [alerts]
+  );
+
   return (
     <Card isGlass={isGlass}>
       <CardHeader
@@ -414,23 +419,23 @@ function StatusCard({ isGlass }: { isGlass: boolean }) {
             </Flex>
           </Alert>
 
-          <Divider />
-
-          {/* ... existing Status card alert list — enhanced deep links + hover actions ... */}
-          <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-            <StatusAlertRow
-              name="CannotRetrieveUpdates"
-              time="Jul 21, 2026, 9:44 AM"
-              description="Failure to retrieve updates means that cluster administrators will need to monitor for available updates on their own or risk falling behind on security or other bugfixes."
-              configPath="/administration/cluster-settings"
-            />
-            <StatusAlertRow
-              name="AlertmanagerReceiversNotConfigured"
-              time="Jul 21, 2026, 8:47 AM"
-              description="Alerts are not configured to be sent to a notification system, meaning that you may not be notified in a timely fashion when important failures occur."
-              configPath="/administration/cluster-settings"
-            />
-          </Flex>
+          {statusAlerts.length > 0 ? (
+            <>
+              <Divider />
+              <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
+                {statusAlerts.map((alert) => (
+                  <StatusAlertRow
+                    key={alert.id}
+                    id={alert.id}
+                    name={alert.name}
+                    time={alert.time}
+                    description={alert.description}
+                    onDismiss={dismiss}
+                  />
+                ))}
+              </Flex>
+            </>
+          ) : null}
         </Flex>
       </CardBody>
     </Card>
