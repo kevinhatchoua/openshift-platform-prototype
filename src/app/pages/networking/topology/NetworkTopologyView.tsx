@@ -48,7 +48,6 @@ import NetworkTopologyCreatePanel, {
 } from "../NetworkTopologyCreatePanel";
 import NodeNetworkTableList from "../NodeNetworkTableList";
 import TopologyResizableSplit from "../TopologyResizableSplit";
-import TopologyViewToggle from "../TopologyViewToggle";
 import type { NetworkCreateResource } from "../networkingCreateModals";
 import type { NadRecord, NncpRecord, UdnRecord } from "../networkingMockData";
 import type { NodeNetworkViewMode } from "../nodeNetworkViewMode";
@@ -75,6 +74,7 @@ import { resolveConfigurePath } from "./topologyConfigureNavigate";
 import { useNetworkTopologyModel } from "./useNetworkTopologyModel";
 import { type TopologyPerspective, type TopologyResourceFilter, computeFilterCounts } from "./topologyPerspective";
 import { DEFAULT_TOPOLOGY_LAYOUT, type TopologyLayoutId } from "./topologyLayouts";
+import { createEmptyQueryState, type TopologyQueryState } from "./topologyQueryFilter";
 import { clearGraphEdgeBendpoints } from "./topologyGroupLayout";
 import { focusTopologySelection } from "./topologyFocus";
 import TopologyMinimap from "./TopologyMinimap";
@@ -221,7 +221,9 @@ export default function NetworkTopologyView({
   const [layoutId, setLayoutId] = useState<TopologyLayoutId>(DEFAULT_TOPOLOGY_LAYOUT);
   const [displayLabels, setDisplayLabels] = useState(true);
   const [hideManagementPorts, setHideManagementPorts] = useState(false);
-  const [perspective, setPerspective] = useState<TopologyPerspective>("host");
+  const [perspective, setPerspective] = useState<TopologyPerspective>("node");
+  const [pipesOnly, setPipesOnly] = useState(false);
+  const [queryState, setQueryState] = useState<TopologyQueryState>(createEmptyQueryState);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [pathTraceActive, setPathTraceActive] = useState(false);
   const [internalCreateResource, setInternalCreateResource] = useState<NetworkCreateResource | null>(null);
@@ -273,6 +275,8 @@ export default function NetworkTopologyView({
     perspective,
     dataScale: topologyScale,
     hideManagementPorts,
+    pipesOnly,
+    queryState,
   });
 
   const controllerRef = useRef<Visualization | null>(null);
@@ -750,12 +754,16 @@ export default function NetworkTopologyView({
       setPerspective(next);
       setSelectedIds([]);
       setFilterKind("all");
-      if (next !== "host") {
+      if (next !== "node") {
         setLayoutId((current) =>
           current === "DagreLR" || current === "DagreTB" ? "ClusterPerspective" : current
         );
       }
     },
+    pipesOnly,
+    onPipesOnlyChange: setPipesOnly,
+    queryState,
+    onQueryStateChange: setQueryState,
     searchTerm,
     onSearchTermChange: setSearchTerm,
     filterKind,
@@ -789,7 +797,7 @@ export default function NetworkTopologyView({
     showCreateActions: !hideToolbarCreateActions,
   } as const;
 
-  const unifiedToolbar = <TopologyUnifiedToolbar {...toolbarProps} embedded={viewMode === "topology"} />;
+  const filterToolbar = <TopologyUnifiedToolbar {...toolbarProps} />;
 
   const sideBar = (
     <TopologySideBar show={Boolean(selectedId)} resizable className="ocs-pf-topo-sidebar">
@@ -818,11 +826,13 @@ export default function NetworkTopologyView({
     <div
       className={`ocs-pf-topo-canvas-wrap${displayLabels ? "" : " ocs-pf-topo-canvas-wrap--hide-labels"}${
         pathTraceActive ? " ocs-pf-topo-canvas-wrap--path-trace" : ""
-      }`}
+      }${pipesOnly ? " ocs-pf-topo-canvas-wrap--pipes-only" : ""}`}
     >
-      <TopologyView
+      <div className="ocs-pf-topo-canvas-body">
+        <div className="ocs-pf-topo-canvas-main">
+          <TopologyView
         contextToolbar={null}
-        viewToolbar={unifiedToolbar}
+        viewToolbar={null}
         controlBar={<TopologyControlBar controlButtons={controlButtons} />}
         sideBar={sideBar}
         sideBarOpen={Boolean(selectedId)}
@@ -835,6 +845,8 @@ export default function NetworkTopologyView({
           <VisualizationSurface state={{ selectedIds }} />
         </VisualizationProvider>
       </TopologyView>
+        </div>
+      </div>
       {pathTraceActive ? (
         <div className="ocs-pf-topo-trace-banner">
           <Label
@@ -870,6 +882,7 @@ export default function NetworkTopologyView({
   return (
     <div className="ocs-net-topo-panel ocs-pf-topo-shell">
       <div className="ocs-net-topo-panel__stage">
+        {filterToolbar}
         {viewMode === "table" ? (
           <div className="ocs-net-topo-panel__list-mode">
             <Drawer isExpanded={Boolean(selectedId)} isInline position="end">
@@ -926,11 +939,6 @@ export default function NetworkTopologyView({
                     onResourceLifecycleAction={onResourceLifecycleAction}
                     onNotice={notify}
                     onResourceDeleted={() => clearSelection()}
-                    toolbarActions={
-                      onViewModeChange ? (
-                        <TopologyViewToggle currentView={viewMode} onChange={onViewModeChange} />
-                      ) : null
-                    }
                   />
                 </DrawerContentBody>
               </DrawerContent>

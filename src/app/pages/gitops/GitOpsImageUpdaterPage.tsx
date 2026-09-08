@@ -1,12 +1,15 @@
 import { useState } from "react";
 import { useParams } from "react-router";
 import {
+  CodeBlock,
+  CodeBlockCode,
   Content,
   DescriptionList,
   DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
   Flex,
+  Label,
   Tab,
   Tabs,
   TabTitleText,
@@ -17,8 +20,26 @@ import FavoriteButton from "../../components/FavoriteButton";
 import { OcsPrototypeListTable, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import { GitOpsSimpleListPage } from "./GitOpsSimpleListPage";
 import { GitOpsNotFound } from "./GitOpsSimpleDetailPage";
-import { findImageUpdater, GITOPS_IMAGE_UPDATERS, gitopsDetailPath } from "./gitopsData";
+import { findImageUpdater, gitopsDetailPath, imageUpdatersForInstance } from "./gitopsData";
+import { useGitOpsInstance } from "./GitOpsPageHeader";
 import { GitOpsEditDeleteMenu, HealthStatus, ResourceName } from "./gitopsShared";
+
+const MOCK_EVENTS = [
+  { type: "Normal", reason: "ImageUpdated", message: "Updated image tag to latest semver match", age: "2h" },
+  { type: "Warning", reason: "RegistryError", message: "Failed to pull manifest (mock)", age: "1d" },
+];
+
+function imageUpdaterYaml(rec: NonNullable<ReturnType<typeof findImageUpdater>>) {
+  return `apiVersion: argocd-image-updater.argoproj.io/v1alpha1
+kind: ImageUpdater
+metadata:
+  name: ${rec.name}
+  namespace: ${rec.ns}
+spec:
+  images:
+    - ${rec.images}
+  strategy: ${rec.strategy}`;
+}
 
 const MOCK_HISTORY = [
   { when: "2h ago", image: "quay.io/demo/payments-api:1.4.3", result: "Updated" },
@@ -27,6 +48,7 @@ const MOCK_HISTORY = [
 ];
 
 export default function GitOpsImageUpdaterPage() {
+  const { instance } = useGitOpsInstance();
   return (
     <GitOpsSimpleListPage
       title="Image Updater"
@@ -34,7 +56,7 @@ export default function GitOpsImageUpdaterPage() {
       createLabel="Create ImageUpdater"
       kind="ImageUpdater"
       detailKind="imageupdaters"
-      items={GITOPS_IMAGE_UPDATERS}
+      items={imageUpdatersForInstance(instance)}
       columns={[
         { key: "name", label: "Name" },
         { key: "namespace", label: "Namespace" },
@@ -155,10 +177,45 @@ function ImageUpdaterDetailBody({
             </DescriptionList>
           ) : null}
 
-          {activeTab === "events" || activeTab === "yaml" ? (
-            <Content component="p" className="pf-v6-u-color-200">
-              {activeTab} view is a prototype stub.
-            </Content>
+          {activeTab === "events" ? (
+            <OcsPrototypeListTable ariaLabel="Image Updater events">
+              <Thead>
+                <Tr>
+                  <Th dataLabel="Type">
+                    <PlainTableHeader label="Type" />
+                  </Th>
+                  <Th dataLabel="Reason">
+                    <PlainTableHeader label="Reason" />
+                  </Th>
+                  <Th dataLabel="Message">
+                    <PlainTableHeader label="Message" />
+                  </Th>
+                  <Th dataLabel="Age">
+                    <PlainTableHeader label="Age" />
+                  </Th>
+                </Tr>
+              </Thead>
+              <Tbody>
+                {MOCK_EVENTS.map((ev) => (
+                  <Tr key={`${ev.reason}-${ev.age}`}>
+                    <Td dataLabel="Type">
+                      <Label color={ev.type === "Warning" ? "orange" : "blue"} isCompact>
+                        {ev.type}
+                      </Label>
+                    </Td>
+                    <Td dataLabel="Reason">{ev.reason}</Td>
+                    <Td dataLabel="Message">{ev.message}</Td>
+                    <Td dataLabel="Age">{ev.age}</Td>
+                  </Tr>
+                ))}
+              </Tbody>
+            </OcsPrototypeListTable>
+          ) : null}
+
+          {activeTab === "yaml" ? (
+            <CodeBlock>
+              <CodeBlockCode>{imageUpdaterYaml(rec)}</CodeBlockCode>
+            </CodeBlock>
           ) : null}
 
           {activeTab === "history" ? (

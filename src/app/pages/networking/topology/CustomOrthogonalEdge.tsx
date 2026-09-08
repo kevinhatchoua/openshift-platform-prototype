@@ -111,12 +111,13 @@ const OrthogonalEdgeInner = observer(({ element, onSelect, selected, className }
     targetBounds.height,
   ]);
 
-  const mergedClass = [className, pathHighlighted ? "ocs-pf-topo-path-highlight" : ""]
-    .filter(Boolean)
-    .join(" ");
-
   const data = element.getData();
   const tip = isConnectionEdgeData(data) ? edgeTooltip(data) : undefined;
+  const packetDropClass = isConnectionEdgeData(data) && data.packetDrop ? "ocs-pf-topo-edge--packet-drop" : "";
+
+  const mergedClass = [className, pathHighlighted ? "ocs-pf-topo-path-highlight" : "", packetDropClass]
+    .filter(Boolean)
+    .join(" ");
 
   return (
     <DefaultEdge

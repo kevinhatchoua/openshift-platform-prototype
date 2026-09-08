@@ -21,8 +21,16 @@ import {
   type WithDragNodeProps,
   type WithSelectionProps,
 } from "@patternfly/react-topology";
+import ExclamationTriangleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-triangle-icon";
+import HelpIcon from "@patternfly/react-icons/dist/esm/icons/help-icon";
 import { RESOURCE_INSTALL_STATUS_LABELS, RESOURCE_KIND_LABELS } from "../networkTopologyData";
 import { onTopologyCreateConnector } from "./createTopologyConnection";
+import {
+  healthClassName,
+  healthForHostResource,
+  healthForLogicalNetwork,
+  healthForWorkload,
+} from "./topologyHealth";
 import { KIND_TOKEN_CLASS, STATUS_TOKEN_CLASS } from "./statusMap";
 import {
   KIND_BADGE,
@@ -140,7 +148,7 @@ const ResourceNodeInner = observer(
           badgeBorderColor={TYPE_BADGE_BORDER}
           badgeLocation={BadgeLocation.inner}
           secondaryLabel={data.attachment.namespace}
-          className={`ocs-pf-topo-node ${resourceShapeModifier(element)} ocs-pf-topo-node--workload${pathClass}`}
+          className={`ocs-pf-topo-node ${resourceShapeModifier(element)} ocs-pf-topo-node--workload ${healthClassName(healthForWorkload(data.attachment))}${pathClass}`}
           truncateLength={18}
         >
           <title>{tip}</title>
@@ -173,6 +181,8 @@ const ResourceNodeInner = observer(
 
     const kindClass = KIND_TOKEN_CLASS[data.kind];
     const statusClass = STATUS_TOKEN_CLASS[data.status];
+    const health = healthForHostResource(data.resource, data.groupId);
+    const healthClass = healthClassName(health);
     const size = element.getBounds().width;
     const iconOffset = Math.max(0, (size - NODE_ICON) / 2);
 
@@ -198,13 +208,18 @@ const ResourceNodeInner = observer(
         badgeTextColor={KIND_BADGE_TEXT[data.kind]}
         badgeBorderColor={KIND_BADGE_COLOR[data.kind]}
         badgeLocation={BadgeLocation.inner}
-        className={`ocs-pf-topo-node ${resourceShapeModifier(element)} ${kindClass} ${statusClass}${pathClass}`}
+        className={`ocs-pf-topo-node ${resourceShapeModifier(element)} ${kindClass} ${statusClass} ${healthClass}${pathClass}`}
         truncateLength={18}
       >
         <title>{resourceTooltip(data)}</title>
         <g transform={`translate(${iconOffset}, ${iconOffset})`} className="ocs-pf-topo-node__icon">
           <KindIcon kind={data.kind} />
         </g>
+        {health === "warning" || health === "error" ? (
+          <g className="ocs-pf-topo-node__alert-badge" transform={`translate(${size - 18}, 4)`}>
+            <ExclamationTriangleIcon style={{ width: 14, height: 14 }} />
+          </g>
+        ) : null}
       </DefaultNode>
     );
   }
@@ -249,6 +264,9 @@ const LogicalNodeInner = observer(
 
     const kindClass = KIND_TOKEN_CLASS[data.kind];
     const statusClass = STATUS_TOKEN_CLASS[data.status];
+    const health = data.resource.label === "Unknown" ? "unknown" : healthForLogicalNetwork(data.resource);
+    const healthClass = healthClassName(health);
+    const isUnknown = health === "unknown";
     const size = element.getBounds().width;
     const iconOffset = Math.max(0, (size - NODE_ICON) / 2);
     const secondary = data.topologyMode ?? undefined;
@@ -284,13 +302,24 @@ const LogicalNodeInner = observer(
         badgeBorderColor={KIND_BADGE_COLOR[data.kind]}
         badgeLocation={BadgeLocation.inner}
         secondaryLabel={secondary}
-        className={`ocs-pf-topo-node ${resourceShapeModifier(element)} ocs-pf-topo-node--logical ${kindClass} ${statusClass}${pathClass}`}
+        className={`ocs-pf-topo-node ${resourceShapeModifier(element)} ocs-pf-topo-node--logical ${kindClass} ${statusClass} ${healthClass}${pathClass}`}
         truncateLength={22}
       >
         <title>{tip}</title>
-        <g transform={`translate(${iconOffset}, ${iconOffset})`} className="ocs-pf-topo-node__icon">
-          <KindIcon kind={data.kind} />
-        </g>
+        {isUnknown ? (
+          <g transform={`translate(${iconOffset}, ${iconOffset})`} className="ocs-pf-topo-node__icon ocs-pf-topo-node__icon--unknown">
+            <HelpIcon style={{ width: NODE_ICON, height: NODE_ICON }} />
+          </g>
+        ) : (
+          <g transform={`translate(${iconOffset}, ${iconOffset})`} className="ocs-pf-topo-node__icon">
+            <KindIcon kind={data.kind} />
+          </g>
+        )}
+        {health === "warning" || health === "error" ? (
+          <g className="ocs-pf-topo-node__alert-badge" transform={`translate(${size - 18}, 4)`}>
+            <ExclamationTriangleIcon style={{ width: 14, height: 14 }} />
+          </g>
+        ) : null}
       </DefaultNode>
     );
   }

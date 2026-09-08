@@ -20,8 +20,8 @@ import {
   isUnhealthyWorkloadStatus,
 } from "./topologyTroubleshoot";
 
-/** Topology layout lens — changes which resources and relationships are emphasized. */
-export type TopologyPerspective = "host" | "workload" | "cluster";
+/** Topology layout lens — aligned with OpenShift Observability perspective levels. */
+export type TopologyPerspective = "owner" | "namespace" | "node" | "network" | "resource";
 
 export const TOPOLOGY_PERSPECTIVES: {
   id: TopologyPerspective;
@@ -29,21 +29,80 @@ export const TOPOLOGY_PERSPECTIVES: {
   description: string;
 }[] = [
   {
-    id: "host",
-    label: "Hosts",
-    description: "Node underlay: NICs, bonds, VLANs, bridges, and OVN mappings.",
+    id: "owner",
+    label: "Owner",
+    description: "Group attached Pods and VMs by controller owner (Deployment, VirtualMachine, etc.).",
   },
   {
-    id: "workload",
-    label: "Workloads",
-    description: "Networks with attached Pods and VMs.",
+    id: "namespace",
+    label: "Namespace",
+    description: "Group workloads and logical networks by Kubernetes namespace.",
   },
   {
-    id: "cluster",
-    label: "Cluster",
-    description: "Cluster fabric: bonds, OVN/OVS bridges, and connected workloads.",
+    id: "node",
+    label: "Node",
+    description: "Node underlay: NICs, bonds, VLANs, bridges, and OVN mappings on workers.",
+  },
+  {
+    id: "network",
+    label: "Network",
+    description: "Cluster fabric: bonds, OVS/OVN bridges, logical networks, and pipe connectivity.",
+  },
+  {
+    id: "resource",
+    label: "Resource",
+    description: "Individual network resources, attachments, and cross-links at resource granularity.",
   },
 ];
+
+export type PerspectiveVisibility = {
+  showWorkers: boolean;
+  showLogicalLane: boolean;
+  showWorkloads: boolean;
+  workloadLaneLabel: string;
+};
+
+/** Derive canvas layers from perspective and pipes-only display mode. */
+export function getPerspectiveVisibility(
+  perspective: TopologyPerspective,
+  pipesOnly: boolean
+): PerspectiveVisibility {
+  const hideWorkloads = pipesOnly;
+  switch (perspective) {
+    case "node":
+      return { showWorkers: true, showLogicalLane: false, showWorkloads: false, workloadLaneLabel: "Pods & VMs" };
+    case "network":
+      return {
+        showWorkers: true,
+        showLogicalLane: true,
+        showWorkloads: !hideWorkloads,
+        workloadLaneLabel: "Workloads",
+      };
+    case "namespace":
+      return {
+        showWorkers: false,
+        showLogicalLane: true,
+        showWorkloads: !hideWorkloads,
+        workloadLaneLabel: "Namespaces",
+      };
+    case "owner":
+      return {
+        showWorkers: false,
+        showLogicalLane: true,
+        showWorkloads: !hideWorkloads,
+        workloadLaneLabel: "Owners",
+      };
+    case "resource":
+      return {
+        showWorkers: true,
+        showLogicalLane: true,
+        showWorkloads: !hideWorkloads,
+        workloadLaneLabel: "Resources",
+      };
+    default:
+      return { showWorkers: true, showLogicalLane: true, showWorkloads: !hideWorkloads, workloadLaneLabel: "Resources" };
+  }
+}
 
 /** Host-oriented role derived from mock labels/kinds (prototype taxonomy). */
 export type HostResourceRole =
@@ -96,12 +155,15 @@ const CLUSTER_VISIBLE_KINDS: NetResourceKind[] = ["bridge", "interface", "tunnel
 
 export function kindsForPerspective(perspective: TopologyPerspective): NetResourceKind[] | "all" {
   switch (perspective) {
-    case "host":
+    case "node":
       return HOST_VISIBLE_KINDS;
-    case "workload":
+    case "namespace":
+    case "owner":
       return WORKLOAD_VISIBLE_KINDS;
-    case "cluster":
+    case "network":
       return CLUSTER_VISIBLE_KINDS;
+    case "resource":
+      return "all";
     default:
       return "all";
   }
@@ -128,17 +190,27 @@ function isHostResourceRole(value: string): value is HostResourceRole {
 
 const UNHEALTHY_FILTER: TopologyFilterOption = { id: "unhealthy", label: "Unhealthy" };
 
-/** Filter-by-resource options for the active Hosts / Workloads / Cluster lens. */
+/** Filter-by-resource options for the active perspective lens. */
 export function filterOptionsForPerspective(perspective: TopologyPerspective): TopologyFilterOption[] {
-  if (perspective === "host") {
+  if (perspective === "node") {
     return [UNHEALTHY_FILTER, ...HOST_ROLE_FILTERS.map((role) => ({ id: role, label: HOST_ROLE_LABELS[role] }))];
   }
-  if (perspective === "workload") {
+  if (perspective === "namespace" || perspective === "owner") {
     return [
       UNHEALTHY_FILTER,
       { id: "cudn", label: RESOURCE_KIND_LABELS.cudn },
       { id: "udn", label: RESOURCE_KIND_LABELS.udn },
       { id: "bridge", label: RESOURCE_KIND_LABELS.bridge },
+      { id: "pod", label: "Pod" },
+      { id: "vm", label: "VirtualMachine" },
+    ];
+  }
+  if (perspective === "resource") {
+    return [
+      UNHEALTHY_FILTER,
+      ...HOST_ROLE_FILTERS.map((role) => ({ id: role, label: HOST_ROLE_LABELS[role] })),
+      { id: "cudn", label: RESOURCE_KIND_LABELS.cudn },
+      { id: "udn", label: RESOURCE_KIND_LABELS.udn },
       { id: "pod", label: "Pod" },
       { id: "vm", label: "VirtualMachine" },
     ];
@@ -172,7 +244,7 @@ export function resourceMatchesFilter(
   if (filter === "pod" || filter === "vm") {
     return resource.attachmentKind === filter;
   }
-  if (isHostResourceRole(filter) && (perspective === "host" || perspective === "cluster")) {
+  if (isHostResourceRole(filter) && (perspective === "node" || perspective === "network" || perspective === "resource")) {
     return resource.hostRole === filter || resource.kind === filter;
   }
   return resource.kind === filter;
@@ -185,19 +257,22 @@ export function resourceVisibleInPerspective(
   const kinds = kindsForPerspective(perspective);
   if (kinds !== "all" && !kinds.includes(resource.kind)) return false;
 
-  if (perspective === "host") {
-    // Host view: underlay only — skip logical CUDN/UDN kinds if they slip through.
+  if (perspective === "node") {
+    // Node view: underlay only — skip logical CUDN/UDN kinds if they slip through.
     return resource.kind !== "cudn" && resource.kind !== "udn";
   }
-  if (perspective === "workload") {
+  if (perspective === "namespace" || perspective === "owner") {
     // Prefer bridges + logical nets; keep physical NIC only when labeled as mapping/bond uplink.
     if (resource.kind === "tunnel" || resource.kind === "port") return false;
     return true;
   }
-  if (perspective === "cluster") {
+  if (perspective === "network") {
     const role = hostRoleForResource(resource);
     if (resource.kind === "cudn" || resource.kind === "udn") return true;
     return role === "bond" || role === "ovs-bridge" || role === "ovn-bridge" || role === "linux-bridge" || role === "nic";
+  }
+  if (perspective === "resource") {
+    return true;
   }
   return true;
 }
@@ -209,6 +284,7 @@ export type WorkloadAttachment = {
   label: string;
   kind: WorkloadAttachmentKind;
   namespace: string;
+  owner: string;
   networkId: string;
   networkLabel: string;
   workerId?: string;
@@ -216,7 +292,11 @@ export type WorkloadAttachment = {
   ip?: string;
 };
 
-/** Prototype attachments hung off logical networks / bridges for Workload + Cluster views. */
+/** Prototype attachments hung off logical networks / bridges for workload-oriented views. */
+function ownerLabel(kind: WorkloadAttachmentKind, label: string): string {
+  return kind === "vm" ? `VirtualMachine/${label}` : `Deployment/${label}`;
+}
+
 function buildWorkloadAttachments(scale: TopologyDataScale): WorkloadAttachment[] {
   const compact = scale === "compact";
   const workerCount = compact ? COMPACT_TOPOLOGY_WORKER_COUNT : TOPOLOGY_WORKER_COUNT;
@@ -238,6 +318,7 @@ function buildWorkloadAttachments(scale: TopologyDataScale): WorkloadAttachment[
           label: "frontend-7f8b9c",
           kind: "pod",
           namespace: "demo-apps",
+          owner: ownerLabel("pod", "frontend"),
           networkId: "",
           networkLabel: "Default pod network",
           status: "Running",
@@ -248,10 +329,33 @@ function buildWorkloadAttachments(scale: TopologyDataScale): WorkloadAttachment[
           label: "web-vm-01",
           kind: "vm",
           namespace: "virtualization",
+          owner: ownerLabel("vm", "web-vm-01"),
           networkId: "",
           networkLabel: "vm-network",
           status: "Running",
           ip: "192.168.100.21",
+        },
+        {
+          id: "pod-dns-warning",
+          label: "dns-default-8xk2",
+          kind: "pod",
+          namespace: "openshift-dns",
+          owner: ownerLabel("pod", "dns-default"),
+          networkId: "",
+          networkLabel: "Default pod network",
+          status: "Running",
+          ip: "10.128.0.4",
+        },
+        {
+          id: "pod-packet-drop",
+          label: "nettest-drop-01",
+          kind: "pod",
+          namespace: "packet-drop-test",
+          owner: ownerLabel("pod", "nettest"),
+          networkId: "",
+          networkLabel: "Default pod network",
+          status: "Failed",
+          ip: "10.131.0.22",
         },
       ]
     : [
@@ -260,6 +364,7 @@ function buildWorkloadAttachments(scale: TopologyDataScale): WorkloadAttachment[
           label: "frontend-7f8b9c",
           kind: "pod",
           namespace: "demo-apps",
+          owner: ownerLabel("pod", "frontend"),
           networkId: "",
           networkLabel: "Default pod network",
           status: "Running",
@@ -270,6 +375,7 @@ function buildWorkloadAttachments(scale: TopologyDataScale): WorkloadAttachment[
           label: "web-vm-01",
           kind: "vm",
           namespace: "virtualization",
+          owner: ownerLabel("vm", "web-vm-01"),
           networkId: "",
           networkLabel: "vm-network",
           status: "Running",
@@ -280,6 +386,7 @@ function buildWorkloadAttachments(scale: TopologyDataScale): WorkloadAttachment[
           label: "db-vm-02",
           kind: "vm",
           namespace: "virtualization",
+          owner: ownerLabel("vm", "db-vm-02"),
           networkId: "",
           networkLabel: "vm-network",
           status: "Pending",
@@ -290,10 +397,22 @@ function buildWorkloadAttachments(scale: TopologyDataScale): WorkloadAttachment[
           label: "node-exporter-xk2",
           kind: "pod",
           namespace: "openshift-monitoring",
+          owner: ownerLabel("pod", "node-exporter"),
           networkId: "",
           networkLabel: "Default pod network",
           status: "Running",
           ip: "10.129.0.8",
+        },
+        {
+          id: "pod-packet-drop",
+          label: "nettest-drop-01",
+          kind: "pod",
+          namespace: "packet-drop-test",
+          owner: ownerLabel("pod", "nettest"),
+          networkId: "",
+          networkLabel: "Default pod network",
+          status: "Failed",
+          ip: "10.131.0.22",
         },
       ];
 
@@ -310,6 +429,7 @@ function buildWorkloadAttachments(scale: TopologyDataScale): WorkloadAttachment[
         label: `app-${suffix}`,
         kind: "pod",
         namespace: namespaces[(networkIndex + i) % namespaces.length],
+        owner: ownerLabel("pod", `app-${suffix}`),
         networkId,
         networkLabel,
         workerId: `worker-${(networkIndex + i) % workerCount}`,
@@ -325,6 +445,7 @@ function buildWorkloadAttachments(scale: TopologyDataScale): WorkloadAttachment[
         label: `vm-${suffix}`,
         kind: "vm",
         namespace: "virtualization",
+        owner: ownerLabel("vm", `vm-${suffix}`),
         networkId,
         networkLabel,
         workerId: `worker-${(networkIndex + i + 3) % workerCount}`,
@@ -416,7 +537,7 @@ export function computeFilterCounts(args: {
     countResource(resource);
   });
 
-  if (perspective === "workload" || perspective === "cluster") {
+  if (perspective === "namespace" || perspective === "owner" || perspective === "network" || perspective === "resource") {
     const logicalStandalones = standaloneResources.filter(isLogicalNetworkStandalone);
     const countedAttachments = new Set<string>();
     logicalStandalones.forEach((resource) => {

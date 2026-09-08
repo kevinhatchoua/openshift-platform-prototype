@@ -1,24 +1,31 @@
+import { useState } from "react";
 import {
   Alert,
   Button,
   Content,
   Flex,
   Label,
-  Title,
 } from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import FavoriteButton from "../../components/FavoriteButton";
 import {
   OcsNamedResourceDataView,
   PlainTableHeader,
 } from "../../components/dataView/OcsPrototypeListTable";
-import { GITOPS_AGENT_SPOKES } from "./gitopsData";
+import { agentsForInstance, gitopsDetailPath } from "./gitopsData";
+import GitOpsPageHeader from "./GitOpsPageHeader";
+import { useGitOpsInstance } from "./GitOpsPageHeader";
 import { GitOpsEditDeleteMenu, ResourceName } from "./gitopsShared";
+import GitOpsConnectAgentModal from "./GitOpsConnectAgentModal";
 
 export default function GitOpsAgentSpokesPage() {
+  const { instance } = useGitOpsInstance();
+  const [connectOpen, setConnectOpen] = useState(false);
+  const agents = agentsForInstance(instance);
+
   return (
     <div className="ocs-app-page-outer w-full">
+      <GitOpsConnectAgentModal isOpen={connectOpen} onClose={() => setConnectOpen(false)} />
       <Breadcrumbs
         items={[
           { label: "Home", path: "/" },
@@ -27,20 +34,15 @@ export default function GitOpsAgentSpokesPage() {
         ]}
       >
         <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-          <Flex
-            alignItems={{ default: "alignItemsCenter" }}
-            justifyContent={{ default: "justifyContentSpaceBetween" }}
-            flexWrap={{ default: "wrap" }}
-            gap={{ default: "gapMd" }}
-          >
-            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-              <Title headingLevel="h1" size="2xl">
-                Connected Agents
-              </Title>
-              <FavoriteButton name="Connected Agents" path="/gitops/agents" />
-            </Flex>
-            <Button variant="primary">Connect agent</Button>
-          </Flex>
+          <GitOpsPageHeader
+            title="Connected Agents"
+            path="/gitops/agents"
+            actions={
+              <Button variant="primary" onClick={() => setConnectOpen(true)}>
+                Connect agent
+              </Button>
+            }
+          />
 
           <Alert
             variant="info"
@@ -49,16 +51,15 @@ export default function GitOpsAgentSpokesPage() {
           />
 
           <Content component="p" className="pf-v6-u-color-200">
-            Hub-and-spoke connection status and sync mode (GITOPS-10917). Application sync-error
-            messaging stays with existing Agent clarity patterns (HPUX-1431) — this page does not
-            replace that UX.
+            Hub-and-spoke connection status (GITOPS-10917 P1). Application sync-error clarity uses HPUX-1431
+            patterns on Application detail — agent disconnect errors surface here and on agent detail.
           </Content>
 
           <OcsNamedResourceDataView
             ouiaId="gitops-agents-data-view"
             ariaLabel="Connected Agents"
             itemsLabel="agents"
-            items={GITOPS_AGENT_SPOKES}
+            items={agents}
             getName={(item) => item.name}
           >
             {(rows) => (
@@ -92,7 +93,11 @@ export default function GitOpsAgentSpokesPage() {
                   {rows.map((item) => (
                     <Tr key={item.name}>
                       <Td dataLabel="Spoke name">
-                        <ResourceName kind="Agent" name={item.name} />
+                        <ResourceName
+                          kind="Agent"
+                          name={item.name}
+                          to={gitopsDetailPath("agents", item.ns, item.name)}
+                        />
                       </Td>
                       <Td dataLabel="Cluster">{item.cluster}</Td>
                       <Td dataLabel="Connection">

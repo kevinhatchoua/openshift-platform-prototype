@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router";
+import { Link, useNavigate, useParams } from "react-router";
 import {
   Alert,
   AlertGroup,
@@ -55,6 +55,7 @@ import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
 import {
   actionStateFor,
   applyDomainAction,
+  experimentDetailPath,
   findRollout,
   gitopsDetailPath,
   patchRolloutLive,
@@ -123,6 +124,51 @@ function ExperimentPhase({ phase }: { phase: ExperimentRow["phase"] }) {
     <Label color={color} isCompact>
       {phase}
     </Label>
+  );
+}
+
+type CanaryStep = {
+  id: string;
+  label: string;
+  status: "complete" | "active" | "pending" | "failed";
+};
+
+function canaryStepsFor(rolloutName: string, rolloutStatus: string): CanaryStep[] {
+  const steps: CanaryStep[] = [
+    { id: "init", label: "Init", status: "complete" },
+    { id: "weight-20", label: "20%", status: "complete" },
+    { id: "pause", label: "Pause", status: "complete" },
+    { id: "analysis-1", label: "Analysis", status: rolloutStatus === "Degraded" ? "failed" : "complete" },
+    { id: "weight-40", label: "40%", status: rolloutStatus === "Progressing" ? "active" : "complete" },
+    { id: "weight-60", label: "60%", status: "pending" },
+    { id: "weight-80", label: "80%", status: "pending" },
+    { id: "promote", label: "Promote", status: "pending" },
+  ];
+  if (rolloutName.includes("canary") && rolloutStatus === "Healthy") {
+    return steps.map((s) => (s.id === "promote" ? { ...s, status: "complete" } : s));
+  }
+  return steps;
+}
+
+function CanaryStepIndicator({ steps }: { steps: CanaryStep[] }) {
+  return (
+    <Flex className="ocs-gitops-canary-steps" gap={{ default: "gapNone" }} flexWrap={{ default: "nowrap" }}>
+      {steps.map((step, index) => (
+        <Flex key={step.id} alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapNone" }}>
+          <Flex
+            direction={{ default: "column" }}
+            alignItems={{ default: "alignItemsCenter" }}
+            className={`ocs-gitops-canary-step ocs-gitops-canary-step--${step.status}`}
+          >
+            <span className="ocs-gitops-canary-step__dot" aria-hidden />
+            <Content component="small" className="ocs-gitops-canary-step__label">
+              {step.label}
+            </Content>
+          </Flex>
+          {index < steps.length - 1 ? <span className="ocs-gitops-canary-step__connector" aria-hidden /> : null}
+        </Flex>
+      ))}
+    </Flex>
   );
 }
 
@@ -217,6 +263,7 @@ function buildRevisions(name: string, status: string, promoted: boolean, showSca
 }
 
 export default function GitOpsRolloutDetailPage() {
+  const navigate = useNavigate();
   const { namespace = "", name = "" } = useParams();
   const ns = decodeURIComponent(namespace);
   const rolloutName = decodeURIComponent(name);
@@ -258,6 +305,10 @@ export default function GitOpsRolloutDetailPage() {
     [rolloutName, statusText, st.promoted, showScale, showRolloutRow]
   );
   const experimentRows = useMemo(() => experimentsFor(rolloutName), [rolloutName]);
+  const canarySteps = useMemo(
+    () => (seed.strategy === "Canary" ? canaryStepsFor(rolloutName, statusText) : []),
+    [seed.strategy, rolloutName, statusText]
+  );
   const filteredRevisions = useMemo(() => {
     const q = (filters.name ?? "").trim().toLowerCase();
     if (!q) return revisions;
@@ -567,6 +618,37 @@ export default function GitOpsRolloutDetailPage() {
                               )}
                             </Td>
                           </Tr>
+                          {open && rev.rev === 8 && experimentRows.length > 0
+                            ? experimentRows.map((exp) => (
+                                <Tr key={exp.name} className="ocs-gitops-analysis-row">
+                                  <Td dataLabel="Name" className="ocs-gitops-pod-name-cell">
+                                    <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                                      <span className="ocs-gitops-tree-spacer" aria-hidden />
+                                      <div>
+                                        <Button
+                                          variant="link"
+                                          isInline
+                                          onClick={() => navigate(experimentDetailPath(ns, rolloutName, exp.name))}
+                                        >
+                                          {exp.name}
+                                        </Button>
+                                        <Content component="small" className="pf-v6-u-color-200">
+                                          Analysis / Experiment · {exp.metrics}
+                                        </Content>
+                                      </div>
+                                    </Flex>
+                                  </Td>
+                                  <Td dataLabel="Kind">AnalysisRun</Td>
+                                  <Td dataLabel="Status">
+                                    <ExperimentPhase phase={exp.phase} />
+                                  </Td>
+                                  <Td dataLabel="Age">{exp.duration}</Td>
+                                  <Td dataLabel="Info" />
+                                  <Td dataLabel="Managed by" />
+                                  <Td dataLabel="Actions" />
+                                </Tr>
+                              ))
+                            : null}
                           {open && rev.podCount > 0
                             ? Array.from({ length: rev.podCount }).map((_, p) => {
                                 const podName = `${rev.rs}-${String.fromCharCode(97 + (p % 26))}${String.fromCharCode(97 + ((p * 3) % 26))}${10 + p}`;
@@ -606,32 +688,34 @@ export default function GitOpsRolloutDetailPage() {
               </div>
             </FlexItem>
           ) : activeTab === "details" ? (
-            <DescriptionList isHorizontal isCompact>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Name</DescriptionListTerm>
-                <DescriptionListDescription>{rolloutName}</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Namespace</DescriptionListTerm>
-                <DescriptionListDescription>{ns}</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Strategy</DescriptionListTerm>
-                <DescriptionListDescription>{seed.strategy}</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Image</DescriptionListTerm>
-                <DescriptionListDescription>
-                  <code>{seed.image}</code>
-                </DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Managed by</DescriptionListTerm>
-                <DescriptionListDescription>
-                  <ManagedByCell owner={seed.managedBy} />
-                </DescriptionListDescription>
-              </DescriptionListGroup>
-            </DescriptionList>
+            <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
+              <DescriptionList isHorizontal isCompact>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Name</DescriptionListTerm>
+                  <DescriptionListDescription>{rolloutName}</DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Namespace</DescriptionListTerm>
+                  <DescriptionListDescription>{ns}</DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Strategy</DescriptionListTerm>
+                  <DescriptionListDescription>{seed.strategy}</DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Image</DescriptionListTerm>
+                  <DescriptionListDescription>
+                    <code>{seed.image}</code>
+                  </DescriptionListDescription>
+                </DescriptionListGroup>
+              </DescriptionList>
+              {seed.strategy === "Canary" ? (
+                <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
+                  <Title headingLevel="h2" size="lg">Canary steps</Title>
+                  <CanaryStepIndicator steps={canarySteps} />
+                </Flex>
+              ) : null}
+            </Flex>
           ) : activeTab === "experiments" ? (
             <FlexItem grow={{ default: "grow" }} alignSelf={{ default: "alignSelfStretch" }}>
               <Title headingLevel="h2" size="lg" className="pf-v6-u-mb-md">
@@ -679,7 +763,7 @@ export default function GitOpsRolloutDetailPage() {
                                 variant="link"
                                 isInline
                                 onClick={() =>
-                                  setToast(`Opened ${row.name} (prototype detail stub).`)
+                                  navigate(experimentDetailPath(ns, rolloutName, row.name))
                                 }
                               >
                                 {row.name}

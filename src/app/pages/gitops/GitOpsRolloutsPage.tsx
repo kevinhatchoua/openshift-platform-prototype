@@ -41,13 +41,16 @@ import {
   effectiveRolloutStatus,
   GITOPS_ROLLOUTS,
   gitopsDetailPath,
+  rolloutsForInstance,
   subscribeGitOpsLive,
   type DomainAction,
   type RolloutRecord,
 } from "./gitopsData";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
-import { HealthStatus, ManagedByCell, ResourceName } from "./gitopsShared";
+import { HealthStatus, ResourceName } from "./gitopsShared";
 import RolloutActionsKebab from "./RolloutActionsKebab";
+import { useGitOpsInstance } from "./GitOpsPageHeader";
+import GitOpsInstancePicker from "./GitOpsInstancePicker";
 
 type Filters = { name: string; namespace: string };
 type SortColumn = "name" | "namespace" | "strategy" | "status" | "age";
@@ -68,13 +71,14 @@ export default function GitOpsRolloutsPage() {
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<Filters>({
     filters: { name: "", namespace: "" },
   });
+  const { instance, setInstance } = useGitOpsInstance();
   const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
 
   useEffect(() => subscribeGitOpsLive(() => setLiveTick((n) => n + 1)), []);
 
   const filtered = useMemo(
-    () => GITOPS_ROLLOUTS.filter((r) => rowMatches(r, filters)),
-    [filters]
+    () => rolloutsForInstance(instance).filter((r) => rowMatches(r, filters)),
+    [filters, instance]
   );
   const sorted = useMemo(() => {
     return [...filtered].sort((a, b) => {
@@ -128,9 +132,12 @@ export default function GitOpsRolloutsPage() {
               </Title>
               <FavoriteButton name="Rollouts" path="/gitops/rollouts" />
             </Flex>
-            <Button variant="primary" onClick={() => navigate("/gitops/create?kind=rollout")}>
-              Create Rollout
-            </Button>
+            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }}>
+              <GitOpsInstancePicker instance={instance} setInstance={setInstance} />
+              <Button variant="primary" onClick={() => navigate("/gitops/create?kind=rollout")}>
+                Create Rollout
+              </Button>
+            </Flex>
           </Flex>
 
           <DataView ouiaId="gitops-rollouts-data-view" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
@@ -196,9 +203,6 @@ export default function GitOpsRolloutsPage() {
                   <Th dataLabel="Status">
                     <SortableTableHeader label="Status" column="status" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
                   </Th>
-                  <Th dataLabel="Managed by">
-                    <PlainTableHeader label="Managed by" />
-                  </Th>
                   <Th dataLabel="Age">
                     <SortableTableHeader label="Age" column="age" sortColumn={sortColumn} sortDirection={sortDirection} onSort={toggleSort} />
                   </Th>
@@ -210,7 +214,7 @@ export default function GitOpsRolloutsPage() {
               <Tbody>
                 {paginated.length === 0 ? (
                   <Tr>
-                    <Td colSpan={7}>
+                    <Td colSpan={6}>
                       <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
                         No rollouts match your filters.
                       </Content>
@@ -231,9 +235,6 @@ export default function GitOpsRolloutsPage() {
                         <Td dataLabel="Strategy">{r.strategy}</Td>
                         <Td dataLabel="Status">
                           <HealthStatus status={status} />
-                        </Td>
-                        <Td dataLabel="Managed by">
-                          <ManagedByCell owner={r.managedBy} />
                         </Td>
                         <Td dataLabel="Age">{r.age}</Td>
                         <Td dataLabel="Actions" isActionCell hasAction>

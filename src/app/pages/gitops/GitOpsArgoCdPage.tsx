@@ -4,7 +4,6 @@ import {
   Button,
   Card,
   CardBody,
-  CardFooter,
   CardHeader,
   CardTitle,
   Content,
@@ -16,52 +15,58 @@ import {
   Gallery,
   GalleryItem,
   Label,
+  Popover,
   SearchInput,
   Title,
   ToggleGroup,
   ToggleGroupItem,
   Toolbar,
   ToolbarContent,
+  ToolbarGroup,
   ToolbarItem,
 } from "@patternfly/react-core";
+import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
+import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon";
 import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
 import ThLargeIcon from "@patternfly/react-icons/dist/esm/icons/th-large-icon";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import FavoriteButton from "../../components/FavoriteButton";
 import {
   OcsNamedResourceDataView,
   PlainTableHeader,
 } from "../../components/dataView/OcsPrototypeListTable";
 import GitOpsSimpleDetailPage, { GitOpsNotFound } from "./GitOpsSimpleDetailPage";
 import {
-  ARGO_INSTANCES,
+  argoInstancesForInstance,
   findArgoCd,
   gitopsDetailPath,
   instanceKeyOf,
   type ArgoCdRecord,
 } from "./gitopsData";
+import GitOpsPageHeader, { useGitOpsInstance } from "./GitOpsPageHeader";
 import { GitOpsEditDeleteMenu, HealthStatus, ResourceName } from "./gitopsShared";
 
 const CARD_THRESHOLD = 6;
 
 export default function GitOpsArgoCdPage() {
   const navigate = useNavigate();
+  const { instance } = useGitOpsInstance();
   const [query, setQuery] = useState("");
   const [phase, setPhase] = useState<"all" | "Healthy" | "Degraded">("all");
   const [view, setView] = useState<"cards" | "list" | "auto">("auto");
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    return ARGO_INSTANCES.filter((inst) => {
+    return argoInstancesForInstance(instance).filter((inst) => {
       if (phase !== "all" && inst.status !== phase) return false;
       if (!q) return true;
       const blob = `${inst.name} ${inst.ns} ${inst.server} ${inst.version}`.toLowerCase();
       return blob.includes(q);
     });
-  }, [query, phase]);
+  }, [query, phase, instance]);
 
   const resolvedView = view === "auto" ? (filtered.length > CARD_THRESHOLD ? "list" : "cards") : view;
+  const totalCount = argoInstancesForInstance(instance).length;
 
   return (
     <div className="ocs-app-page-outer w-full">
@@ -73,71 +78,67 @@ export default function GitOpsArgoCdPage() {
         ]}
       >
         <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-          <Flex
-            alignItems={{ default: "alignItemsCenter" }}
-            justifyContent={{ default: "justifyContentSpaceBetween" }}
-            flexWrap={{ default: "wrap" }}
-            gap={{ default: "gapMd" }}
-          >
-            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-              <Title headingLevel="h1" size="2xl">
-                ArgoCD Instances
-              </Title>
-              <FavoriteButton name="ArgoCD Instances" path="/gitops/argocd" />
-            </Flex>
-            <Button variant="primary" onClick={() => navigate("/gitops/create?kind=argocd")}>
-              Create Argo CD
-            </Button>
-          </Flex>
+          <GitOpsPageHeader title="ArgoCD Instances" path="/gitops/argocd" />
 
-          <Toolbar id="gitops-argocd-toolbar">
-            <ToolbarContent>
-              <ToolbarItem>
-                <SearchInput
-                  aria-label="Filter instances"
-                  placeholder="Filter instances..."
-                  value={query}
-                  onChange={(_e, v) => setQuery(v)}
-                  onClear={() => setQuery("")}
-                />
-              </ToolbarItem>
-              <ToolbarItem>
-                <ToggleGroup aria-label="Phase filter">
-                  {(["all", "Healthy", "Degraded"] as const).map((p) => (
+          <Toolbar id="gitops-argocd-toolbar" className="ocs-gitops-argocd-toolbar">
+            <ToolbarContent className="ocs-gitops-argocd-toolbar__filters">
+              <ToolbarGroup variant="filter-group">
+                <ToolbarItem>
+                  <SearchInput
+                    aria-label="Filter instances"
+                    placeholder="Filter instances..."
+                    value={query}
+                    onChange={(_e, v) => setQuery(v)}
+                    onClear={() => setQuery("")}
+                  />
+                </ToolbarItem>
+                <ToolbarItem>
+                  <ToggleGroup aria-label="Phase filter">
+                    {(["all", "Healthy", "Degraded"] as const).map((p) => (
+                      <ToggleGroupItem
+                        key={p}
+                        text={p === "all" ? "All phases" : p}
+                        isSelected={phase === p}
+                        onChange={() => setPhase(p)}
+                      />
+                    ))}
+                  </ToggleGroup>
+                </ToolbarItem>
+              </ToolbarGroup>
+            </ToolbarContent>
+            <ToolbarContent className="ocs-gitops-argocd-toolbar__actions">
+              <ToolbarGroup alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }}>
+                <ToolbarItem variant="label" className="pf-v6-u-display-none pf-v6-u-display-inline-block-on-md">
+                  {filtered.length} of {totalCount} instances
+                  {filtered.length > CARD_THRESHOLD ? " — list view recommended" : ""}
+                </ToolbarItem>
+                <ToolbarItem>
+                  <ToggleGroup aria-label="Instance view">
                     <ToggleGroupItem
-                      key={p}
-                      text={p === "all" ? "All phases" : p}
-                      isSelected={phase === p}
-                      onChange={() => setPhase(p)}
+                      icon={<ThLargeIcon />}
+                      aria-label="Card view"
+                      isSelected={resolvedView === "cards"}
+                      onChange={() => setView("cards")}
                     />
-                  ))}
-                </ToggleGroup>
-              </ToolbarItem>
-              <ToolbarItem>
-                <ToggleGroup aria-label="Instance view">
-                  <ToggleGroupItem
-                    icon={<ThLargeIcon />}
-                    aria-label="Card view"
-                    isSelected={resolvedView === "cards"}
-                    onChange={() => setView("cards")}
-                  />
-                  <ToggleGroupItem
-                    icon={<ListIcon />}
-                    aria-label="List view"
-                    isSelected={resolvedView === "list"}
-                    onChange={() => setView("list")}
-                  />
-                </ToggleGroup>
-              </ToolbarItem>
-              <ToolbarItem variant="label">
-                {filtered.length} of {ARGO_INSTANCES.length} instances
-                {filtered.length > CARD_THRESHOLD ? " — list view recommended" : ""}
-              </ToolbarItem>
+                    <ToggleGroupItem
+                      icon={<ListIcon />}
+                      aria-label="List view"
+                      isSelected={resolvedView === "list"}
+                      onChange={() => setView("list")}
+                    />
+                  </ToggleGroup>
+                </ToolbarItem>
+                <ToolbarItem>
+                  <Button variant="primary" onClick={() => navigate("/gitops/create?kind=argocd")}>
+                    Create Argo CD
+                  </Button>
+                </ToolbarItem>
+              </ToolbarGroup>
             </ToolbarContent>
           </Toolbar>
 
           {resolvedView === "cards" ? (
-            <Gallery hasGutter minWidths={{ default: "320px" }}>
+            <Gallery hasGutter minWidths={{ default: "280px", md: "320px" }}>
               {filtered.map((inst) => (
                 <GalleryItem key={instanceKeyOf(inst)}>
                   <InstanceCard inst={inst} onOpen={() => navigate(gitopsDetailPath("argocd", inst.ns, inst.name))} />
@@ -214,9 +215,13 @@ export default function GitOpsArgoCdPage() {
 }
 
 function InstanceCard({ inst, onOpen }: { inst: ArgoCdRecord; onOpen: () => void }) {
-  const available = inst.status === "Healthy";
+  const healthy = inst.status === "Healthy";
+  const componentSummary = (Object.keys(inst.components) as Array<keyof typeof inst.components>)
+    .map((comp) => `${comp}: ${inst.components[comp]}`)
+    .join(" · ");
+
   return (
-    <Card isClickable>
+    <Card isClickable className="ocs-gitops-argocd-card">
       <CardHeader
         actions={{
           actions: (
@@ -235,103 +240,96 @@ function InstanceCard({ inst, onOpen }: { inst: ArgoCdRecord; onOpen: () => void
         }}
       >
         <CardTitle>
-          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
             <span>{inst.name}</span>
-            <Label color={available ? "green" : "red"} isCompact>
-              {available ? "Available" : "Degraded"}
+            <Label color={healthy ? "green" : "red"} isCompact>
+              {healthy ? "Healthy" : "Degraded"}
             </Label>
           </Flex>
         </CardTitle>
       </CardHeader>
       <CardBody>
-        <DescriptionList isCompact>
+        <DescriptionList isCompact className="ocs-gitops-argocd-card__summary">
           <DescriptionListGroup>
             <DescriptionListTerm>Namespace</DescriptionListTerm>
             <DescriptionListDescription>{inst.ns}</DescriptionListDescription>
           </DescriptionListGroup>
           <DescriptionListGroup>
-            <DescriptionListTerm>App count</DescriptionListTerm>
-            <DescriptionListDescription>
-              {inst.applications === "0" ? (
-                "0"
-              ) : (
-                <Label color="blue" isCompact>
-                  {inst.applications}
-                </Label>
-              )}
-            </DescriptionListDescription>
+            <DescriptionListTerm>Applications</DescriptionListTerm>
+            <DescriptionListDescription>{inst.applications}</DescriptionListDescription>
           </DescriptionListGroup>
           <DescriptionListGroup>
-            <DescriptionListTerm>Resource requests</DescriptionListTerm>
-            <DescriptionListDescription>
-              CPU: {inst.cpu}, Memory: {inst.memory}
-            </DescriptionListDescription>
-          </DescriptionListGroup>
-          <DescriptionListGroup>
-            <DescriptionListTerm>URL</DescriptionListTerm>
-            <DescriptionListDescription>
-              <Button
-                variant="link"
-                isInline
-                component="a"
-                href={inst.server}
-                target="_blank"
-                rel="noreferrer"
-                onClick={(e) => e.stopPropagation()}
-              >
-                {inst.server.replace(/^https:\/\//, "")}
-              </Button>
-            </DescriptionListDescription>
+            <DescriptionListTerm>Version</DescriptionListTerm>
+            <DescriptionListDescription>{inst.version}</DescriptionListDescription>
           </DescriptionListGroup>
           <DescriptionListGroup>
             <DescriptionListTerm>Created</DescriptionListTerm>
             <DescriptionListDescription>{inst.created}</DescriptionListDescription>
           </DescriptionListGroup>
-          {inst.successfulSyncs > 0 ? (
-            <DescriptionListGroup>
-              <DescriptionListTerm>Successful syncs</DescriptionListTerm>
-              <DescriptionListDescription>
-                <Label color="green" isCompact>
-                  {inst.successfulSyncs}
-                </Label>
-              </DescriptionListDescription>
-            </DescriptionListGroup>
-          ) : null}
-          <DescriptionListGroup>
-            <DescriptionListTerm>Failed syncs (24h)</DescriptionListTerm>
-            <DescriptionListDescription>
-              <Label color={inst.failedSyncs24h > 0 ? "red" : "green"} isCompact>
-                {inst.failedSyncs24h}
-              </Label>
-            </DescriptionListDescription>
-          </DescriptionListGroup>
-          <DescriptionListGroup>
-            <DescriptionListTerm>Cluster connectivity</DescriptionListTerm>
-            <DescriptionListDescription>
-              <Label color={inst.clusterConnectivity.startsWith("1") ? "green" : "orange"} isCompact>
-                {inst.clusterConnectivity}
-              </Label>
-            </DescriptionListDescription>
-          </DescriptionListGroup>
-          <DescriptionListGroup>
-            <DescriptionListTerm>Repo pending requests</DescriptionListTerm>
-            <DescriptionListDescription>
-              <Label color={inst.repoPending > 0 ? "orange" : "green"} isCompact>
-                {inst.repoPending}
-              </Label>
-            </DescriptionListDescription>
-          </DescriptionListGroup>
         </DescriptionList>
-      </CardBody>
-      <CardFooter>
-        <Flex gap={{ default: "gapXs" }} flexWrap={{ default: "wrap" }}>
-          {(Object.keys(inst.components) as Array<keyof typeof inst.components>).map((comp) => (
-            <Label key={comp} color={inst.components[comp] === "Healthy" ? "green" : "red"} isCompact>
-              {comp}
-            </Label>
-          ))}
+        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }} className="pf-v6-u-mt-sm">
+          {healthy ? (
+            <CheckCircleIcon className="pf-v6-u-color-success" aria-hidden />
+          ) : (
+            <ExclamationCircleIcon className="pf-v6-u-color-danger" aria-hidden />
+          )}
+          <Content component="small" className="pf-v6-u-color-200">
+            {healthy ? "All components healthy" : "One or more components degraded"}
+            {inst.failedSyncs24h > 0 ? ` · ${inst.failedSyncs24h} failed syncs (24h)` : ""}
+          </Content>
+          <span onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+            <Popover
+              aria-label={`${inst.name} instance details`}
+              headerContent={<Title headingLevel="h4" size="md">{inst.name}</Title>}
+              bodyContent={
+                <DescriptionList isCompact>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>URL</DescriptionListTerm>
+                    <DescriptionListDescription>
+                      <Button
+                        variant="link"
+                        isInline
+                        component="a"
+                        href={inst.server}
+                        target="_blank"
+                        rel="noreferrer"
+                      >
+                        {inst.server}
+                      </Button>
+                    </DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Resource requests</DescriptionListTerm>
+                    <DescriptionListDescription>
+                      CPU {inst.cpu} · Memory {inst.memory}
+                    </DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Sync activity</DescriptionListTerm>
+                    <DescriptionListDescription>
+                      {inst.successfulSyncs} successful · {inst.failedSyncs24h} failed (24h)
+                    </DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Cluster connectivity</DescriptionListTerm>
+                    <DescriptionListDescription>{inst.clusterConnectivity}</DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Repo pending requests</DescriptionListTerm>
+                    <DescriptionListDescription>{inst.repoPending}</DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Components</DescriptionListTerm>
+                    <DescriptionListDescription>{componentSummary}</DescriptionListDescription>
+                  </DescriptionListGroup>
+                </DescriptionList>
+              }
+            >
+              <Button variant="link" isInline size="sm">View details</Button>
+            </Popover>
+          </span>
         </Flex>
-      </CardFooter>
+      </CardBody>
     </Card>
   );
 }

@@ -1,4 +1,5 @@
 import { createBrowserRouter, redirect } from "react-router";
+import { createElement } from "react";
 import { collectStubPaths } from "./navigation/consoleNav";
 import RootLayout from "./components/RootLayout";
 import Layout from "./components/Layout";
@@ -91,6 +92,10 @@ import GitOpsAgentSpokesPage from "./pages/gitops/GitOpsAgentSpokesPage";
 import GitOpsPromotionsPage, { GitOpsPromotionDetailPage } from "./pages/gitops/GitOpsPromotionsPage";
 import GitOpsSettingsPage from "./pages/gitops/GitOpsSettingsPage";
 import GitOpsCreateWizardPage from "./pages/gitops/GitOpsCreateWizardPage";
+import GitOpsExperimentDetailPage from "./pages/gitops/GitOpsExperimentDetailPage";
+import GitOpsAgentDetailPage from "./pages/gitops/GitOpsAgentDetailPage";
+import GitOpsRoutesLayout from "./pages/gitops/GitOpsRoutesLayout";
+import { GitOpsRouteError } from "./components/GitOpsErrorBoundary";
 import NamespaceDetailPage from "./pages/administration/NamespaceDetailPage";
 import NamespacesPage from "./pages/administration/NamespacesPage";
 
@@ -148,25 +153,37 @@ export const router = createBrowserRouter([
           { path: "workloads/cronjobs/create", Component: createResourceCreatePage("CronJob") },
           { path: "workloads/cronjobs/:namespace/:name", Component: createPrototypeResourceDetailPage("cronjobs") },
           { path: "workloads/topology", Component: TopologyPage },
-          { path: "gitops", loader: () => redirect("/gitops/overview") },
-          { path: "gitops/overview", Component: GitOpsDashboardPage },
-          { path: "gitops/rollouts", Component: GitOpsRolloutsPage },
-          { path: "gitops/argocd", Component: GitOpsArgoCdPage },
-          { path: "gitops/applications", Component: GitOpsApplicationsPage },
-          { path: "gitops/applicationsets", Component: GitOpsApplicationSetsPage },
-          { path: "gitops/appprojects", Component: GitOpsAppProjectsPage },
-          { path: "gitops/imageupdaters", Component: GitOpsImageUpdaterPage },
-          { path: "gitops/agents", Component: GitOpsAgentSpokesPage },
-          { path: "gitops/promotions", Component: GitOpsPromotionsPage },
-          { path: "gitops/settings", Component: GitOpsSettingsPage },
-          { path: "gitops/create", Component: GitOpsCreateWizardPage },
-          { path: "gitops/ns/:namespace/rollouts/:name", Component: GitOpsRolloutDetailPage },
-          { path: "gitops/ns/:namespace/argocd/:name", Component: GitOpsArgoCdDetailPage },
-          { path: "gitops/ns/:namespace/applications/:name", Component: GitOpsApplicationDetailPage },
-          { path: "gitops/ns/:namespace/applicationsets/:name", Component: GitOpsApplicationSetDetailPage },
-          { path: "gitops/ns/:namespace/appprojects/:name", Component: GitOpsAppProjectDetailPage },
-          { path: "gitops/ns/:namespace/imageupdaters/:name", Component: GitOpsImageUpdaterDetailPage },
-          { path: "gitops/ns/:namespace/promotions/:name", Component: GitOpsPromotionDetailPage },
+          {
+            path: "gitops",
+            Component: GitOpsRoutesLayout,
+            errorElement: createElement(GitOpsRouteError),
+            children: [
+              { index: true, loader: () => redirect("/gitops/overview") },
+              { path: "overview", Component: GitOpsDashboardPage },
+              { path: "rollouts", Component: GitOpsRolloutsPage },
+              { path: "argocd", Component: GitOpsArgoCdPage },
+              { path: "applications", Component: GitOpsApplicationsPage },
+              { path: "applicationsets", Component: GitOpsApplicationSetsPage },
+              { path: "appprojects", Component: GitOpsAppProjectsPage },
+              { path: "imageupdaters", Component: GitOpsImageUpdaterPage },
+              { path: "agents", Component: GitOpsAgentSpokesPage },
+              { path: "promotions", Component: GitOpsPromotionsPage },
+              { path: "settings", Component: GitOpsSettingsPage },
+              { path: "create", Component: GitOpsCreateWizardPage },
+              { path: "ns/:namespace/rollouts/:name", Component: GitOpsRolloutDetailPage },
+              {
+                path: "ns/:namespace/rollouts/:rollout/experiments/:name",
+                Component: GitOpsExperimentDetailPage,
+              },
+              { path: "ns/:namespace/argocd/:name", Component: GitOpsArgoCdDetailPage },
+              { path: "ns/:namespace/applications/:name", Component: GitOpsApplicationDetailPage },
+              { path: "ns/:namespace/applicationsets/:name", Component: GitOpsApplicationSetDetailPage },
+              { path: "ns/:namespace/appprojects/:name", Component: GitOpsAppProjectDetailPage },
+              { path: "ns/:namespace/imageupdaters/:name", Component: GitOpsImageUpdaterDetailPage },
+              { path: "ns/:namespace/agents/:name", Component: GitOpsAgentDetailPage },
+              { path: "ns/:namespace/promotions/:name", Component: GitOpsPromotionDetailPage },
+            ],
+          },
           { path: "networking", Component: ServicesPage },
           { path: "networking/services/create", Component: CreateServicePage },
           { path: "networking/services/:namespace/:name", Component: ServiceDetailPage },

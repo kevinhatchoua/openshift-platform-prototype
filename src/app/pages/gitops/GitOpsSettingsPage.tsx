@@ -1,9 +1,8 @@
 import { useState } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Button, Content, Flex, Label, Tab, Tabs, TabTitleText, Title } from "@patternfly/react-core";
+import { Button, Content, Flex, Label, Tab, Tabs, TabTitleText } from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import FavoriteButton from "../../components/FavoriteButton";
 import {
   OcsNamedResourceDataView,
   OcsPrototypeListTable,
@@ -11,16 +10,17 @@ import {
 } from "../../components/dataView/OcsPrototypeListTable";
 import { useToast } from "../../contexts/ToastContext";
 import {
-  GITOPS_IMAGE_UPDATERS,
-  GITOPS_NOTIFICATION_HISTORY,
-  GITOPS_SETTINGS_ANALYSIS_TEMPLATES,
-  GITOPS_SETTINGS_CLUSTERS,
-  GITOPS_SETTINGS_NAMESPACES,
-  GITOPS_SETTINGS_NOTIFICATIONS,
-  GITOPS_SETTINGS_REPOS,
-  GITOPS_SETTINGS_ROLLOUT_MANAGERS,
   gitopsDetailPath,
+  imageUpdatersForInstance,
+  settingsAnalysisTemplatesForInstance,
+  settingsClustersForInstance,
+  settingsNamespacesForInstance,
+  settingsNotificationHistoryForInstance,
+  settingsNotificationsForInstance,
+  settingsReposForInstance,
+  settingsRolloutManagersForInstance,
 } from "./gitopsData";
+import GitOpsPageHeader, { useGitOpsInstance } from "./GitOpsPageHeader";
 import { GitOpsEditDeleteMenu, GitOpsLink, HealthStatus, ResourceName } from "./gitopsShared";
 
 const TABS = [
@@ -50,6 +50,7 @@ const ADD_LABEL: Record<TabKey, string> = {
 export default function GitOpsSettingsPage() {
   const { pushToast } = useToast();
   const navigate = useNavigate();
+  const { instance } = useGitOpsInstance();
   const [params, setParams] = useSearchParams();
   const requested = params.get("tab");
   const activeTab: TabKey = TABS.some((t) => t.key === requested) ? (requested as TabKey) : "repositories";
@@ -66,6 +67,22 @@ export default function GitOpsSettingsPage() {
       return;
     }
     if (activeTab === "rollout-managers") {
+      navigate("/gitops/create?kind=rollout");
+      return;
+    }
+    if (activeTab === "repositories") {
+      navigate("/gitops/create?kind=application");
+      return;
+    }
+    if (activeTab === "clusters") {
+      navigate("/gitops/create?kind=argocd");
+      return;
+    }
+    if (activeTab === "notifications") {
+      navigate("/gitops/create?kind=appproject");
+      return;
+    }
+    if (activeTab === "analysis-templates") {
       navigate("/gitops/create?kind=rollout");
       return;
     }
@@ -89,22 +106,15 @@ export default function GitOpsSettingsPage() {
         ]}
       >
         <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-          <Flex
-            alignItems={{ default: "alignItemsCenter" }}
-            justifyContent={{ default: "justifyContentSpaceBetween" }}
-            flexWrap={{ default: "wrap" }}
-            gap={{ default: "gapMd" }}
-          >
-            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-              <Title headingLevel="h1" size="2xl">
-                GitOps Settings
-              </Title>
-              <FavoriteButton name="GitOps Settings" path="/gitops/settings" />
-            </Flex>
-            <Button variant="primary" onClick={onAdd}>
-              {ADD_LABEL[activeTab]}
-            </Button>
-          </Flex>
+          <GitOpsPageHeader
+            title="GitOps Settings"
+            path="/gitops/settings"
+            actions={
+              <Button variant="primary" onClick={onAdd}>
+                {ADD_LABEL[activeTab]}
+              </Button>
+            }
+          />
 
           <Tabs activeKey={activeTab} onSelect={(_e, key) => setTab(String(key))} aria-label="GitOps settings">
             {TABS.map((tab) => (
@@ -117,7 +127,7 @@ export default function GitOpsSettingsPage() {
               ouiaId="gitops-settings-repos"
               ariaLabel="Repositories"
               itemsLabel="repositories"
-              items={GITOPS_SETTINGS_REPOS}
+              items={settingsReposForInstance(instance)}
               getName={(item) => item.name}
             >
               {(rows) => (
@@ -186,7 +196,7 @@ export default function GitOpsSettingsPage() {
               ouiaId="gitops-settings-clusters"
               ariaLabel="Clusters"
               itemsLabel="clusters"
-              items={GITOPS_SETTINGS_CLUSTERS}
+              items={settingsClustersForInstance(instance)}
               getName={(item) => item.name}
             >
               {(rows) => (
@@ -254,7 +264,7 @@ export default function GitOpsSettingsPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {GITOPS_SETTINGS_NOTIFICATIONS.map((item) => (
+                {settingsNotificationsForInstance(instance).map((item) => (
                   <Tr key={item.name}>
                     <Td dataLabel="Name">{item.name}</Td>
                     <Td dataLabel="Type">{item.type}</Td>
@@ -295,7 +305,7 @@ export default function GitOpsSettingsPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {GITOPS_SETTINGS_ROLLOUT_MANAGERS.map((item) => (
+                {settingsRolloutManagersForInstance(instance).map((item) => (
                   <Tr key={`${item.ns}/${item.name}`}>
                     <Td dataLabel="Name">
                       <GitOpsLink to="/gitops/rollouts">{item.name}</GitOpsLink>
@@ -338,7 +348,7 @@ export default function GitOpsSettingsPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {GITOPS_IMAGE_UPDATERS.map((item) => {
+                {imageUpdatersForInstance(instance).map((item) => {
                   const href = gitopsDetailPath("imageupdaters", item.ns, item.name);
                   return (
                     <Tr key={`${item.ns}/${item.name}`} onClick={() => navigate(href)}>
@@ -381,7 +391,7 @@ export default function GitOpsSettingsPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {GITOPS_SETTINGS_NAMESPACES.map((item) => (
+                {settingsNamespacesForInstance(instance).map((item) => (
                   <Tr key={item.name}>
                     <Td dataLabel="Namespace">
                       <GitOpsLink to={`/administration/namespaces/${encodeURIComponent(item.name)}`}>
@@ -427,7 +437,7 @@ export default function GitOpsSettingsPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {GITOPS_SETTINGS_ANALYSIS_TEMPLATES.map((item) => (
+                {settingsAnalysisTemplatesForInstance(instance).map((item) => (
                   <Tr key={`${item.ns}/${item.name}`}>
                     <Td dataLabel="Name">{item.name}</Td>
                     <Td dataLabel="Namespace">
@@ -466,7 +476,7 @@ export default function GitOpsSettingsPage() {
                 </Tr>
               </Thead>
               <Tbody>
-                {GITOPS_NOTIFICATION_HISTORY.map((item) => (
+                {settingsNotificationHistoryForInstance(instance).map((item) => (
                   <Tr key={`${item.when}-${item.resource}`}>
                     <Td dataLabel="When">{item.when}</Td>
                     <Td dataLabel="Channel">{item.channel}</Td>

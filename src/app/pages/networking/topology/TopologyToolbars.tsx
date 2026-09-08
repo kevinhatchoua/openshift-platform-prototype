@@ -6,13 +6,10 @@ import {
   Label,
   MenuToggle,
   Radio,
-  SearchInput,
   Select,
   SelectList,
   SelectOption,
   Switch,
-  ToggleGroup,
-  ToggleGroupItem,
   Toolbar,
   ToolbarContent,
   ToolbarGroup,
@@ -28,6 +25,8 @@ import { NetworkResourceCreateDropdown, type NetworkCreateResource } from "../ne
 import type { NodeNetworkViewMode } from "../nodeNetworkViewMode";
 import { filterOptionsForPerspective, TOPOLOGY_PERSPECTIVES, type TopologyPerspective, type TopologyResourceFilter } from "./topologyPerspective";
 import { TOPOLOGY_LAYOUTS, type TopologyLayoutId } from "./topologyLayouts";
+import TopologySearchFilter from "./TopologySearchFilter";
+import type { TopologyQueryState } from "./topologyQueryFilter";
 
 
 type UnifiedToolbarProps = {
@@ -35,6 +34,8 @@ type UnifiedToolbarProps = {
   onPerspectiveChange: (perspective: TopologyPerspective) => void;
   searchTerm: string;
   onSearchTermChange: (value: string) => void;
+  queryState: TopologyQueryState;
+  onQueryStateChange: (state: TopologyQueryState) => void;
   filterKind: TopologyResourceFilter;
   onFilterKindChange: (kind: TopologyResourceFilter) => void;
   filterCounts?: Partial<Record<TopologyResourceFilter, number>>;
@@ -42,6 +43,8 @@ type UnifiedToolbarProps = {
   onDisplayLabelsChange: (value: boolean) => void;
   hideManagementPorts?: boolean;
   onHideManagementPortsChange?: (value: boolean) => void;
+  pipesOnly?: boolean;
+  onPipesOnlyChange?: (value: boolean) => void;
   topologyScale?: "compact" | "scale";
   onTopologyScaleChange?: (scale: "compact" | "scale") => void;
   layoutId: TopologyLayoutId;
@@ -73,6 +76,8 @@ export function TopologyUnifiedToolbar({
   onPerspectiveChange,
   searchTerm,
   onSearchTermChange,
+  queryState,
+  onQueryStateChange,
   filterKind,
   onFilterKindChange,
   filterCounts,
@@ -80,6 +85,8 @@ export function TopologyUnifiedToolbar({
   onDisplayLabelsChange,
   hideManagementPorts = false,
   onHideManagementPortsChange,
+  pipesOnly = false,
+  onPipesOnlyChange,
   topologyScale,
   onTopologyScaleChange,
   layoutId,
@@ -99,6 +106,7 @@ export function TopologyUnifiedToolbar({
   slot = "all",
 }: UnifiedToolbarProps) {
   const [filterOpen, setFilterOpen] = useState(false);
+  const [viewOpen, setViewOpen] = useState(false);
   const [displayOpen, setDisplayOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const perspectiveMeta = TOPOLOGY_PERSPECTIVES.find((p) => p.id === perspective);
@@ -124,23 +132,40 @@ export function TopologyUnifiedToolbar({
   const filterGroup = (
       <ToolbarGroup variant="filter-group" className="ocs-pf-topo-toolbar-group ocs-pf-topo-view-toolbar__filters">
         <ToolbarItem>
-          <Tooltip content={perspectiveMeta?.description ?? "Filter topology by perspective"}>
+          <Tooltip content={perspectiveMeta?.description ?? "Topology grouping level"}>
             <span>
-              <ToggleGroup aria-label="Topology perspective" isCompact>
-                {TOPOLOGY_PERSPECTIVES.map((p) => (
-                  <ToggleGroupItem
-                    key={p.id}
-                    text={p.label}
-                    isSelected={perspective === p.id}
-                    onChange={() => onPerspectiveChange(p.id)}
-                  />
-                ))}
-              </ToggleGroup>
+              <Select
+                isOpen={viewOpen}
+                selected={perspective}
+                onSelect={(_e, value) => {
+                  onPerspectiveChange(value as TopologyPerspective);
+                  setViewOpen(false);
+                }}
+                onOpenChange={setViewOpen}
+                toggle={(toggleRef) => (
+                  <MenuToggle
+                    ref={toggleRef}
+                    onClick={() => setViewOpen((open) => !open)}
+                    isExpanded={viewOpen}
+                    aria-label={`View: ${perspectiveMeta?.label ?? perspective}`}
+                  >
+                    View: {perspectiveMeta?.label ?? perspective}
+                  </MenuToggle>
+                )}
+              >
+                <SelectList>
+                  {TOPOLOGY_PERSPECTIVES.map((entry) => (
+                    <SelectOption key={entry.id} value={entry.id} description={entry.description}>
+                      {entry.label}
+                    </SelectOption>
+                  ))}
+                </SelectList>
+              </Select>
             </span>
           </Tooltip>
         </ToolbarItem>
         <ToolbarItem>
-          <Tooltip content="Filter resources by type">
+          <Tooltip content="Filter resources shown in the current view">
             <span>
               <Select
                 isOpen={filterOpen}
@@ -157,17 +182,13 @@ export function TopologyUnifiedToolbar({
                     variant={filterKind !== "all" ? "primary" : "default"}
                     onClick={() => setFilterOpen((o) => !o)}
                     isExpanded={filterOpen}
-                    aria-label={
-                      filterKind === "all"
-                        ? "Filter by resource"
-                        : `Resource filter: ${selectedFilterLabel}`
-                    }
+                    aria-label={filterKind === "all" ? "Filter by..." : `Filter: ${selectedFilterLabel}`}
                   >
                     {filterKind === "all"
-                        ? "Filter by resource"
-                        : selectedFilterCount && selectedFilterCount > 0
-                          ? `${selectedFilterLabel} (${selectedFilterCount})`
-                          : selectedFilterLabel}
+                      ? "Filter by..."
+                      : selectedFilterCount && selectedFilterCount > 0
+                        ? `${selectedFilterLabel} (${selectedFilterCount})`
+                        : selectedFilterLabel}
                   </MenuToggle>
                 )}
               >
@@ -183,14 +204,12 @@ export function TopologyUnifiedToolbar({
             </span>
           </Tooltip>
         </ToolbarItem>
-        <ToolbarItem>
-          <SearchInput
-            className="ocs-net-topo-panel__search"
-            placeholder="Find by name..."
-            value={searchTerm}
-            onChange={(_e, value) => onSearchTermChange(value)}
-            onClear={() => onSearchTermChange("")}
-            aria-label="Find topology resources by name"
+        <ToolbarItem className="ocs-pf-topo-search-filter-wrap">
+          <TopologySearchFilter
+            searchTerm={searchTerm}
+            onSearchTermChange={onSearchTermChange}
+            queryState={queryState}
+            onQueryStateChange={onQueryStateChange}
           />
         </ToolbarItem>
         {showNncSwitcher && physicalNetworkName && onPhysicalNetworkChange ? (
@@ -222,8 +241,8 @@ export function TopologyUnifiedToolbar({
       </ToolbarGroup>
   );
 
-  const actionGroup = (
-      <ToolbarGroup align={{ default: "alignEnd" }} className="ocs-pf-topo-toolbar-group ocs-pf-topo-view-toolbar__actions">
+  const viewActionGroup = (
+      <ToolbarGroup className="ocs-pf-topo-toolbar-group ocs-pf-topo-view-toolbar__view-actions">
         <ToolbarItem>
           <Tooltip content="Configure layout, labels, and display settings">
             <span>
@@ -260,6 +279,15 @@ export function TopologyUnifiedToolbar({
                       onChange={(_e, checked) => onHideManagementPortsChange(checked)}
                     />
                   ) : null}
+                  {onPipesOnlyChange ? (
+                    <Switch
+                      id="topo-display-pipes-only"
+                      label="Hide workloads"
+                      description="Show network infrastructure only — hide Pods and VMs"
+                      isChecked={pipesOnly}
+                      onChange={(_e, checked) => onPipesOnlyChange(checked)}
+                    />
+                  ) : null}
                   {onTopologyScaleChange ? (
                     <Switch
                       id="topo-display-compact-scale"
@@ -278,9 +306,9 @@ export function TopologyUnifiedToolbar({
                   <div className="ocs-pf-topo-display-menu__section" id="topo-layout-heading">
                     Layout
                   </div>
-                  {perspective !== "host" ? (
+                  {perspective !== "node" ? (
                     <p className="ocs-pf-topo-display-menu__hint">
-                      Layout applies to the current {perspective === "cluster" ? "Cluster" : "Workloads"} view.
+                      Layout applies to the current {perspectiveMeta?.label ?? perspective} view.
                     </p>
                   ) : null}
                   <div className="ocs-pf-topo-display-menu__layouts" role="radiogroup" aria-labelledby="topo-layout-heading">
@@ -332,34 +360,45 @@ export function TopologyUnifiedToolbar({
             </Tooltip>
           </ToolbarItem>
         ) : null}
-        {showCreateActions ? (
-          <>
-            <ToolbarItem>
-              <Tooltip content="Create a networking resource">
-                <span>
-                  <NetworkResourceCreateDropdown
-                    isDisabled={!isCreateEnabled}
-                    onSelect={onCreateSelect}
-                  />
-                </span>
-              </Tooltip>
-            </ToolbarItem>
-          </>
-        ) : null}
       </ToolbarGroup>
   );
 
-  const items = slot === "filters" ? filterGroup : slot === "actions" ? actionGroup : (
+  const createActionGroup = showCreateActions ? (
+    <ToolbarGroup className="ocs-pf-topo-toolbar-group ocs-pf-topo-view-toolbar__create">
+      <ToolbarItem>
+        <Tooltip content="Create a networking resource">
+          <span>
+            <NetworkResourceCreateDropdown
+              isDisabled={!isCreateEnabled}
+              onSelect={onCreateSelect}
+            />
+          </span>
+        </Tooltip>
+      </ToolbarItem>
+    </ToolbarGroup>
+  ) : null;
+
+  const items = slot === "filters" ? filterGroup : slot === "actions" ? (
+    <>
+      {viewActionGroup}
+      {createActionGroup}
+    </>
+  ) : (
     <>
       {filterGroup}
-      {actionGroup}
+      {viewActionGroup}
+      {createActionGroup}
     </>
   );
 
   if (embedded) return items;
   return (
     <Toolbar className="ocs-pf-topo-unified-toolbar" aria-label="Topology">
-      <ToolbarContent>{items}</ToolbarContent>
+      <ToolbarContent className="ocs-pf-topo-unified-toolbar__filters">{filterGroup}</ToolbarContent>
+      <ToolbarContent className="ocs-pf-topo-unified-toolbar__actions">
+        {viewActionGroup}
+        {createActionGroup}
+      </ToolbarContent>
     </Toolbar>
   );
 }

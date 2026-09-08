@@ -127,7 +127,7 @@ export const GITOPS_SUB: SubNavEntry[] = [
   { path: "/gitops/argocd", label: "ArgoCD Instances" },
   { path: "/gitops/applications", label: "Applications" },
   { path: "/gitops/applicationsets", label: "ApplicationSets" },
-  { path: "/gitops/promotions", label: "Promotion Pipelines" },
+  { path: "/gitops/promotions", label: "PromotionStrategy" },
   { path: "/gitops/rollouts", label: "Rollouts" },
   { path: "/gitops/appprojects", label: "AppProjects" },
   { path: "/gitops/settings", label: "Settings" },

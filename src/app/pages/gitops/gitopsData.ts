@@ -1,3 +1,5 @@
+import { findPrototypeApplicationSet } from "./prototypeGitopsStore";
+
 export type GitOpsHealth = "Healthy" | "Paused" | "Progressing" | "Degraded" | "Aborting";
 
 export type GitOpsOwner = {
@@ -42,6 +44,13 @@ export function instanceKeyOf(inst: Pick<ArgoCdRecord, "ns" | "name">) {
   return `${inst.ns}/${inst.name}`;
 }
 
+export type OwnerReference = {
+  apiVersion: string;
+  kind: string;
+  name: string;
+  uid?: string;
+};
+
 export type ApplicationRecord = {
   name: string;
   ns: string;
@@ -53,15 +62,23 @@ export type ApplicationRecord = {
   path: string;
   revision: string;
   destination: string;
-  managedBy: GitOpsOwner;
+  /** Mirrors `.metadata.ownerReferences` on the Application CR. */
+  ownerReferences: OwnerReference[];
   instanceKey: string;
   lastReconciled: string;
+};
+
+export type ApplicationSetGeneratorNode = {
+  type: string;
+  label?: string;
+  children?: ApplicationSetGeneratorNode[];
 };
 
 export type ApplicationSetRecord = {
   name: string;
   ns: string;
   generators: string;
+  generatorTree: ApplicationSetGeneratorNode[];
   apps: string;
   age: string;
   repo: string;
@@ -284,7 +301,7 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
     path: "guestbook",
     revision: "8088f4c0d970abb09e250248cc97e35623447cb5",
     destination: "team-b-apps",
-    managedBy: null,
+    ownerReferences: [],
     instanceKey: "team-b-gitops/team-b",
     lastReconciled: "3m ago",
   },
@@ -299,7 +316,7 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
     path: "guestbook",
     revision: "main",
     destination: "in-cluster / rollouts-demo",
-    managedBy: null,
+    ownerReferences: [],
     instanceKey: "openshift-gitops/openshift-gitops",
     lastReconciled: "8m ago",
   },
@@ -314,7 +331,7 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
     path: "deploy/overlays/prod",
     revision: "release-1.4",
     destination: "in-cluster / payments",
-    managedBy: null,
+    ownerReferences: [],
     instanceKey: "payments/payments-gitops",
     lastReconciled: "21m ago",
   },
@@ -329,7 +346,14 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
     path: "kustomize/canary",
     revision: "main",
     destination: "in-cluster / demo-workloads",
-    managedBy: { kind: "ApplicationSet", name: "tenant-workloads", ns: "argocd" },
+    ownerReferences: [
+      {
+        apiVersion: "argoproj.io/v1alpha1",
+        kind: "ApplicationSet",
+        name: "tenant-workloads",
+        uid: "a1b2c3d4-tenant-workloads",
+      },
+    ],
     instanceKey: "gitops-spoke-east/gitops-spoke-east",
     lastReconciled: "4m ago",
   },
@@ -344,7 +368,14 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
     path: "sets/addons",
     revision: "main",
     destination: "in-cluster / openshift-gitops",
-    managedBy: { kind: "ApplicationSet", name: "cluster-addons", ns: "openshift-gitops" },
+    ownerReferences: [
+      {
+        apiVersion: "argoproj.io/v1alpha1",
+        kind: "ApplicationSet",
+        name: "cluster-addons",
+        uid: "e5f6g7h8-cluster-addons",
+      },
+    ],
     instanceKey: "openshift-gitops/platform-addons",
     lastReconciled: "12m ago",
   },
@@ -354,7 +385,13 @@ export const GITOPS_APPLICATION_SETS: ApplicationSetRecord[] = [
   {
     name: "cluster-addons",
     ns: "openshift-gitops",
-    generators: "Cluster",
+    generators: "cluster",
+    generatorTree: [
+      {
+        type: "cluster",
+        label: "Cluster — decision: Every registered cluster",
+      },
+    ],
     apps: "6",
     age: "20d",
     repo: "https://github.com/demo/cluster-addons.git",
@@ -364,7 +401,23 @@ export const GITOPS_APPLICATION_SETS: ApplicationSetRecord[] = [
   {
     name: "tenant-workloads",
     ns: "argocd",
-    generators: "Git + List",
+    generators: "git, list",
+    generatorTree: [
+      {
+        type: "merge",
+        label: "Merge",
+        children: [
+          {
+            type: "git",
+            label: "Git — github.com/demo/tenant-workloads (directories: tenants/*)",
+          },
+          {
+            type: "list",
+            label: "List — elements: tenant-a, tenant-b, tenant-c",
+          },
+        ],
+      },
+    ],
     apps: "14",
     age: "5d",
     repo: "https://github.com/demo/tenant-workloads.git",
@@ -395,11 +448,24 @@ export type ImageUpdaterRecord = {
 /** Status/health only — never include jwt/tls/credential fields. */
 export type AgentSpokeRecord = {
   name: string;
+  ns: string;
   cluster: string;
+  instanceKey: string;
   connection: "Connected" | "Disconnected";
   syncMode: "Managed" | "Autonomous";
   lastHeartbeat: string;
   reconnections: number;
+  syncError?: { title: string; detail: string };
+};
+
+export type ExperimentRecord = {
+  name: string;
+  rolloutNs: string;
+  rolloutName: string;
+  phase: "Successful" | "Running" | "Failed";
+  duration: string;
+  metrics: string;
+  metricSeries: { name: string; value: string; status: "pass" | "fail" }[];
 };
 
 export type DashboardMetrics = {
@@ -408,6 +474,7 @@ export type DashboardMetrics = {
   healthy: number;
   degraded: number;
   progressing: number;
+  paused: number;
   syncSuccessRate: number;
   reconciliations24h: number;
   gitFetchFailures: number;
@@ -417,8 +484,14 @@ export type DashboardMetrics = {
     name: string;
     ns: string;
     reason: string;
-    severity: "warning" | "danger" | "info";
+    severity: "warning" | "danger" | "informational";
   }[];
+};
+
+export type PromotionStage = {
+  name: string;
+  status: "pending" | "running" | "succeeded" | "blocked" | "failed";
+  gate?: string;
 };
 
 export type PromotionPipelineRecord = {
@@ -428,6 +501,7 @@ export type PromotionPipelineRecord = {
   status: "Running" | "Blocked" | "Succeeded" | "Failed";
   gates: string;
   age: string;
+  stages: PromotionStage[];
 };
 
 export const GITOPS_APP_PROJECTS: AppProjectRecord[] = [
@@ -489,7 +563,9 @@ export const GITOPS_IMAGE_UPDATERS: ImageUpdaterRecord[] = [
 export const GITOPS_AGENT_SPOKES: AgentSpokeRecord[] = [
   {
     name: "spoke-east-agent",
+    ns: "gitops-spoke-east",
     cluster: "spoke-east",
+    instanceKey: "gitops-spoke-east/gitops-spoke-east",
     connection: "Connected",
     syncMode: "Managed",
     lastHeartbeat: "12s ago",
@@ -497,7 +573,9 @@ export const GITOPS_AGENT_SPOKES: AgentSpokeRecord[] = [
   },
   {
     name: "spoke-west-agent",
+    ns: "gitops-spoke-west",
     cluster: "spoke-west",
+    instanceKey: "openshift-gitops/openshift-gitops",
     connection: "Connected",
     syncMode: "Autonomous",
     lastHeartbeat: "45s ago",
@@ -505,11 +583,18 @@ export const GITOPS_AGENT_SPOKES: AgentSpokeRecord[] = [
   },
   {
     name: "edge-lab-agent",
+    ns: "edge-lab",
     cluster: "edge-lab",
+    instanceKey: "openshift-gitops/platform-addons",
     connection: "Disconnected",
     syncMode: "Managed",
     lastHeartbeat: "3h ago",
     reconnections: 11,
+    syncError: {
+      title: "Agent cannot reach hub API",
+      detail:
+        "Last sync failed with connection refused. Check firewall rules and that the agent registration is still valid.",
+    },
   },
 ];
 
@@ -521,6 +606,11 @@ export const GITOPS_PROMOTION_PIPELINES: PromotionPipelineRecord[] = [
     status: "Running",
     gates: "manual (staging→prod)",
     age: "4h",
+    stages: [
+      { name: "dev", status: "succeeded" },
+      { name: "staging", status: "running", gate: "analysis" },
+      { name: "prod", status: "pending", gate: "manual approval" },
+    ],
   },
   {
     name: "frontend-canary-promote",
@@ -529,6 +619,10 @@ export const GITOPS_PROMOTION_PIPELINES: PromotionPipelineRecord[] = [
     status: "Blocked",
     gates: "analysis + approval",
     age: "1d",
+    stages: [
+      { name: "canary", status: "succeeded" },
+      { name: "stable", status: "blocked", gate: "analysis + approval" },
+    ],
   },
 ];
 
@@ -538,6 +632,7 @@ function buildDashboardMetrics(apps: ApplicationRecord[] = GITOPS_APPLICATIONS):
   const healthy = apps.filter((a) => a.health === "Healthy").length;
   const degraded = apps.filter((a) => a.health === "Degraded").length;
   const progressing = apps.filter((a) => a.health === "Progressing").length;
+  const paused = apps.filter((a) => a.health === "Paused").length;
   const total = apps.length || 1;
   const needsAttention = apps
     .filter((a) => a.sync === "OutOfSync" || a.health === "Degraded" || a.health === "Progressing")
@@ -550,10 +645,10 @@ function buildDashboardMetrics(apps: ApplicationRecord[] = GITOPS_APPLICATIONS):
           : a.sync === "OutOfSync"
             ? "Out of sync with desired revision"
             : "Sync in progress",
-      severity: (a.health === "Degraded" ? "danger" : a.sync === "OutOfSync" ? "warning" : "info") as
+      severity: (a.health === "Degraded" ? "danger" : a.sync === "OutOfSync" ? "warning" : "informational") as
         | "warning"
         | "danger"
-        | "info",
+        | "informational",
     }));
   return {
     synced,
@@ -561,6 +656,7 @@ function buildDashboardMetrics(apps: ApplicationRecord[] = GITOPS_APPLICATIONS):
     healthy,
     degraded,
     progressing,
+    paused,
     syncSuccessRate: Math.round((synced / total) * 100),
     reconciliations24h: 128 + synced * 12,
     gitFetchFailures: outOfSync > 0 ? 2 : 0,
@@ -596,6 +692,181 @@ export function applicationSetsForInstance(key: string) {
   if (!key || key === GITOPS_ALL_INSTANCES) return GITOPS_APPLICATION_SETS;
   const ns = key.split("/")[0];
   return GITOPS_APPLICATION_SETS.filter((s) => s.ns === ns);
+}
+
+export function rolloutsForInstance(key: string) {
+  if (!key || key === GITOPS_ALL_INSTANCES) return GITOPS_ROLLOUTS;
+  const appKeys = new Set(applicationsForInstance(key).map((a) => `${a.ns}/${a.name}`));
+  const instNs = key.split("/")[0];
+  return GITOPS_ROLLOUTS.filter((r) => {
+    if (r.managedBy?.kind === "Application") {
+      return appKeys.has(`${r.managedBy.ns ?? r.ns}/${r.managedBy.name}`);
+    }
+    return r.ns === instNs;
+  });
+}
+
+export function imageUpdatersForInstance(key: string) {
+  if (!key || key === GITOPS_ALL_INSTANCES) return GITOPS_IMAGE_UPDATERS;
+  const instNs = key.split("/")[0];
+  return GITOPS_IMAGE_UPDATERS.filter((u) => u.ns === instNs);
+}
+
+export function promotionsForInstance(key: string) {
+  if (!key || key === GITOPS_ALL_INSTANCES) return GITOPS_PROMOTION_PIPELINES;
+  const instNs = key.split("/")[0];
+  return GITOPS_PROMOTION_PIPELINES.filter((p) => p.ns === instNs);
+}
+
+export function agentsForInstance(key: string) {
+  if (!key || key === GITOPS_ALL_INSTANCES) return GITOPS_AGENT_SPOKES;
+  return GITOPS_AGENT_SPOKES.filter((a) => a.instanceKey === key);
+}
+
+export function argoInstancesForInstance(key: string) {
+  if (!key || key === GITOPS_ALL_INSTANCES) return ARGO_INSTANCES;
+  return ARGO_INSTANCES.filter((a) => instanceKeyOf(a) === key);
+}
+
+function instanceNs(key: string): string | null {
+  if (!key || key === GITOPS_ALL_INSTANCES) return null;
+  return key.split("/")[0];
+}
+
+export function settingsReposForInstance(key: string) {
+  const ns = instanceNs(key);
+  if (!ns) return GITOPS_SETTINGS_REPOS;
+  const appNames = new Set(applicationsForInstance(key).map((a) => a.name));
+  return GITOPS_SETTINGS_REPOS.filter((repo) => repo.applications === 0 || appNames.size > 0);
+}
+
+export function settingsClustersForInstance(key: string) {
+  const ns = instanceNs(key);
+  if (!ns) return GITOPS_SETTINGS_CLUSTERS;
+  return GITOPS_SETTINGS_CLUSTERS.filter((c) => c.name === "in-cluster" || c.apps > 0);
+}
+
+export function settingsNotificationsForInstance(key: string) {
+  if (!key || key === GITOPS_ALL_INSTANCES) return GITOPS_SETTINGS_NOTIFICATIONS;
+  return GITOPS_SETTINGS_NOTIFICATIONS;
+}
+
+export function settingsRolloutManagersForInstance(key: string) {
+  const ns = instanceNs(key);
+  if (!ns) return GITOPS_SETTINGS_ROLLOUT_MANAGERS;
+  return GITOPS_SETTINGS_ROLLOUT_MANAGERS.filter((m) => m.ns === ns);
+}
+
+export function settingsNamespacesForInstance(key: string) {
+  const ns = instanceNs(key);
+  if (!ns) return GITOPS_SETTINGS_NAMESPACES;
+  return GITOPS_SETTINGS_NAMESPACES.filter((n) => n.name === ns || n.name.includes("gitops"));
+}
+
+export function settingsAnalysisTemplatesForInstance(key: string) {
+  const ns = instanceNs(key);
+  if (!ns) return GITOPS_SETTINGS_ANALYSIS_TEMPLATES;
+  return GITOPS_SETTINGS_ANALYSIS_TEMPLATES.filter((t) => t.ns === ns);
+}
+
+export function settingsNotificationHistoryForInstance(key: string) {
+  if (!key || key === GITOPS_ALL_INSTANCES) return GITOPS_NOTIFICATION_HISTORY;
+  const appNames = new Set(applicationsForInstance(key).map((a) => a.name));
+  return GITOPS_NOTIFICATION_HISTORY.filter((h) => appNames.has(h.resource));
+}
+
+export function applicationMetricsCharts(rec: ApplicationRecord) {
+  const outOfSync = rec.sync === "OutOfSync";
+  return {
+    syncRate: [
+      { t: "0h", v: outOfSync ? 82 : 96 },
+      { t: "4h", v: outOfSync ? 85 : 97 },
+      { t: "8h", v: outOfSync ? 88 : 98 },
+      { t: "12h", v: outOfSync ? 86 : 99 },
+      { t: "16h", v: outOfSync ? 84 : 99 },
+      { t: "20h", v: outOfSync ? 87 : 98 },
+      { t: "24h", v: outOfSync ? 91 : 99 },
+    ],
+    reconciliations: [
+      { t: "0h", v: 12 },
+      { t: "4h", v: 18 },
+      { t: "8h", v: 15 },
+      { t: "12h", v: 22 },
+      { t: "16h", v: 19 },
+      { t: "20h", v: 24 },
+      { t: "24h", v: 21 },
+    ],
+  };
+}
+
+export const GITOPS_EXPERIMENTS: ExperimentRecord[] = [
+  {
+    name: "rollout-canary-api-analysis-1",
+    rolloutNs: "argocd",
+    rolloutName: "rollout-canary-api",
+    phase: "Successful",
+    duration: "4m12s",
+    metrics: "success-rate 99.1% · latency p99 82ms",
+    metricSeries: [
+      { name: "success-rate", value: "99.1%", status: "pass" },
+      { name: "latency-p99", value: "82ms", status: "pass" },
+    ],
+  },
+  {
+    name: "rollout-canary-api-experiment-web",
+    rolloutNs: "argocd",
+    rolloutName: "rollout-canary-api",
+    phase: "Running",
+    duration: "1m40s",
+    metrics: "error-rate 0.4% · cpu 42%",
+    metricSeries: [
+      { name: "error-rate", value: "0.4%", status: "pass" },
+      { name: "cpu", value: "42%", status: "pass" },
+    ],
+  },
+  {
+    name: "rollout-bluegreen-pre-promote",
+    rolloutNs: "argocd",
+    rolloutName: "rollout-bluegreen",
+    phase: "Failed",
+    duration: "2m05s",
+    metrics: "success-rate 71% · error-rate 8.2%",
+    metricSeries: [
+      { name: "success-rate", value: "71%", status: "fail" },
+      { name: "error-rate", value: "8.2%", status: "fail" },
+    ],
+  },
+];
+
+export function experimentDetailPath(ns: string, rollout: string, experiment: string) {
+  return `/gitops/ns/${encodeURIComponent(ns)}/rollouts/${encodeURIComponent(rollout)}/experiments/${encodeURIComponent(experiment)}`;
+}
+
+export function findExperiment(rolloutNs: string, rolloutName: string, experimentName: string) {
+  return GITOPS_EXPERIMENTS.find(
+    (e) => e.rolloutNs === rolloutNs && e.rolloutName === rolloutName && e.name === experimentName
+  );
+}
+
+export function findAgentSpoke(ns: string, name: string) {
+  return GITOPS_AGENT_SPOKES.find((a) => a.ns === ns && a.name === name);
+}
+
+/** HPUX-1431 — sync error clarity on Application detail. */
+export function applicationSyncError(app: ApplicationRecord) {
+  if (app.sync !== "OutOfSync") return null;
+  if (app.name === "payments-api") {
+    return {
+      title: "Live manifest differs from desired revision",
+      detail:
+        "Deployment/payments-api image tag is 1.4.1 but Git specifies 1.4.2. Auto-sync is disabled — review diff or sync manually.",
+      agentHint: "If this app targets a spoke cluster, verify the connected agent is healthy before retrying sync.",
+    };
+  }
+  return {
+    title: "Application is out of sync",
+    detail: "One or more resources differ from the desired state in Git.",
+  };
 }
 
 export type RecentOperation = {
@@ -725,6 +996,8 @@ export function applicationsForNamespace(ns: string) {
 }
 
 export function findApplicationSet(ns: string, name: string) {
+  const prototype = findPrototypeApplicationSet(ns, name);
+  if (prototype) return prototype;
   return GITOPS_APPLICATION_SETS.find((a) => a.ns === ns && a.name === name);
 }
 

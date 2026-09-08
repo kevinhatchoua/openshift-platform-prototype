@@ -21,6 +21,14 @@ import {
   ToggleGroup,
   ToggleGroupItem,
 } from "@patternfly/react-core";
+import {
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
@@ -30,11 +38,21 @@ import {
   findAppProject,
   gitopsDetailPath,
   GITOPS_PROMOTION_PIPELINES,
+  applicationSyncError,
+  applicationMetricsCharts,
+  GITOPS_ALL_INSTANCES,
   type ApplicationRecord,
 } from "./gitopsData";
 import { GitOpsNotFound } from "./GitOpsSimpleDetailPage";
-import { GitOpsEditDeleteMenu, GitOpsLink, HealthStatus, ManagedByCell, ResourceName } from "./gitopsShared";
+import { GitOpsEditDeleteMenu, GitOpsLink, HealthStatus, OwnerReferencesCell, ResourceName } from "./gitopsShared";
+import { gitOpsHealthLabelColor, gitOpsSyncLabelColor, PF_CHART } from "../../lib/pfSemanticColors";
 import { useToast } from "../../contexts/ToastContext";
+import GitOpsTopologyView from "./GitOpsTopologyView";
+import { buildApplicationResourceGraph } from "./gitopsTopologyData";
+import GitOpsYamlUnifiedDiff from "./GitOpsYamlUnifiedDiff";
+import GitOpsLogStream from "./GitOpsLogStream";
+import GitOpsAccessTestPanel from "./GitOpsAccessTestPanel";
+import { useGitOpsInstance } from "./GitOpsInstancePicker";
 
 function promotionForApp(appName: string) {
   return GITOPS_PROMOTION_PIPELINES.find(
@@ -141,6 +159,11 @@ export default function GitOpsApplicationDetailRich() {
   const { pushToast } = useToast();
 
   const metrics = useMemo(() => (rec ? metricsFor(rec) : null), [rec]);
+  const metricCharts = useMemo(() => (rec ? applicationMetricsCharts(rec) : null), [rec]);
+  const resourceGraph = useMemo(() => (rec ? buildApplicationResourceGraph(rec) : null), [rec]);
+  const syncError = rec ? applicationSyncError(rec) : null;
+  const { instance } = useGitOpsInstance();
+  const instanceScoped = rec ? rec.instanceKey === instance || instance === GITOPS_ALL_INSTANCES : true;
 
   if (!rec) {
     return <GitOpsNotFound listPath="/gitops/applications" listTitle="Applications" />;
@@ -186,6 +209,17 @@ export default function GitOpsApplicationDetailRich() {
             </Flex>
           </Flex>
 
+          {syncError ? (
+            <Alert variant="warning" isInline title={syncError.title}>
+              {syncError.detail}
+              {syncError.agentHint ? (
+                <Content component="p" className="pf-v6-u-mt-sm">
+                  {syncError.agentHint}
+                </Content>
+              ) : null}
+            </Alert>
+          ) : null}
+
           <Tabs
             activeKey={activeTab}
             onSelect={(_e, key) => setActiveTab(String(key))}
@@ -202,6 +236,7 @@ export default function GitOpsApplicationDetailRich() {
             <Tab eventKey="promotion" title={<TabTitleText>Promotion</TabTitleText>} />
             <Tab eventKey="resource-tree" title={<TabTitleText>Resource Tree</TabTitleText>} />
             <Tab eventKey="resources" title={<TabTitleText>Resources</TabTitleText>} />
+            <Tab eventKey="access-test" title={<TabTitleText>Access Test</TabTitleText>} />
             <Tab eventKey="summary" title={<TabTitleText>Summary</TabTitleText>} />
           </Tabs>
 
@@ -249,7 +284,7 @@ export default function GitOpsApplicationDetailRich() {
                   </DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
-                  <DescriptionListTerm>Project</DescriptionListTerm>
+                  <DescriptionListTerm>AppProject</DescriptionListTerm>
                   <DescriptionListDescription>
                     {(() => {
                       const project = findAppProject(rec.ns, rec.project) ?? findAppProject("argocd", rec.project);
@@ -290,13 +325,20 @@ export default function GitOpsApplicationDetailRich() {
                   <DescriptionListDescription>{rec.destination}</DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
-                  <DescriptionListTerm>Managed by</DescriptionListTerm>
+                  <DescriptionListTerm>Owner references</DescriptionListTerm>
                   <DescriptionListDescription>
-                    <ManagedByCell owner={rec.managedBy} />
+                    <OwnerReferencesCell refs={rec.ownerReferences} ns={rec.ns} />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
               </DescriptionList>
             </Flex>
+          ) : null}
+
+          {!instanceScoped ? (
+            <Alert variant="info" isInline title="Viewing application outside selected instance scope">
+              Instance filter is <code>{instance}</code>. Metrics reflect this application only; switch instance
+              in the header to align list and detail context.
+            </Alert>
           ) : null}
 
           {activeTab === "logs" ? (
@@ -311,9 +353,7 @@ export default function GitOpsApplicationDetailRich() {
                   />
                 ))}
               </ToggleGroup>
-              <CodeBlock>
-                <CodeBlockCode>{MOCK_LOGS[logContainer]}</CodeBlockCode>
-              </CodeBlock>
+              <GitOpsLogStream initial={MOCK_LOGS[logContainer]} container={logContainer} />
             </Flex>
           ) : null}
 
@@ -328,9 +368,10 @@ export default function GitOpsApplicationDetailRich() {
               ) : (
                 <Alert variant="success" title="Synced — no material differences" isInline />
               )}
+              <GitOpsYamlUnifiedDiff live={liveYaml(rec)} desired={desiredYaml(rec)} />
               <Grid hasGutter>
                 <GridItem md={6}>
-                  <Title headingLevel="h2" size="lg">
+                  <Title headingLevel="h3" size="md">
                     Live
                   </Title>
                   <CodeBlock>
@@ -338,7 +379,7 @@ export default function GitOpsApplicationDetailRich() {
                   </CodeBlock>
                 </GridItem>
                 <GridItem md={6}>
-                  <Title headingLevel="h2" size="lg">
+                  <Title headingLevel="h3" size="md">
                     Desired
                   </Title>
                   <CodeBlock>
@@ -349,19 +390,57 @@ export default function GitOpsApplicationDetailRich() {
             </Flex>
           ) : null}
 
-          {activeTab === "metrics" && metrics ? (
+          {activeTab === "metrics" && metrics && metricCharts ? (
             <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
               <Flex gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
-                <Label color={rec.sync === "Synced" ? "green" : "orange"} isCompact>
-                  Sync: {rec.sync}
-                </Label>
-                <Label color={rec.health === "Healthy" ? "green" : "blue"} isCompact>
-                  Health: {rec.health}
-                </Label>
+                <Label color={gitOpsSyncLabelColor(rec.sync)} isCompact>Sync: {rec.sync}</Label>
+                <Label color={gitOpsHealthLabelColor(rec.health)} isCompact>Health: {rec.health}</Label>
                 <Label color="grey" isCompact>
-                  Age: {rec.age}
+                  Instance: {rec.instanceKey}
                 </Label>
               </Flex>
+              <Grid hasGutter>
+                <GridItem md={6}>
+                  <Title headingLevel="h3" size="md">
+                    Sync success rate (24h)
+                  </Title>
+                  <div style={{ height: 180 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={metricCharts.syncRate}>
+                        <XAxis dataKey="t" tick={{ fontSize: 11 }} />
+                        <YAxis domain={[70, 100]} tick={{ fontSize: 11 }} width={32} />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="v"
+                          stroke="var(--pf-t--global--color--status--success--default)"
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </GridItem>
+                <GridItem md={6}>
+                  <Title headingLevel="h3" size="md">
+                    Reconciliations (24h)
+                  </Title>
+                  <div style={{ height: 180 }}>
+                    <ResponsiveContainer width="100%" height="100%">
+                      <LineChart data={metricCharts.reconciliations}>
+                        <XAxis dataKey="t" tick={{ fontSize: 11 }} />
+                        <YAxis tick={{ fontSize: 11 }} width={32} />
+                        <Tooltip />
+                        <Line
+                          type="monotone"
+                          dataKey="v"
+                          stroke={PF_CHART.info}
+                          dot={false}
+                        />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </GridItem>
+              </Grid>
               <DescriptionList isHorizontal isCompact>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Sync totals</DescriptionListTerm>
@@ -381,6 +460,10 @@ export default function GitOpsApplicationDetailRich() {
                 </DescriptionListGroup>
               </DescriptionList>
             </Flex>
+          ) : null}
+
+          {activeTab === "access-test" ? (
+            <GitOpsAccessTestPanel resourceLabel={`Application ${rec.name}`} defaultResource="applications" />
           ) : null}
 
           {activeTab === "yaml" ? (
@@ -502,22 +585,8 @@ export default function GitOpsApplicationDetailRich() {
             </Flex>
           ) : null}
 
-          {activeTab === "resource-tree" ? (
-            <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-              <ResourceName kind="Application" name={rec.name} />
-              <Content component="p" className="pf-v6-u-ml-lg">
-                Deployment/{rec.name}
-              </Content>
-              <Content component="p" className="pf-v6-u-ml-2xl">
-                ReplicaSet/{rec.name}-6f8d9
-              </Content>
-              <Content component="p" className="pf-v6-u-ml-3xl">
-                Pod/{rec.name}-6f8d9-abc12
-              </Content>
-              <Content component="small" className="pf-v6-u-color-200">
-                Topology graph sidebars remain HPUX-1942. This tree is a clickable outline of live objects.
-              </Content>
-            </Flex>
+          {activeTab === "resource-tree" && resourceGraph ? (
+            <GitOpsTopologyView graph={resourceGraph} ariaLabel={`Application ${rec.name} resource graph`} />
           ) : null}
 
           {activeTab === "resources" ? (
@@ -579,7 +648,7 @@ export default function GitOpsApplicationDetailRich() {
           ) : null}
 
           <Content component="small" className="pf-v6-u-color-200">
-            Application inventory and graph sidebars are covered by HPUX-1942. Topology graph is deferred.
+            Resource graph with topology sidebars on the Resource Tree tab (HPUX-1942 / GITOPS-9059).
           </Content>
         </Flex>
       </Breadcrumbs>

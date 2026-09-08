@@ -1,23 +1,15 @@
 import { useState } from "react";
 import { useParams } from "react-router";
 import {
-  Alert,
-  Button,
   Content,
   DescriptionList,
   DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
   Flex,
-  Form,
-  FormGroup,
-  FormSelect,
-  FormSelectOption,
-  TextInput,
   Tab,
   Tabs,
   TabTitleText,
-  Title,
 } from "@patternfly/react-core";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
@@ -25,13 +17,16 @@ import { GitOpsSimpleListPage } from "./GitOpsSimpleListPage";
 import { GitOpsNotFound } from "./GitOpsSimpleDetailPage";
 import {
   applicationsForNamespace,
+  appProjectsForInstance,
   findAppProject,
-  GITOPS_APP_PROJECTS,
   gitopsDetailPath,
 } from "./gitopsData";
+import { useGitOpsInstance } from "./GitOpsInstancePicker";
 import { GitOpsEditDeleteMenu, GitOpsLink, ResourceName } from "./gitopsShared";
+import GitOpsAccessTestPanel from "./GitOpsAccessTestPanel";
 
 export default function GitOpsAppProjectsPage() {
+  const { instance } = useGitOpsInstance();
   return (
     <GitOpsSimpleListPage
       title="AppProjects"
@@ -39,7 +34,7 @@ export default function GitOpsAppProjectsPage() {
       createLabel="Create AppProject"
       kind="AppProject"
       detailKind="appprojects"
-      items={GITOPS_APP_PROJECTS}
+      items={appProjectsForInstance(instance)}
       columns={[
         { key: "name", label: "Name" },
         { key: "namespace", label: "Namespace" },
@@ -72,23 +67,8 @@ function AppProjectDetailBody({
   rec: NonNullable<ReturnType<typeof findAppProject>>;
 }) {
   const [activeTab, setActiveTab] = useState("details");
-  const [subject, setSubject] = useState("");
-  const [action, setAction] = useState("get");
-  const [resource, setResource] = useState("applications");
-  const [testResult, setTestResult] = useState<"success" | "danger" | null>(null);
-  const [testMessage, setTestMessage] = useState("");
   const href = gitopsDetailPath("appprojects", rec.ns, rec.name);
   const appsInNs = applicationsForNamespace(rec.ns);
-
-  const runAccessTest = () => {
-    const allowed = subject.trim().length > 0 && action !== "create";
-    setTestResult(allowed ? "success" : "danger");
-    setTestMessage(
-      allowed
-        ? `Allowed: subject "${subject || "(empty)"}" may ${action} ${resource || "resource"} in project ${rec.name}.`
-        : `Denied: subject "${subject || "(empty)"}" may not ${action} ${resource || "resource"} in project ${rec.name} (mock RBAC).`
-    );
-  };
 
   return (
     <div className="ocs-app-page-outer ocs-pod-details-page h-full min-h-0 overflow-y-auto">
@@ -242,56 +222,7 @@ function AppProjectDetailBody({
           ) : null}
 
           {activeTab === "access" ? (
-            <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }} style={{ maxWidth: 480 }}>
-              <Title headingLevel="h2" size="lg">
-                RBAC policy tester
-              </Title>
-              <Content component="p" className="pf-v6-u-color-200">
-                Mock Access Test — evaluates subject / action / resource against this AppProject.
-              </Content>
-              <Form>
-                <FormGroup label="Subject" fieldId="access-subject" isRequired>
-                  <TextInput
-                    id="access-subject"
-                    value={subject}
-                    onChange={(_e, v) => setSubject(v)}
-                    placeholder="user:alice or group:payments-devs"
-                  />
-                </FormGroup>
-                <FormGroup label="Action" fieldId="access-action">
-                  <FormSelect
-                    id="access-action"
-                    value={action}
-                    onChange={(_e, v) => setAction(v)}
-                    aria-label="Action"
-                  >
-                    <FormSelectOption value="get" label="get" />
-                    <FormSelectOption value="list" label="list" />
-                    <FormSelectOption value="create" label="create" />
-                  </FormSelect>
-                </FormGroup>
-                <FormGroup label="Resource" fieldId="access-resource">
-                  <TextInput
-                    id="access-resource"
-                    value={resource}
-                    onChange={(_e, v) => setResource(v)}
-                    placeholder="applications"
-                  />
-                </FormGroup>
-                <Button variant="primary" onClick={runAccessTest}>
-                  Run test
-                </Button>
-              </Form>
-              {testResult ? (
-                <Alert
-                  variant={testResult}
-                  title={testResult === "success" ? "Allowed" : "Denied"}
-                  isInline
-                >
-                  {testMessage}
-                </Alert>
-              ) : null}
-            </Flex>
+            <GitOpsAccessTestPanel resourceLabel={`AppProject ${rec.name}`} defaultResource="applications" />
           ) : null}
         </Flex>
       </Breadcrumbs>

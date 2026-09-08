@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Divider, MenuToggle, Select, SelectList, SelectOption } from "@patternfly/react-core";
 import CheckIcon from "@patternfly/react-icons/dist/esm/icons/check-icon";
 import ServerIcon from "@patternfly/react-icons/dist/esm/icons/server-icon";
@@ -25,21 +26,43 @@ function readStoredInstance(): string {
   return GITOPS_ALL_INSTANCES;
 }
 
+function resolveInitialInstance(urlInstance: string | null): string {
+  if (urlInstance && isValidKey(urlInstance)) return urlInstance;
+  return readStoredInstance();
+}
+
 export function useGitOpsInstance() {
-  const [instance, setInstanceState] = useState(readStoredInstance);
+  const [searchParams, setSearchParams] = useSearchParams();
+  const urlInstance = searchParams.get("instance");
+  const [instance, setInstanceState] = useState(() => resolveInitialInstance(urlInstance));
 
   useEffect(() => {
-    setInstanceState(readStoredInstance());
-  }, []);
-
-  const setInstance = useCallback((name: string) => {
-    setInstanceState(name);
-    try {
-      localStorage.setItem(STORAGE_KEY, name);
-    } catch {
-      /* ignore */
+    if (urlInstance && isValidKey(urlInstance)) {
+      setInstanceState(urlInstance);
     }
-  }, []);
+  }, [urlInstance]);
+
+  const setInstance = useCallback(
+    (name: string) => {
+      if (!isValidKey(name)) return;
+      setInstanceState(name);
+      try {
+        localStorage.setItem(STORAGE_KEY, name);
+      } catch {
+        /* ignore */
+      }
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (name === GITOPS_ALL_INSTANCES) next.delete("instance");
+          else next.set("instance", name);
+          return next;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
 
   return { instance, setInstance, instances: ARGO_INSTANCES };
 }

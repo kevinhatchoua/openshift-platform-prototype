@@ -1,0 +1,248 @@
+/* GitOps topology graph (HPUX-1942) */
+.ocs-gitops-topo-canvas {
+  position: relative;
+  overflow: auto;
+  min-height: 20rem;
+  padding: var(--pf-t--global--spacer--md);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.ocs-gitops-topo-edges {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ocs-gitops-topo-edges line {
+  stroke: var(--pf-t--global--border--color--default);
+  stroke-width: 1.5;
+}
+
+.ocs-gitops-topo-nodes {
+  position: relative;
+}
+
+.ocs-gitops-topo-node {
+  position: absolute !important;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--pf-t--global--spacer--xs);
+  padding: var(--pf-t--global--spacer--sm);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--primary--default);
+}
+
+.ocs-gitops-topo-node--selected {
+  border-color: var(--pf-t--global--color--brand--default);
+  box-shadow: 0 0 0 1px var(--pf-t--global--color--brand--default);
+}
+
+.ocs-gitops-topo-node__status {
+  font-size: var(--pf-t--global--font--size--body--sm);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-gitops-topo-yaml {
+  margin: 0;
+  padding: var(--pf-t--global--spacer--sm);
+  font-size: var(--pf-t--global--font--size--body--sm);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  overflow: auto;
+}
+
+.ocs-gitops-promo-pipeline {
+  padding: var(--pf-t--global--spacer--sm) 0;
+}
+
+.ocs-gitops-promo-stage {
+  min-width: 7rem;
+  padding: var(--pf-t--global--spacer--sm);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--primary--default);
+}
+
+.ocs-gitops-promo-stage__status,
+.ocs-gitops-promo-stage__gate {
+  font-size: var(--pf-t--global--font--size--body--sm);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-gitops-promo-arrow {
+  font-size: 1.25rem;
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-gitops-unified-diff {
+  margin: 0;
+  padding: var(--pf-t--global--spacer--sm);
+  font-size: var(--pf-t--global--font--size--body--sm);
+  font-family: var(--pf-t--global--font--family--monospace);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  overflow: auto;
+  max-height: 20rem;
+}
+
+.ocs-gitops-unified-diff__line--add {
+  color: var(--pf-t--global--color--status--success--default);
+}
+
+.ocs-gitops-unified-diff__line--remove {
+  color: var(--pf-t--global--color--status--danger--default);
+}
+
+.ocs-gitops-donut-legend__swatch {
+  display: inline-block;
+  width: 0.65rem;
+  height: 0.65rem;
+  border-radius: 50%;
+}
+
+.ocs-gitops-donut-legend__item {
+  justify-content: flex-start;
+}
+
+.ocs-gitops-activity-card {
+  cursor: pointer;
+}
+
+.ocs-gitops-generator-tree {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.ocs-gitops-generator-tree--root {
+  padding: var(--pf-t--global--spacer--md);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.ocs-gitops-generator-node__row {
+  padding: var(--pf-t--global--spacer--xs) 0;
+}
+
+.ocs-gitops-generator-node__type {
+  font-family: var(--pf-t--global--font--family--monospace);
+  font-size: var(--pf-t--global--font--size--body--sm);
+  color: var(--pf-t--global--color--brand--default);
+  text-transform: lowercase;
+}
+
+.ocs-gitops-generator-node__label {
+  font-size: var(--pf-t--global--font--size--body--sm);
+}
+
+.ocs-gitops-canary-steps {
+  overflow-x: auto;
+  padding: var(--pf-t--global--spacer--md) 0;
+}
+
+.ocs-gitops-canary-step {
+  min-width: 3.5rem;
+}
+
+.ocs-gitops-canary-step__dot {
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: var(--pf-t--global--border--color--default);
+}
+
+.ocs-gitops-canary-step--complete .ocs-gitops-canary-step__dot {
+  background: var(--pf-t--global--color--status--success--default);
+}
+
+.ocs-gitops-canary-step--active .ocs-gitops-canary-step__dot {
+  background: var(--pf-t--global--color--brand--default);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--pf-t--global--color--brand--default) 25%, transparent);
+}
+
+.ocs-gitops-canary-step--failed .ocs-gitops-canary-step__dot {
+  background: var(--pf-t--global--color--status--danger--default);
+}
+
+.ocs-gitops-canary-step__connector {
+  display: inline-block;
+  width: 1.5rem;
+  height: 2px;
+  margin: 0 var(--pf-t--global--spacer--xs);
+  background: var(--pf-t--global--border--color--default);
+  align-self: center;
+}
+
+.ocs-gitops-canary-step__label {
+  margin-top: var(--pf-t--global--spacer--xs);
+  text-align: center;
+}
+
+.ocs-io-operator-table tr.ocs-gitops-analysis-row > td {
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.ocs-gitops-argocd-toolbar {
+  row-gap: var(--pf-t--global--spacer--sm);
+}
+
+.ocs-gitops-argocd-toolbar__filters {
+  flex-grow: 1;
+}
+
+.ocs-gitops-argocd-toolbar__actions {
+  margin-left: auto;
+}
+
+.ocs-gitops-argocd-card__summary .pf-v6-c-description-list__group {
+  margin-bottom: var(--pf-t--global--spacer--xs);
+}
+
+.ocs-gitops-promo-stage--interactive {
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+  width: 100%;
+}
+
+.ocs-gitops-promo-stage--interactive:hover,
+.ocs-gitops-promo-stage--selected {
+  border-color: var(--pf-t--global--border--color--active);
+  box-shadow: 0 0 0 1px var(--pf-t--global--border--color--active);
+}
+
+.ocs-gitops-promo-gate-row {
+  display: block;
+  width: 100%;
+  padding: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--sm);
+  border: 1px solid transparent;
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: transparent;
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+
+.ocs-gitops-promo-gate-row:hover,
+.ocs-gitops-promo-gate-row--selected {
+  border-color: var(--pf-t--global--border--color--default);
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.ocs-gitops-promo-stage-logs {
+  margin: var(--pf-t--global--spacer--sm) 0 0;
+  padding: var(--pf-t--global--spacer--sm);
+  font-family: var(--pf-t--global--font--family--monospace);
+  font-size: var(--pf-t--global--font--size--body--sm);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  overflow: auto;
+  max-height: 12rem;
+}

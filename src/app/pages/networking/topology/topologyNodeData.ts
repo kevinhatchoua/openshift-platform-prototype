@@ -59,6 +59,7 @@ export type ConnectionEdgeData = {
   interfaceName?: string;
   bridgeMapping?: string;
   note?: string;
+  packetDrop?: boolean;
 };
 
 export type NetworkTopologyNodeData =

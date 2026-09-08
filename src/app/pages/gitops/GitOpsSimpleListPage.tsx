@@ -1,14 +1,14 @@
 import { type ReactNode } from "react";
 import { useNavigate } from "react-router";
-import { Button, Content, Flex, Title } from "@patternfly/react-core";
+import { Button, Content, Flex } from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import FavoriteButton from "../../components/FavoriteButton";
 import {
   OcsNamedResourceDataView,
   PlainTableHeader,
 } from "../../components/dataView/OcsPrototypeListTable";
 import { gitopsDetailPath } from "./gitopsData";
+import GitOpsPageHeader from "./GitOpsPageHeader";
 import { GitOpsEditDeleteMenu, ResourceName } from "./gitopsShared";
 
 type Column = { key: string; label: string };
@@ -47,39 +47,32 @@ export function GitOpsSimpleListPage<T extends { name: string; ns: string }>({
         ]}
       >
         <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-          <Flex
-            alignItems={{ default: "alignItemsCenter" }}
-            justifyContent={{ default: "justifyContentSpaceBetween" }}
-            flexWrap={{ default: "wrap" }}
-            gap={{ default: "gapMd" }}
-          >
-            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-              <Title headingLevel="h1" size="2xl">
-                {title}
-              </Title>
-              <FavoriteButton name={title} path={path} />
-            </Flex>
-            <Button
-              variant="primary"
-              onClick={() => {
-                const kindParam =
-                  kind === "ApplicationSet"
-                    ? "applicationset"
-                    : kind === "AppProject"
-                      ? "appproject"
-                      : kind === "ImageUpdater"
-                        ? "imageupdater"
-                        : kind === "Promotion"
-                          ? "promotion"
-                          : kind === "ArgoCD"
-                            ? "argocd"
-                            : "application";
-                navigate(`/gitops/create?kind=${kindParam}`);
-              }}
-            >
-              {createLabel}
-            </Button>
-          </Flex>
+          <GitOpsPageHeader
+            title={title}
+            path={path}
+            actions={
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const kindParam =
+                    kind === "ApplicationSet"
+                      ? "applicationset"
+                      : kind === "AppProject"
+                        ? "appproject"
+                        : kind === "ImageUpdater"
+                          ? "imageupdater"
+                          : kind === "Promotion"
+                            ? "promotion"
+                            : kind === "ArgoCD"
+                              ? "argocd"
+                              : "application";
+                  navigate(`/gitops/create?kind=${kindParam}`);
+                }}
+              >
+                {createLabel}
+              </Button>
+            }
+          />
 
           <OcsNamedResourceDataView
             ouiaId={`gitops-${detailKind}-data-view`}

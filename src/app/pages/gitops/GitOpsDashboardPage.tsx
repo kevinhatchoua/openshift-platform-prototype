@@ -1,6 +1,8 @@
-import { type ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
+  Alert,
+  Button,
   Card,
   CardBody,
   CardTitle,
@@ -15,6 +17,7 @@ import {
 } from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
+import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon";
 import {
   Line,
   LineChart,
@@ -26,6 +29,7 @@ import {
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import { OcsPrototypeListTable, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
+import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import {
   ARGO_INSTANCES,
   GITOPS_ALL_INSTANCES,
@@ -40,50 +44,127 @@ import {
 } from "./gitopsData";
 import GitOpsInstancePicker, { useGitOpsInstance } from "./GitOpsInstancePicker";
 import { HealthStatus, ResourceName } from "./gitopsShared";
+import {
+  connectivityLabelColor,
+  labelColorForTone,
+  operationPhaseLabelColor,
+  PF_CHART,
+  severityLabelColor,
+  toneForCount,
+} from "../../lib/pfSemanticColors";
 
-function Donut({
-  percent,
-  label,
-  countLabel,
-}: {
-  percent: number;
+type DonutSegment = {
+  key: string;
   label: string;
-  countLabel: string;
+  count: number;
+  color: string;
+  filterType: "sync" | "health";
+  filterValue: string;
+};
+
+const SEGMENT_COLORS = {
+  synced: PF_CHART.good,
+  outOfSync: PF_CHART.warning,
+  healthy: PF_CHART.good,
+  progressing: PF_CHART.informational,
+  degraded: PF_CHART.critical,
+  paused: PF_CHART.neutral,
+};
+
+function MultiSegmentDonut({
+  title,
+  segments,
+  total,
+  onSegmentClick,
+}: {
+  title: string;
+  segments: DonutSegment[];
+  total: number;
+  onSegmentClick: (segment: DonutSegment) => void;
 }) {
   const r = 36;
   const c = 2 * Math.PI * r;
-  const offset = c - (Math.min(100, Math.max(0, percent)) / 100) * c;
+  const safeTotal = total || 1;
+  let offset = 0;
+  const visible = segments.filter((s) => s.count > 0);
+
   return (
-    <Flex direction={{ default: "column" }} alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-      <svg width="110" height="110" viewBox="0 0 110 110" aria-hidden>
-        <circle cx="55" cy="55" r={r} fill="none" stroke="var(--pf-t--global--border--color--default)" strokeWidth="10" />
-        <circle
-          cx="55"
-          cy="55"
-          r={r}
-          fill="none"
-          stroke="var(--pf-t--global--color--status--success--default)"
-          strokeWidth="10"
-          strokeDasharray={c}
-          strokeDashoffset={offset}
-          strokeLinecap="round"
-          transform="rotate(-90 55 55)"
-        />
-        <text
-          x="55"
-          y="52"
-          textAnchor="middle"
-          fill="currentColor"
-          fontSize="16"
-          fontWeight={600}
-        >
-          {percent}%
-        </text>
-        <text x="55" y="70" textAnchor="middle" fill="currentColor" fontSize="11">
-          {label}
-        </text>
-      </svg>
-      <Content component="small">{countLabel}</Content>
+    <Flex direction={{ default: "column" }} alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }}>
+      <div style={{ position: "relative", width: 110, height: 110 }}>
+        <svg width="110" height="110" viewBox="0 0 110 110" role="img" aria-label={`${title} breakdown`}>
+          <circle
+            cx="55"
+            cy="55"
+            r={r}
+            fill="none"
+            stroke="var(--pf-t--global--border--color--default)"
+            strokeWidth="10"
+          />
+          {visible.map((segment) => {
+            const length = (segment.count / safeTotal) * c;
+            const dashOffset = -offset;
+            offset += length;
+            const pct = Math.round((segment.count / safeTotal) * 100);
+            return (
+              <circle
+                key={segment.key}
+                cx="55"
+                cy="55"
+                r={r}
+                fill="none"
+                stroke={segment.color}
+                strokeWidth="10"
+                strokeDasharray={`${length} ${c - length}`}
+                strokeDashoffset={dashOffset}
+                strokeLinecap="butt"
+                transform="rotate(-90 55 55)"
+                style={{ cursor: "pointer" }}
+                onClick={() => onSegmentClick(segment)}
+                role="button"
+                tabIndex={0}
+                aria-label={`${segment.label}: ${segment.count} (${pct}%)`}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    onSegmentClick(segment);
+                  }
+                }}
+              />
+            );
+          })}
+          <text x="55" y="52" textAnchor="middle" fill="currentColor" fontSize="16" fontWeight={600}>
+            {total}
+          </text>
+          <text x="55" y="70" textAnchor="middle" fill="currentColor" fontSize="11">
+            {title}
+          </text>
+        </svg>
+      </div>
+      <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} className="ocs-gitops-donut-legend">
+        {visible.map((segment) => {
+          const pct = Math.round((segment.count / safeTotal) * 100);
+          return (
+            <Button
+              key={segment.key}
+              variant="link"
+              isInline
+              className="ocs-gitops-donut-legend__item"
+              onClick={() => onSegmentClick(segment)}
+            >
+              <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                <span
+                  className="ocs-gitops-donut-legend__swatch"
+                  style={{ backgroundColor: segment.color }}
+                  aria-hidden
+                />
+                <Content component="small">
+                  {segment.label}: {segment.count} ({pct}%)
+                </Content>
+              </Flex>
+            </Button>
+          );
+        })}
+      </Flex>
     </Flex>
   );
 }
@@ -100,6 +181,8 @@ const RECONCILE_SERIES = [
 
 export default function GitOpsDashboardPage() {
   const navigate = useNavigate();
+  const { permission } = usePrototypeDemo();
+  const [metricsDenied, setMetricsDenied] = useState<string | null>(null);
   const { instance, setInstance } = useGitOpsInstance();
   const apps = applicationsForInstance(instance);
   const metrics = dashboardMetricsForInstance(instance);
@@ -114,6 +197,77 @@ export default function GitOpsDashboardPage() {
   const syncedPct = totalApps === 0 ? 100 : metrics.syncSuccessRate;
   const healthyPct = totalApps === 0 ? 100 : Math.round((metrics.healthy / totalApps) * 100);
   const connected = instances.filter((i) => i.clusterConnectivity.startsWith("1")).length;
+  const failedSyncs24h = instances.reduce((sum, inst) => sum + inst.failedSyncs24h, 0);
+  const canAccessMetrics = permission === "edit";
+
+  const syncSegments: DonutSegment[] = [
+    {
+      key: "synced",
+      label: "Synced",
+      count: metrics.synced,
+      color: SEGMENT_COLORS.synced,
+      filterType: "sync",
+      filterValue: "Synced",
+    },
+    {
+      key: "outOfSync",
+      label: "Out of sync",
+      count: metrics.outOfSync,
+      color: SEGMENT_COLORS.outOfSync,
+      filterType: "sync",
+      filterValue: "OutOfSync",
+    },
+  ];
+
+  const healthSegments: DonutSegment[] = [
+    {
+      key: "healthy",
+      label: "Healthy",
+      count: metrics.healthy,
+      color: SEGMENT_COLORS.healthy,
+      filterType: "health",
+      filterValue: "Healthy",
+    },
+    {
+      key: "progressing",
+      label: "Progressing",
+      count: metrics.progressing,
+      color: SEGMENT_COLORS.progressing,
+      filterType: "health",
+      filterValue: "Progressing",
+    },
+    {
+      key: "degraded",
+      label: "Degraded",
+      count: metrics.degraded,
+      color: SEGMENT_COLORS.degraded,
+      filterType: "health",
+      filterValue: "Degraded",
+    },
+    {
+      key: "paused",
+      label: "Paused",
+      count: metrics.paused,
+      color: SEGMENT_COLORS.paused,
+      filterType: "health",
+      filterValue: "Paused",
+    },
+  ];
+
+  const navigateToFilteredApps = (segment: DonutSegment) => {
+    const param = segment.filterType === "sync" ? "sync" : "health";
+    navigate(`/gitops/applications?${param}=${encodeURIComponent(segment.filterValue)}`);
+  };
+
+  const openMetrics = (metric: "sync" | "reconcile") => {
+    if (!canAccessMetrics) {
+      setMetricsDenied(
+        `Observe | Metrics requires Cluster Admin access. Switch demo permission to Edit to open ${metric === "sync" ? "Sync" : "Reconciliation"} activity metrics.`
+      );
+      return;
+    }
+    navigate(`/observe/metrics?query=argocd_app_${metric === "sync" ? "sync" : "reconcile"}_total`);
+  };
 
   return (
     <div className="ocs-app-page-outer w-full">
@@ -139,6 +293,17 @@ export default function GitOpsDashboardPage() {
             </Flex>
             <GitOpsInstancePicker instance={instance} setInstance={setInstance} />
           </Flex>
+
+          {metricsDenied ? (
+            <Alert
+              variant="warning"
+              isInline
+              title="Metrics access required"
+              actionClose={<Button variant="plain" onClick={() => setMetricsDenied(null)}>Dismiss</Button>}
+            >
+              {metricsDenied}
+            </Alert>
+          ) : null}
 
           <Flex
             alignItems={{ default: "alignItemsCenter" }}
@@ -184,7 +349,12 @@ export default function GitOpsDashboardPage() {
               <Card isFullHeight>
                 <CardTitle>Sync status</CardTitle>
                 <CardBody>
-                  <Donut percent={syncedPct} label="Synced" countLabel={`${metrics.synced}/${totalApps || 0} Synced`} />
+                  <MultiSegmentDonut
+                    title="Apps"
+                    segments={syncSegments}
+                    total={totalApps}
+                    onSegmentClick={navigateToFilteredApps}
+                  />
                 </CardBody>
               </Card>
             </GridItem>
@@ -192,10 +362,11 @@ export default function GitOpsDashboardPage() {
               <Card isFullHeight>
                 <CardTitle>Health status</CardTitle>
                 <CardBody>
-                  <Donut
-                    percent={healthyPct}
-                    label="Healthy"
-                    countLabel={`${metrics.healthy}/${totalApps || 0} Healthy`}
+                  <MultiSegmentDonut
+                    title="Apps"
+                    segments={healthSegments}
+                    total={totalApps}
+                    onSegmentClick={navigateToFilteredApps}
                   />
                 </CardBody>
               </Card>
@@ -205,44 +376,67 @@ export default function GitOpsDashboardPage() {
                 <CardTitle>Operational metrics</CardTitle>
                 <CardBody>
                   <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                    <MetricRow label="Sync success rate" value={`${syncedPct}%`} />
-                    <MetricRow label="Failed syncs (24h)" value={String(metrics.gitFetchFailures)} tone="success" />
+                    <MetricRow label="Sync success rate" value={`${syncedPct}%`} tone="good" />
+                    <MetricRow
+                      label="Failed syncs (24h)"
+                      value={String(failedSyncs24h)}
+                      tone={toneForCount(failedSyncs24h)}
+                    />
                     <MetricRow
                       label="Reconciliations (1h)"
-                      value={<Label color="blue" isCompact>{Math.max(8, Math.round(metrics.reconciliations24h / 8))}</Label>}
+                      value={
+                        <Label color={labelColorForTone("info")} isCompact>
+                          {Math.max(8, Math.round(metrics.reconciliations24h / 8))}
+                        </Label>
+                      }
                     />
                     <MetricRow
                       label="Cluster connectivity"
                       value={
-                        <Label color={connected === instances.length ? "green" : "orange"} isCompact>
+                        <Label color={connectivityLabelColor(connected, instances.length)} isCompact>
                           {connected}/{instances.length || 0}
                         </Label>
                       }
                     />
-                    <MetricRow label="Repo queue" value="0" tone="success" />
-                    <MetricRow label="Git fetch failures (24h)" value={String(metrics.gitFetchFailures)} />
+                    <MetricRow label="Repo queue" value="0" tone="good" />
+                    <MetricRow
+                      label="Git fetch failures (24h)"
+                      value={String(metrics.gitFetchFailures)}
+                      tone={toneForCount(metrics.gitFetchFailures)}
+                    />
                   </Flex>
                 </CardBody>
               </Card>
             </GridItem>
             <GridItem md={6}>
-              <Card isFullHeight>
+              <Card
+                isClickable
+                isFullHeight
+                onClick={() => openMetrics("sync")}
+                className="ocs-gitops-activity-card"
+              >
                 <CardTitle>Sync activity (24h)</CardTitle>
                 <CardBody>
                   {metrics.outOfSync === 0 && operations.every((o) => o.phase === "Succeeded") ? (
                     <Content component="p" className="pf-v6-u-color-200">
-                      No sync operations in the last 24 hours.
+                      No sync operations in the last 24 hours. Open metrics for historical sync activity.
                     </Content>
                   ) : (
                     <Content component="p">
                       {metrics.outOfSync} application{metrics.outOfSync === 1 ? "" : "s"} currently out of sync.
+                      Click to open Observe | Metrics.
                     </Content>
                   )}
                 </CardBody>
               </Card>
             </GridItem>
             <GridItem md={6}>
-              <Card isFullHeight>
+              <Card
+                isClickable
+                isFullHeight
+                onClick={() => openMetrics("reconcile")}
+                className="ocs-gitops-activity-card"
+              >
                 <CardTitle>Reconciliation activity (24h)</CardTitle>
                 <CardBody>
                   <div style={{ height: 160 }}>
@@ -251,14 +445,62 @@ export default function GitOpsDashboardPage() {
                         <XAxis dataKey="t" tick={{ fontSize: 11 }} />
                         <YAxis domain={[0, 24]} tick={{ fontSize: 11 }} width={32} />
                         <Tooltip />
-                        <Line type="monotone" dataKey="v" stroke="var(--pf-t--global--color--brand--default)" dot={false} />
+                        <Line type="monotone" dataKey="v" stroke={PF_CHART.info} dot={false} />
                       </LineChart>
                     </ResponsiveContainer>
                   </div>
+                  <Content component="small" className="pf-v6-u-color-200 pf-v6-u-mt-sm">
+                    Click chart to open Observe | Metrics.
+                  </Content>
                 </CardBody>
               </Card>
             </GridItem>
           </Grid>
+
+          {metrics.needsAttention.length > 0 ? (
+            <Card>
+              <CardTitle>Needs attention</CardTitle>
+              <CardBody>
+                <OcsPrototypeListTable ariaLabel="Applications needing attention">
+                  <Thead>
+                    <Tr>
+                      <Th dataLabel="Application">
+                        <PlainTableHeader label="Application" />
+                      </Th>
+                      <Th dataLabel="Reason">
+                        <PlainTableHeader label="Reason" />
+                      </Th>
+                      <Th dataLabel="Severity">
+                        <PlainTableHeader label="Severity" />
+                      </Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {metrics.needsAttention.map((item) => (
+                      <Tr
+                        key={`${item.ns}/${item.name}`}
+                        onClick={() => navigate(gitopsDetailPath("applications", item.ns, item.name))}
+                      >
+                        <Td dataLabel="Application">
+                          <ResourceName
+                            kind="Application"
+                            name={item.name}
+                            to={gitopsDetailPath("applications", item.ns, item.name)}
+                          />
+                        </Td>
+                        <Td dataLabel="Reason">{item.reason}</Td>
+                        <Td dataLabel="Severity">
+                          <Label color={severityLabelColor(item.severity)} isCompact>
+                            {item.severity}
+                          </Label>
+                        </Td>
+                      </Tr>
+                    ))}
+                  </Tbody>
+                </OcsPrototypeListTable>
+              </CardBody>
+            </Card>
+          ) : null}
 
           <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
             <Title headingLevel="h2" size="lg">
@@ -300,7 +542,7 @@ export default function GitOpsDashboardPage() {
                         />
                       </Td>
                       <Td dataLabel="Phase">
-                        <Label color={op.phase === "Succeeded" ? "green" : op.phase === "Failed" ? "red" : "blue"} isCompact>
+                        <Label color={operationPhaseLabelColor(op.phase)} isCompact>
                           {op.phase}
                         </Label>
                       </Td>
@@ -309,63 +551,6 @@ export default function GitOpsDashboardPage() {
                     </Tr>
                   ))
                 )}
-              </Tbody>
-            </OcsPrototypeListTable>
-          </Flex>
-
-          <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-            <Title headingLevel="h2" size="lg">
-              Applications ({apps.length})
-            </Title>
-            <OcsPrototypeListTable ariaLabel="Applications on this instance">
-              <Thead>
-                <Tr>
-                  <Th dataLabel="Name">
-                    <PlainTableHeader label="Name" />
-                  </Th>
-                  <Th dataLabel="Project">
-                    <PlainTableHeader label="Project" />
-                  </Th>
-                  <Th dataLabel="Sync status">
-                    <PlainTableHeader label="Sync status" />
-                  </Th>
-                  <Th dataLabel="Health">
-                    <PlainTableHeader label="Health" />
-                  </Th>
-                  <Th dataLabel="Destination">
-                    <PlainTableHeader label="Destination" />
-                  </Th>
-                  <Th dataLabel="Last reconciled">
-                    <PlainTableHeader label="Last reconciled" />
-                  </Th>
-                </Tr>
-              </Thead>
-              <Tbody>
-                {apps.map((app) => {
-                  const href = gitopsDetailPath("applications", app.ns, app.name);
-                  const project = projects.find((p) => p.name === app.project && p.ns === app.ns);
-                  const projectHref = project
-                    ? gitopsDetailPath("appprojects", project.ns, project.name)
-                    : "/gitops/appprojects";
-                  return (
-                    <Tr key={`${app.ns}/${app.name}`} onClick={() => navigate(href)}>
-                      <Td dataLabel="Name">
-                        <ResourceName kind="Application" name={app.name} to={href} />
-                      </Td>
-                      <Td dataLabel="Project">
-                        <ButtonLink to={projectHref}>{app.project}</ButtonLink>
-                      </Td>
-                      <Td dataLabel="Sync status">
-                        <HealthStatus status={app.sync} />
-                      </Td>
-                      <Td dataLabel="Health">
-                        <HealthStatus status={app.health} />
-                      </Td>
-                      <Td dataLabel="Destination">{app.destination}</Td>
-                      <Td dataLabel="Last reconciled">{app.lastReconciled}</Td>
-                    </Tr>
-                  );
-                })}
               </Tbody>
             </OcsPrototypeListTable>
           </Flex>
@@ -425,14 +610,31 @@ function MetricRow({
 }: {
   label: string;
   value: ReactNode;
-  tone?: "success";
+  tone?: "good" | "info" | "informational" | "warning" | "critical" | "neutral";
 }) {
+  const iconColor =
+    tone === "good"
+      ? PF_CHART.good
+      : tone === "warning"
+        ? PF_CHART.warning
+        : tone === "critical"
+          ? PF_CHART.critical
+          : tone === "informational"
+            ? PF_CHART.informational
+            : tone === "info"
+              ? PF_CHART.info
+              : undefined;
+
   return (
     <Flex justifyContent={{ default: "justifyContentSpaceBetween" }} gap={{ default: "gapMd" }}>
       <Content component="small">{label}</Content>
       {typeof value === "string" ? (
         <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapXs" }}>
-          {tone === "success" ? <CheckCircleIcon color="var(--pf-t--global--color--status--success--default)" /> : null}
+          {tone === "critical" || tone === "warning" ? (
+            <ExclamationCircleIcon color={iconColor} aria-hidden />
+          ) : iconColor ? (
+            <CheckCircleIcon color={iconColor} aria-hidden />
+          ) : null}
           <strong>{value}</strong>
         </Flex>
       ) : (

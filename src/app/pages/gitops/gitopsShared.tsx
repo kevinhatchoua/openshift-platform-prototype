@@ -11,13 +11,13 @@ import {
   MenuToggle,
 } from "@patternfly/react-core";
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
-import ClockIcon from "@patternfly/react-icons/dist/esm/icons/clock-icon";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon";
 import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
-import type { GitOpsHealth, GitOpsOwner } from "./gitopsData";
-import { gitopsDetailPath } from "./gitopsData";
+import type { GitOpsHealth, GitOpsOwner, OwnerReference } from "./gitopsData";
+import { GITOPS_APPLICATION_SETS, gitopsDetailPath } from "./gitopsData";
 import { useToast } from "../../contexts/ToastContext";
+import { gitOpsHealthLabelColor, gitOpsSyncLabelColor } from "../../lib/pfSemanticColors";
 
 export type GitOpsActionItem = {
   id: string;
@@ -92,6 +92,42 @@ export function GitOpsLink({ to, children }: { to: string; children: ReactNode }
   );
 }
 
+export function ownerReferenceDetailPath(ref: OwnerReference, fallbackNs: string): string | null {
+  if (ref.kind === "Application") {
+    return gitopsDetailPath("applications", fallbackNs, ref.name);
+  }
+  if (ref.kind === "ApplicationSet") {
+    const appset = GITOPS_APPLICATION_SETS.find((a) => a.name === ref.name);
+    return gitopsDetailPath("applicationsets", appset?.ns ?? fallbackNs, ref.name);
+  }
+  if (ref.kind === "Rollout") {
+    return gitopsDetailPath("rollouts", fallbackNs, ref.name);
+  }
+  return null;
+}
+
+export function OwnerReferencesCell({
+  refs,
+  ns,
+}: {
+  refs: OwnerReference[];
+  ns: string;
+}) {
+  if (!refs.length) return <span className="pf-v6-u-color-200">—</span>;
+  return (
+    <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }}>
+      {refs.map((ref) => (
+        <ResourceName
+          key={`${ref.kind}/${ref.name}/${ref.uid ?? ""}`}
+          kind={ref.kind}
+          name={ref.name}
+          to={ownerReferenceDetailPath(ref, ns)}
+        />
+      ))}
+    </Flex>
+  );
+}
+
 export function ManagedByCell({ owner }: { owner: GitOpsOwner }) {
   if (!owner) return <span className="pf-v6-u-color-200">—</span>;
   const to =
@@ -119,14 +155,18 @@ export function HealthStatus({ status }: { status: GitOpsHealth | "Synced" | "Ou
   if (status === "Paused") {
     return (
       <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-        <Icon status="info" aria-hidden>
-          <ClockIcon />
-        </Icon>
-        <span>{status}</span>
+        <Label color={gitOpsHealthLabelColor(status)} isCompact>{status}</Label>
       </Flex>
     );
   }
-  if (status === "Progressing" || status === "OutOfSync") {
+  if (status === "Progressing") {
+    return (
+      <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+        <Label color={gitOpsHealthLabelColor(status)} isCompact>{status}</Label>
+      </Flex>
+    );
+  }
+  if (status === "OutOfSync") {
     return (
       <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
         <Icon status="warning" aria-hidden>
@@ -149,6 +189,14 @@ export function HealthStatus({ status }: { status: GitOpsHealth | "Synced" | "Ou
   return <span>{status}</span>;
 }
 
+export function SyncStatusLabel({ sync }: { sync: string }) {
+  return <Label color={gitOpsSyncLabelColor(sync)} isCompact>{sync}</Label>;
+}
+
+export function HealthStatusLabel({ health }: { health: string }) {
+  return <Label color={gitOpsHealthLabelColor(health)} isCompact>{health}</Label>;
+}
+
 export function InfoLabel({ text, color }: { text: string; color: "green" | "blue" | "purple" | "grey" | "red" }) {
   return (
     <Label color={color} isCompact>
@@ -162,11 +210,13 @@ export function GitOpsEditDeleteMenu({
   name,
   variant = "plain",
   extraItems = [],
+  onItemSelect,
 }: {
   kind: string;
   name: string;
   variant?: "plain" | "secondary";
   extraItems?: GitOpsActionItem[];
+  onItemSelect?: (actionId: string) => void;
 }) {
   const [open, setOpen] = useState(false);
   const { pushToast } = useToast();
@@ -204,6 +254,7 @@ export function GitOpsEditDeleteMenu({
             isDanger={item.isDanger}
             onClick={(e) => {
               e.stopPropagation();
+              onItemSelect?.(item.id);
               pushToast({
                 variant: item.isDanger ? "danger" : "success",
                 title: `${item.label}: ${name}`,

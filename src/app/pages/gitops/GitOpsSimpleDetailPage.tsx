@@ -31,7 +31,9 @@ export default function GitOpsSimpleDetailPage({
   status,
   fields,
   footnote,
+  extraContent,
   extraActions,
+  onExtraAction,
 }: {
   kindLabel: string;
   listPath: string;
@@ -43,7 +45,9 @@ export default function GitOpsSimpleDetailPage({
   status?: string;
   fields: Field[];
   footnote?: ReactNode;
+  extraContent?: ReactNode;
   extraActions?: GitOpsActionItem[];
+  onExtraAction?: (actionId: string) => void;
 }) {
   const [activeTab, setActiveTab] = useState("details");
   const href = gitopsDetailPath(detailKind, ns, title);
@@ -75,6 +79,7 @@ export default function GitOpsSimpleDetailPage({
                 name={title}
                 variant="secondary"
                 extraItems={extraActions}
+                onItemSelect={onExtraAction}
               />
             </Flex>
           </Flex>
@@ -84,14 +89,17 @@ export default function GitOpsSimpleDetailPage({
             <Tab eventKey="events" title={<TabTitleText>Events</TabTitleText>} />
           </Tabs>
           {activeTab === "details" ? (
-            <DescriptionList isHorizontal isCompact>
-              {fields.map((f) => (
-                <DescriptionListGroup key={f.term}>
-                  <DescriptionListTerm>{f.term}</DescriptionListTerm>
-                  <DescriptionListDescription>{f.value}</DescriptionListDescription>
-                </DescriptionListGroup>
-              ))}
-            </DescriptionList>
+            <>
+              <DescriptionList isHorizontal isCompact>
+                {fields.map((f) => (
+                  <DescriptionListGroup key={f.term}>
+                    <DescriptionListTerm>{f.term}</DescriptionListTerm>
+                    <DescriptionListDescription>{f.value}</DescriptionListDescription>
+                  </DescriptionListGroup>
+                ))}
+              </DescriptionList>
+              {extraContent}
+            </>
           ) : (
             <Content component="p" className="pf-v6-u-color-200">
               {activeTab} view is a prototype stub.
