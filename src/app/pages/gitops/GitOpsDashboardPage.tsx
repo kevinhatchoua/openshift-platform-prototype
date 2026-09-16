@@ -32,7 +32,7 @@ import { OcsPrototypeListTable, PlainTableHeader } from "../../components/dataVi
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import {
   ARGO_INSTANCES,
-  GITOPS_ALL_INSTANCES,
+  buildGitOpsAppsUrl,
   GITOPS_APPLICATION_SETS,
   GITOPS_ROLLOUTS,
   applicationSetsForInstance,
@@ -46,6 +46,8 @@ import GitOpsInstancePicker, { useGitOpsInstance } from "./GitOpsInstancePicker"
 import { HealthStatus, ResourceName } from "./gitopsShared";
 import {
   connectivityLabelColor,
+  gitOpsHealthChartColor,
+  gitOpsSyncChartColor,
   labelColorForTone,
   operationPhaseLabelColor,
   PF_CHART,
@@ -63,12 +65,13 @@ type DonutSegment = {
 };
 
 const SEGMENT_COLORS = {
-  synced: PF_CHART.good,
-  outOfSync: PF_CHART.warning,
-  healthy: PF_CHART.good,
-  progressing: PF_CHART.informational,
-  degraded: PF_CHART.critical,
-  paused: PF_CHART.neutral,
+  synced: gitOpsSyncChartColor("Synced"),
+  outOfSync: gitOpsSyncChartColor("OutOfSync"),
+  healthy: gitOpsHealthChartColor("Healthy"),
+  progressing: gitOpsHealthChartColor("Progressing"),
+  degraded: gitOpsHealthChartColor("Degraded"),
+  paused: gitOpsHealthChartColor("Paused"),
+  aborting: gitOpsHealthChartColor("Aborting"),
 };
 
 function MultiSegmentDonut({
@@ -86,7 +89,7 @@ function MultiSegmentDonut({
   const c = 2 * Math.PI * r;
   const safeTotal = total || 1;
   let offset = 0;
-  const visible = segments.filter((s) => s.count > 0);
+  const arcSegments = segments.filter((s) => s.count > 0);
 
   return (
     <Flex direction={{ default: "column" }} alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }}>
@@ -100,38 +103,51 @@ function MultiSegmentDonut({
             stroke="var(--pf-t--global--border--color--default)"
             strokeWidth="10"
           />
-          {visible.map((segment) => {
-            const length = (segment.count / safeTotal) * c;
-            const dashOffset = -offset;
-            offset += length;
-            const pct = Math.round((segment.count / safeTotal) * 100);
-            return (
-              <circle
-                key={segment.key}
-                cx="55"
-                cy="55"
-                r={r}
-                fill="none"
-                stroke={segment.color}
-                strokeWidth="10"
-                strokeDasharray={`${length} ${c - length}`}
-                strokeDashoffset={dashOffset}
-                strokeLinecap="butt"
-                transform="rotate(-90 55 55)"
-                style={{ cursor: "pointer" }}
-                onClick={() => onSegmentClick(segment)}
-                role="button"
-                tabIndex={0}
-                aria-label={`${segment.label}: ${segment.count} (${pct}%)`}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    onSegmentClick(segment);
-                  }
-                }}
-              />
-            );
-          })}
+          {arcSegments.length === 0 ? (
+            <circle
+              cx="55"
+              cy="55"
+              r={r}
+              fill="none"
+              stroke={PF_CHART.neutral}
+              strokeWidth="10"
+              strokeDasharray={`${c} 0`}
+              transform="rotate(-90 55 55)"
+            />
+          ) : (
+            arcSegments.map((segment) => {
+              const length = (segment.count / safeTotal) * c;
+              const dashOffset = -offset;
+              offset += length;
+              const pct = Math.round((segment.count / safeTotal) * 100);
+              return (
+                <circle
+                  key={segment.key}
+                  cx="55"
+                  cy="55"
+                  r={r}
+                  fill="none"
+                  stroke={segment.color}
+                  strokeWidth="10"
+                  strokeDasharray={`${length} ${c - length}`}
+                  strokeDashoffset={dashOffset}
+                  strokeLinecap="butt"
+                  transform="rotate(-90 55 55)"
+                  style={{ cursor: "pointer" }}
+                  onClick={() => onSegmentClick(segment)}
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`${segment.label}: ${segment.count} (${pct}%)`}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      onSegmentClick(segment);
+                    }
+                  }}
+                />
+              );
+            })
+          )}
           <text x="55" y="52" textAnchor="middle" fill="currentColor" fontSize="16" fontWeight={600}>
             {total}
           </text>
@@ -141,20 +157,22 @@ function MultiSegmentDonut({
         </svg>
       </div>
       <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} className="ocs-gitops-donut-legend">
-        {visible.map((segment) => {
+        {segments.map((segment) => {
           const pct = Math.round((segment.count / safeTotal) * 100);
+          const isEmpty = segment.count === 0;
           return (
             <Button
               key={segment.key}
               variant="link"
               isInline
-              className="ocs-gitops-donut-legend__item"
+              isDisabled={isEmpty}
+              className={`ocs-gitops-donut-legend__item${isEmpty ? " ocs-gitops-donut-legend__item--empty" : ""}`}
               onClick={() => onSegmentClick(segment)}
             >
               <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
                 <span
                   className="ocs-gitops-donut-legend__swatch"
-                  style={{ backgroundColor: segment.color }}
+                  style={{ backgroundColor: isEmpty ? PF_CHART.neutral : segment.color }}
                   aria-hidden
                 />
                 <Content component="small">
@@ -252,11 +270,23 @@ export default function GitOpsDashboardPage() {
       filterType: "health",
       filterValue: "Paused",
     },
+    {
+      key: "aborting",
+      label: "Aborting",
+      count: metrics.aborting,
+      color: SEGMENT_COLORS.aborting,
+      filterType: "health",
+      filterValue: "Aborting",
+    },
   ];
 
   const navigateToFilteredApps = (segment: DonutSegment) => {
-    const param = segment.filterType === "sync" ? "sync" : "health";
-    navigate(`/gitops/applications?${param}=${encodeURIComponent(segment.filterValue)}`);
+    if (segment.count === 0) return;
+    const filters =
+      segment.filterType === "sync"
+        ? { sync: [segment.filterValue] }
+        : { health: [segment.filterValue] };
+    navigate(buildGitOpsAppsUrl(instance, filters));
   };
 
   const openMetrics = (metric: "sync" | "reconcile") => {
@@ -312,35 +342,35 @@ export default function GitOpsDashboardPage() {
             gap={{ default: "gapLg" }}
           >
             <Flex gap={{ default: "gapXl" }} flexWrap={{ default: "wrap" }}>
-              <div>
-                <Title headingLevel="h2" size="2xl">
-                  {totalApps}
-                </Title>
-                <Content component="small">Applications</Content>
-              </div>
-              <div>
-                <Title headingLevel="h2" size="xl">
-                  {syncedPct}% Synced
-                </Title>
-                <Content component="small">Sync status</Content>
-              </div>
-              <div>
-                <Title headingLevel="h2" size="xl">
-                  {healthyPct}% Healthy
-                </Title>
-                <Content component="small">Health status</Content>
-              </div>
-              <div>
-                <Title headingLevel="h2" size="xl">
-                  {metrics.needsAttention.length}
-                </Title>
-                <Content component="small">Needs attention</Content>
-              </div>
+              <StatLink
+                to={buildGitOpsAppsUrl(instance)}
+                value={String(totalApps)}
+                label="Applications"
+                headingLevel="h2"
+                size="2xl"
+              />
+              <StatLink
+                to={buildGitOpsAppsUrl(instance, { sync: ["Synced"] })}
+                value={`${syncedPct}% Synced`}
+                label="Sync status"
+              />
+              <StatLink
+                to={buildGitOpsAppsUrl(instance, { health: ["Healthy"] })}
+                value={`${healthyPct}% Healthy`}
+                label="Health status"
+              />
+              <StatLink
+                to={buildGitOpsAppsUrl(instance, undefined, { attention: true })}
+                value={String(metrics.needsAttention.length)}
+                label="Needs attention"
+              />
             </Flex>
             <Flex gap={{ default: "gapMd" }} flexWrap={{ default: "wrap" }}>
+              <ButtonLink to={buildGitOpsAppsUrl(instance)}>{totalApps} Applications</ButtonLink>
               <ButtonLink to="/gitops/applicationsets">{appSets.length} AppSets</ButtonLink>
               <ButtonLink to="/gitops/appprojects">{projects.length} Projects</ButtonLink>
               <ButtonLink to="/gitops/argocd">{instances.length} Instances</ButtonLink>
+              <ButtonLink to="/gitops/rollouts">{GITOPS_ROLLOUTS.length} Rollouts</ButtonLink>
             </Flex>
           </Flex>
 
@@ -599,6 +629,29 @@ function ButtonLink({ to, children }: { to: string; children: ReactNode }) {
   return (
     <Link to={to} className="pf-v6-c-button pf-m-link pf-m-inline" onClick={(e) => e.stopPropagation()}>
       {children}
+    </Link>
+  );
+}
+
+function StatLink({
+  to,
+  value,
+  label,
+  headingLevel = "h2",
+  size = "xl",
+}: {
+  to: string;
+  value: string;
+  label: string;
+  headingLevel?: "h2" | "h3";
+  size?: "2xl" | "xl";
+}) {
+  return (
+    <Link to={to} className="ocs-gitops-stat-link">
+      <Title headingLevel={headingLevel} size={size}>
+        {value}
+      </Title>
+      <Content component="small">{label}</Content>
     </Link>
   );
 }

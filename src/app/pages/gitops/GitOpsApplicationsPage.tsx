@@ -42,9 +42,18 @@ const HEALTH_OPTIONS = [
   { value: "Progressing", label: "Progressing" },
   { value: "Degraded", label: "Degraded" },
   { value: "Paused", label: "Paused" },
+  { value: "Aborting", label: "Aborting" },
 ];
 
-function rowMatches(row: ApplicationRecord, filters: ApplicationFilters) {
+function rowMatches(row: ApplicationRecord, filters: ApplicationFilters, attentionMode: boolean) {
+  if (attentionMode) {
+    return (
+      row.sync === "OutOfSync" ||
+      row.health === "Degraded" ||
+      row.health === "Progressing" ||
+      row.health === "Aborting"
+    );
+  }
   const nameQ = (filters.name ?? "").trim().toLowerCase();
   const nsQ = (filters.namespace ?? "").trim().toLowerCase();
   const syncFilters = filters.sync ?? [];
@@ -58,10 +67,11 @@ function rowMatches(row: ApplicationRecord, filters: ApplicationFilters) {
 
 export default function GitOpsApplicationsPage() {
   const navigate = useNavigate();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { instance } = useGitOpsInstance();
   const initialSync = searchParams.getAll("sync");
   const initialHealth = searchParams.getAll("health");
+  const attentionMode = searchParams.get("attention") === "1";
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<ApplicationFilters>({
     filters: {
       name: "",
@@ -80,8 +90,25 @@ export default function GitOpsApplicationsPage() {
     }
   }, [initialHealth, initialSync, onSetFilters]);
 
+  useEffect(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        next.delete("sync");
+        next.delete("health");
+        (filters.sync ?? []).forEach((value) => next.append("sync", value));
+        (filters.health ?? []).forEach((value) => next.append("health", value));
+        return prev.toString() === next.toString() ? prev : next;
+      },
+      { replace: true }
+    );
+  }, [filters.health, filters.sync, setSearchParams]);
+
   const items = applicationsForInstance(instance);
-  const filtered = useMemo(() => items.filter((row) => rowMatches(row, filters)), [items, filters]);
+  const filtered = useMemo(
+    () => items.filter((row) => rowMatches(row, filters, attentionMode)),
+    [items, filters, attentionMode]
+  );
   const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(filtered, [filters], 10);
 
   useEffect(() => {

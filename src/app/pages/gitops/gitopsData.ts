@@ -379,6 +379,51 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
     instanceKey: "openshift-gitops/platform-addons",
     lastReconciled: "12m ago",
   },
+  {
+    name: "legacy-batch",
+    ns: "openshift-gitops",
+    project: "platform",
+    sync: "Synced",
+    health: "Degraded",
+    age: "45d",
+    repo: "https://github.com/demo/legacy-batch.git",
+    path: "deploy",
+    revision: "v2.1.0",
+    destination: "in-cluster / batch-jobs",
+    ownerReferences: [],
+    instanceKey: "openshift-gitops/openshift-gitops",
+    lastReconciled: "1h ago",
+  },
+  {
+    name: "feature-flags",
+    ns: "demo-workloads",
+    project: "default",
+    sync: "Synced",
+    health: "Paused",
+    age: "6d",
+    repo: "https://github.com/demo/feature-flags.git",
+    path: "kustomize/base",
+    revision: "main",
+    destination: "in-cluster / demo-workloads",
+    ownerReferences: [],
+    instanceKey: "openshift-gitops/openshift-gitops",
+    lastReconciled: "2d ago",
+  },
+  {
+    name: "auth-service",
+    ns: "payments",
+    project: "payments",
+    sync: "OutOfSync",
+    health: "Aborting",
+    age: "14d",
+    repo: "https://gitlab.example.com/payments/auth-service.git",
+    path: "overlays/prod",
+    revision: "release-3.2",
+    destination: "in-cluster / payments",
+    ownerReferences: [],
+    instanceKey: "payments/payments-gitops",
+    lastReconciled: "35m ago",
+  },
 ];
 
 export const GITOPS_APPLICATION_SETS: ApplicationSetRecord[] = [
@@ -475,6 +520,7 @@ export type DashboardMetrics = {
   degraded: number;
   progressing: number;
   paused: number;
+  aborting: number;
   syncSuccessRate: number;
   reconciliations24h: number;
   gitFetchFailures: number;
@@ -633,22 +679,32 @@ function buildDashboardMetrics(apps: ApplicationRecord[] = GITOPS_APPLICATIONS):
   const degraded = apps.filter((a) => a.health === "Degraded").length;
   const progressing = apps.filter((a) => a.health === "Progressing").length;
   const paused = apps.filter((a) => a.health === "Paused").length;
+  const aborting = apps.filter((a) => a.health === "Aborting").length;
   const total = apps.length || 1;
   const needsAttention = apps
-    .filter((a) => a.sync === "OutOfSync" || a.health === "Degraded" || a.health === "Progressing")
+    .filter(
+      (a) =>
+        a.sync === "OutOfSync" ||
+        a.health === "Degraded" ||
+        a.health === "Progressing" ||
+        a.health === "Aborting"
+    )
     .map((a) => ({
       name: a.name,
       ns: a.ns,
       reason:
-        a.health === "Degraded"
-          ? "Health degraded"
-          : a.sync === "OutOfSync"
-            ? "Out of sync with desired revision"
-            : "Sync in progress",
-      severity: (a.health === "Degraded" ? "danger" : a.sync === "OutOfSync" ? "warning" : "informational") as
-        | "warning"
-        | "danger"
-        | "informational",
+        a.health === "Aborting"
+          ? "Sync operation aborted"
+          : a.health === "Degraded"
+            ? "Health degraded"
+            : a.sync === "OutOfSync"
+              ? "Out of sync with desired revision"
+              : "Sync in progress",
+      severity: (a.health === "Degraded" || a.health === "Aborting"
+        ? "danger"
+        : a.sync === "OutOfSync"
+          ? "warning"
+          : "informational") as "warning" | "danger" | "informational",
     }));
   return {
     synced,
@@ -657,6 +713,7 @@ function buildDashboardMetrics(apps: ApplicationRecord[] = GITOPS_APPLICATIONS):
     degraded,
     progressing,
     paused,
+    aborting,
     syncSuccessRate: Math.round((synced / total) * 100),
     reconciliations24h: 128 + synced * 12,
     gitFetchFailures: outOfSync > 0 ? 2 : 0,
@@ -670,6 +727,24 @@ export const GITOPS_DASHBOARD_METRICS: DashboardMetrics = buildDashboardMetrics(
 
 export function dashboardMetricsForInstance(key: string) {
   return buildDashboardMetrics(applicationsForInstance(key));
+}
+
+export function buildGitOpsAppsUrl(
+  instance: string,
+  filters?: { sync?: string[]; health?: string[] },
+  options?: { attention?: boolean }
+): string {
+  const params = new URLSearchParams();
+  if (instance && instance !== GITOPS_ALL_INSTANCES) {
+    params.set("instance", instance);
+  }
+  if (options?.attention) {
+    params.set("attention", "1");
+  }
+  filters?.sync?.forEach((value) => params.append("sync", value));
+  filters?.health?.forEach((value) => params.append("health", value));
+  const query = params.toString();
+  return query ? `/gitops/applications?${query}` : "/gitops/applications";
 }
 
 export const ARGO_INSTANCE_OPTIONS = ARGO_INSTANCES.map((inst) => ({

@@ -97,6 +97,43 @@
   color: var(--pf-t--global--color--status--danger--default);
 }
 
+.ocs-gitops-stat-link {
+  text-decoration: none;
+  color: inherit;
+}
+
+.ocs-gitops-stat-link:hover {
+  color: var(--pf-t--global--color--brand--default);
+}
+
+.ocs-gitops-subnav {
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--lg);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.ocs-gitops-subnav__link {
+  text-decoration: none;
+  color: var(--pf-t--global--text--color--regular);
+  padding: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--sm);
+  border-radius: var(--pf-t--global--border--radius--small);
+}
+
+.ocs-gitops-subnav__link:hover {
+  color: var(--pf-t--global--text--color--regular);
+  background: var(--pf-t--global--background--color--primary--default);
+}
+
+.ocs-gitops-subnav__link--active {
+  color: var(--pf-t--global--color--brand--default);
+  font-weight: var(--pf-t--global--font--weight--body--bold);
+  box-shadow: inset 0 -2px 0 var(--pf-t--global--color--brand--default);
+}
+
+.ocs-gitops-donut-legend__item--empty {
+  opacity: 0.55;
+}
+
 .ocs-gitops-donut-legend__swatch {
   display: inline-block;
   width: 0.65rem;
