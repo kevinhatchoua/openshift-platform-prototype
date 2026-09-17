@@ -33,6 +33,7 @@ import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import {
   ARGO_INSTANCES,
   buildGitOpsAppsUrl,
+  GITOPS_ALL_INSTANCES,
   GITOPS_APPLICATION_SETS,
   GITOPS_ROLLOUTS,
   applicationSetsForInstance,
