@@ -24,6 +24,12 @@ export class GitOpsErrorBoundary extends Component<GitOpsErrorBoundaryProps, Git
     console.error("GitOps page error:", error, info.componentStack);
   }
 
+  componentDidUpdate(prevProps: GitOpsErrorBoundaryProps) {
+    if (this.state.error && prevProps.children !== this.props.children) {
+      this.setState({ error: null });
+    }
+  }
+
   private reset = () => {
     this.setState({ error: null });
   };

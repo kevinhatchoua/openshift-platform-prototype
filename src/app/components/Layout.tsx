@@ -90,7 +90,7 @@ function MastheadIconButton({ label, icon }: { label: string; icon: React.ReactN
 function subPathMatches(pathname: string, basePath: string): boolean {
   if (pathname === basePath || pathname.startsWith(`${basePath}/`)) return true;
   const gitopsKind = pathname.match(
-    /^\/gitops\/ns\/[^/]+\/(rollouts|argocd|applicationsets|applications|appprojects|imageupdaters|promotions)(?:\/|$)/
+    /^\/gitops\/ns\/[^/]+\/(rollouts|argocd|applicationsets|applications|appprojects|imageupdaters|promotions|agents)(?:\/|$)/
   );
   if (gitopsKind) {
     return basePath === `/gitops/${gitopsKind[1]}`;

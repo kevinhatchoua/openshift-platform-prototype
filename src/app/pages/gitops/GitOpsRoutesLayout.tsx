@@ -1,15 +1,12 @@
-import { Outlet } from "react-router";
-import { Flex } from "@patternfly/react-core";
+import { Outlet, useLocation } from "react-router";
 import { GitOpsErrorBoundary } from "../../components/GitOpsErrorBoundary";
-import GitOpsSubNav from "./GitOpsSubNav";
 
 export default function GitOpsRoutesLayout() {
+  const location = useLocation();
+
   return (
-    <GitOpsErrorBoundary title="GitOps page failed to load">
-      <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }} className="ocs-gitops-layout">
-        <GitOpsSubNav />
-        <Outlet />
-      </Flex>
+    <GitOpsErrorBoundary key={location.pathname} title="GitOps page failed to load">
+      <Outlet />
     </GitOpsErrorBoundary>
   );
 }
