@@ -74,7 +74,13 @@ export function ResourceName({
         {abbrev}
       </Label>
       {to ? (
-        <Button variant="link" isInline component={Link} to={to}>
+        <Button
+          variant="link"
+          isInline
+          component={Link}
+          to={to}
+          onClick={(e) => e.stopPropagation()}
+        >
           {name}
         </Button>
       ) : (
@@ -176,7 +182,17 @@ export function HealthStatus({ status }: { status: GitOpsHealth | "Synced" | "Ou
       </Flex>
     );
   }
-  if (status === "Degraded" || status === "Aborting") {
+  if (status === "Degraded") {
+    return (
+      <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+        <Icon status="warning" aria-hidden>
+          <ExclamationCircleIcon />
+        </Icon>
+        <span>{status}</span>
+      </Flex>
+    );
+  }
+  if (status === "Aborting") {
     return (
       <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
         <Icon status="danger" aria-hidden>

@@ -45,8 +45,10 @@ export function toneForCount(
 
 export function gitOpsHealthLabelColor(health: string): PfLabelColor {
   if (health === "Healthy") return PF_LABEL.good;
-  if (health === "Progressing" || health === "Paused") return PF_LABEL.informational;
-  if (health === "Degraded" || health === "Aborting") return PF_LABEL.critical;
+  if (health === "Progressing") return PF_LABEL.info;
+  if (health === "Paused") return PF_LABEL.informational;
+  if (health === "Degraded") return PF_LABEL.warning;
+  if (health === "Aborting") return PF_LABEL.critical;
   return PF_LABEL.info;
 }
 
@@ -58,8 +60,10 @@ export function gitOpsSyncLabelColor(sync: string): PfLabelColor {
 
 export function gitOpsHealthChartColor(health: string): string {
   if (health === "Healthy") return PF_CHART.good;
-  if (health === "Progressing" || health === "Paused") return PF_CHART.informational;
-  if (health === "Degraded" || health === "Aborting") return PF_CHART.critical;
+  if (health === "Progressing") return PF_CHART.info;
+  if (health === "Paused") return PF_CHART.informational;
+  if (health === "Degraded") return PF_CHART.warning;
+  if (health === "Aborting") return PF_CHART.critical;
   return PF_CHART.info;
 }
 

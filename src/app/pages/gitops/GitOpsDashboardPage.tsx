@@ -1,5 +1,5 @@
 import { type ReactNode, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { useNavigate } from "react-router";
 import {
   Alert,
   Button,
@@ -36,9 +36,7 @@ import {
   GITOPS_ALL_INSTANCES,
   GITOPS_APPLICATION_SETS,
   GITOPS_ROLLOUTS,
-  applicationSetsForInstance,
   applicationsForInstance,
-  appProjectsForInstance,
   dashboardMetricsForInstance,
   gitopsDetailPath,
   recentOperationsForInstance,
@@ -205,8 +203,6 @@ export default function GitOpsDashboardPage() {
   const { instance, setInstance } = useGitOpsInstance();
   const apps = applicationsForInstance(instance);
   const metrics = dashboardMetricsForInstance(instance);
-  const projects = appProjectsForInstance(instance);
-  const appSets = applicationSetsForInstance(instance);
   const operations = recentOperationsForInstance(instance);
   const instances =
     instance === GITOPS_ALL_INSTANCES
@@ -214,7 +210,6 @@ export default function GitOpsDashboardPage() {
       : ARGO_INSTANCES.filter((a) => `${a.ns}/${a.name}` === instance);
   const totalApps = apps.length;
   const syncedPct = totalApps === 0 ? 100 : metrics.syncSuccessRate;
-  const healthyPct = totalApps === 0 ? 100 : Math.round((metrics.healthy / totalApps) * 100);
   const connected = instances.filter((i) => i.clusterConnectivity.startsWith("1")).length;
   const failedSyncs24h = instances.reduce((sum, inst) => sum + inst.failedSyncs24h, 0);
   const canAccessMetrics = permission === "edit";
@@ -335,45 +330,6 @@ export default function GitOpsDashboardPage() {
               {metricsDenied}
             </Alert>
           ) : null}
-
-          <Flex
-            alignItems={{ default: "alignItemsCenter" }}
-            justifyContent={{ default: "justifyContentSpaceBetween" }}
-            flexWrap={{ default: "wrap" }}
-            gap={{ default: "gapLg" }}
-          >
-            <Flex gap={{ default: "gapXl" }} flexWrap={{ default: "wrap" }}>
-              <StatLink
-                to={buildGitOpsAppsUrl(instance)}
-                value={String(totalApps)}
-                label="Applications"
-                headingLevel="h2"
-                size="2xl"
-              />
-              <StatLink
-                to={buildGitOpsAppsUrl(instance, { sync: ["Synced"] })}
-                value={`${syncedPct}% Synced`}
-                label="Sync status"
-              />
-              <StatLink
-                to={buildGitOpsAppsUrl(instance, { health: ["Healthy"] })}
-                value={`${healthyPct}% Healthy`}
-                label="Health status"
-              />
-              <StatLink
-                to={buildGitOpsAppsUrl(instance, undefined, { attention: true })}
-                value={String(metrics.needsAttention.length)}
-                label="Needs attention"
-              />
-            </Flex>
-            <Flex gap={{ default: "gapMd" }} flexWrap={{ default: "wrap" }}>
-              <ButtonLink to={buildGitOpsAppsUrl(instance)}>{totalApps} Applications</ButtonLink>
-              <ButtonLink to="/gitops/applicationsets">{appSets.length} AppSets</ButtonLink>
-              <ButtonLink to="/gitops/appprojects">{projects.length} Projects</ButtonLink>
-              <ButtonLink to="/gitops/argocd">{instances.length} Instances</ButtonLink>
-              <ButtonLink to="/gitops/rollouts">{GITOPS_ROLLOUTS.length} Rollouts</ButtonLink>
-            </Flex>
-          </Flex>
 
           <Grid hasGutter>
             <GridItem md={4}>
@@ -594,7 +550,7 @@ export default function GitOpsDashboardPage() {
               <Card isClickable onClick={() => navigate("/gitops/settings")}>
                 <CardTitle>GitOps Operator</CardTitle>
                 <CardBody>
-                  <Label color="green" isCompact>
+                  <Label color={labelColorForTone("good")} isCompact>
                     Available
                   </Label>
                   <Content component="p" className="pf-v6-u-mt-sm">
@@ -623,37 +579,6 @@ export default function GitOpsDashboardPage() {
         </Flex>
       </Breadcrumbs>
     </div>
-  );
-}
-
-function ButtonLink({ to, children }: { to: string; children: ReactNode }) {
-  return (
-    <Link to={to} className="pf-v6-c-button pf-m-link pf-m-inline" onClick={(e) => e.stopPropagation()}>
-      {children}
-    </Link>
-  );
-}
-
-function StatLink({
-  to,
-  value,
-  label,
-  headingLevel = "h2",
-  size = "xl",
-}: {
-  to: string;
-  value: string;
-  label: string;
-  headingLevel?: "h2" | "h3";
-  size?: "2xl" | "xl";
-}) {
-  return (
-    <Link to={to} className="ocs-gitops-stat-link">
-      <Title headingLevel={headingLevel} size={size}>
-        {value}
-      </Title>
-      <Content component="small">{label}</Content>
-    </Link>
   );
 }
 

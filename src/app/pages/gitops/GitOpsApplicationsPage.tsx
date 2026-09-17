@@ -69,26 +69,28 @@ export default function GitOpsApplicationsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { instance } = useGitOpsInstance();
-  const initialSync = searchParams.getAll("sync");
-  const initialHealth = searchParams.getAll("health");
   const attentionMode = searchParams.get("attention") === "1";
+  const urlSyncKey = searchParams.getAll("sync").join("\0");
+  const urlHealthKey = searchParams.getAll("health").join("\0");
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<ApplicationFilters>({
-    filters: {
+    initialFilters: {
       name: "",
       namespace: "",
-      sync: initialSync,
-      health: initialHealth,
+      sync: urlSyncKey ? urlSyncKey.split("\0") : [],
+      health: urlHealthKey ? urlHealthKey.split("\0") : [],
     },
   });
 
+  // Keep filters in sync when drill-down links change ?sync / ?health (stable string deps, not array refs).
   useEffect(() => {
-    if (initialSync.length > 0 || initialHealth.length > 0) {
-      onSetFilters({
-        sync: initialSync,
-        health: initialHealth,
-      });
-    }
-  }, [initialHealth, initialSync, onSetFilters]);
+    onSetFilters({
+      sync: urlSyncKey ? urlSyncKey.split("\0") : [],
+      health: urlHealthKey ? urlHealthKey.split("\0") : [],
+    });
+  }, [urlHealthKey, urlSyncKey, onSetFilters]);
+
+  const filterSyncKey = (filters.sync ?? []).join("\0");
+  const filterHealthKey = (filters.health ?? []).join("\0");
 
   useEffect(() => {
     setSearchParams(
@@ -102,7 +104,7 @@ export default function GitOpsApplicationsPage() {
       },
       { replace: true }
     );
-  }, [filters.health, filters.sync, setSearchParams]);
+  }, [filterHealthKey, filterSyncKey, setSearchParams]);
 
   const items = applicationsForInstance(instance);
   const filtered = useMemo(
