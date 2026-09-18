@@ -1,11 +1,10 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useParams } from "react-router";
 import {
   Alert,
   Button,
   CodeBlock,
   CodeBlockCode,
-  Content,
   DescriptionList,
   DescriptionListDescription,
   DescriptionListGroup,
@@ -18,63 +17,31 @@ import {
   Tabs,
   TabTitleText,
   Title,
-  ToggleGroup,
-  ToggleGroupItem,
+  Content,
 } from "@patternfly/react-core";
-import {
-  Line,
-  LineChart,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from "recharts";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import FavoriteButton from "../../components/FavoriteButton";
 import { OcsPrototypeListTable, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import {
   findApplication,
   findAppProject,
   gitopsDetailPath,
-  GITOPS_PROMOTION_PIPELINES,
   applicationSyncError,
-  applicationMetricsCharts,
   GITOPS_ALL_INSTANCES,
   type ApplicationRecord,
 } from "./gitopsData";
 import { GitOpsNotFound } from "./GitOpsSimpleDetailPage";
-import { GitOpsEditDeleteMenu, GitOpsLink, HealthStatus, OwnerReferencesCell, ResourceName } from "./gitopsShared";
-import { gitOpsHealthLabelColor, gitOpsSyncLabelColor, PF_CHART } from "../../lib/pfSemanticColors";
+import {
+  GitOpsDetailPageHeader,
+  GitOpsLink,
+  HealthStatus,
+  OwnerReferencesCell,
+  ResourceName,
+  gitopsConsoleDetailCrumbs,
+} from "./gitopsShared";
 import { useToast } from "../../contexts/ToastContext";
-import GitOpsTopologyView from "./GitOpsTopologyView";
-import { buildApplicationResourceGraph } from "./gitopsTopologyData";
 import GitOpsYamlUnifiedDiff from "./GitOpsYamlUnifiedDiff";
-import GitOpsLogStream from "./GitOpsLogStream";
-import GitOpsAccessTestPanel from "./GitOpsAccessTestPanel";
 import { useGitOpsInstance } from "./GitOpsInstancePicker";
-
-function promotionForApp(appName: string) {
-  return GITOPS_PROMOTION_PIPELINES.find(
-    (p) => p.name.includes(appName) || appName.includes(p.name.replace(/-promote$/, ""))
-  );
-}
-
-const LOG_CONTAINERS = ["application-controller", "repo-server", "redis"] as const;
-
-const MOCK_LOGS: Record<(typeof LOG_CONTAINERS)[number], string> = {
-  "application-controller": `time="2026-08-25T14:22:01Z" level=info msg="Reconciliation started" app=payments-api
-time="2026-08-25T14:22:01Z" level=info msg="Comparing desired state" revision=release-1.4
-time="2026-08-25T14:22:02Z" level=warning msg="OutOfSync detected" resource=Deployment/payments-api
-time="2026-08-25T14:22:02Z" level=info msg="Sync operation skipped (auto-sync disabled)"
-time="2026-08-25T14:22:03Z" level=info msg="Health status Progressing"`,
-  "repo-server": `time="2026-08-25T14:21:58Z" level=info msg="git fetch" repo=payments-api.git
-time="2026-08-25T14:21:59Z" level=info msg="manifest generate" path=deploy/overlays/prod
-time="2026-08-25T14:22:00Z" level=info msg="cache hit" revision=release-1.4`,
-  redis: `1:M 25 Aug 2026 14:21:50.123 * Background saving started
-1:M 25 Aug 2026 14:21:50.456 * DB saved on disk
-1:M 25 Aug 2026 14:22:00.001 * Connected clients: 4`,
-};
 
 function liveYaml(rec: ApplicationRecord) {
   const image =
@@ -139,28 +106,13 @@ const MOCK_EVENTS = [
   { type: "Normal", reason: "OperationCompleted", message: "Last sync completed successfully", age: "1h" },
 ];
 
-function metricsFor(rec: ApplicationRecord) {
-  const outOfSync = rec.sync === "OutOfSync";
-  return {
-    syncTotals: outOfSync ? "12 synced · 1 out of sync" : "48 synced · 0 out of sync",
-    successRate: outOfSync ? "91.2%" : "99.4%",
-    reconciliations: outOfSync ? "186" : "412",
-    resourceHealth: outOfSync ? "7 healthy · 1 progressing" : "14 healthy · 0 degraded",
-  };
-}
-
 export default function GitOpsApplicationDetailRich() {
   const { namespace = "", name = "" } = useParams();
   const ns = decodeURIComponent(namespace);
   const appName = decodeURIComponent(name);
   const rec = findApplication(ns, appName);
   const [activeTab, setActiveTab] = useState("details");
-  const [logContainer, setLogContainer] = useState<(typeof LOG_CONTAINERS)[number]>("application-controller");
   const { pushToast } = useToast();
-
-  const metrics = useMemo(() => (rec ? metricsFor(rec) : null), [rec]);
-  const metricCharts = useMemo(() => (rec ? applicationMetricsCharts(rec) : null), [rec]);
-  const resourceGraph = useMemo(() => (rec ? buildApplicationResourceGraph(rec) : null), [rec]);
   const syncError = rec ? applicationSyncError(rec) : null;
   const { instance } = useGitOpsInstance();
   const instanceScoped = rec ? rec.instanceKey === instance || instance === GITOPS_ALL_INSTANCES : true;
@@ -170,44 +122,12 @@ export default function GitOpsApplicationDetailRich() {
   }
 
   const href = gitopsDetailPath("applications", rec.ns, rec.name);
-  const promotion = promotionForApp(rec.name);
 
   return (
     <div className="ocs-app-page-outer ocs-pod-details-page h-full min-h-0 overflow-y-auto">
-      <Breadcrumbs
-        items={[
-          { label: "Home", path: "/" },
-          { label: "GitOps", path: "/gitops/overview" },
-          { label: "Applications", path: "/gitops/applications" },
-          { label: rec.name },
-        ]}
-      >
+      <Breadcrumbs items={gitopsConsoleDetailCrumbs("Applications", "/gitops/applications")}>
         <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-          <Flex
-            alignItems={{ default: "alignItemsCenter" }}
-            justifyContent={{ default: "justifyContentSpaceBetween" }}
-            flexWrap={{ default: "wrap" }}
-            gap={{ default: "gapMd" }}
-          >
-            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }} flexWrap={{ default: "wrap" }}>
-              <ResourceName kind="Application" name={rec.name} />
-              <HealthStatus status={rec.health} />
-              <HealthStatus status={rec.sync} />
-            </Flex>
-            <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
-              <FavoriteButton name={rec.name} path={href} />
-              <GitOpsEditDeleteMenu
-                kind="Application"
-                name={rec.name}
-                variant="secondary"
-                extraItems={[
-                  { id: "sync", label: "Sync" },
-                  { id: "refresh", label: "Refresh" },
-                  { id: "hard-refresh", label: "Hard refresh" },
-                ]}
-              />
-            </Flex>
-          </Flex>
+          <GitOpsDetailPageHeader kind="Application" name={rec.name} href={href} menuKind="Application" />
 
           {syncError ? (
             <Alert variant="warning" isInline title={syncError.title}>
@@ -227,77 +147,162 @@ export default function GitOpsApplicationDetailRich() {
           >
             <Tab eventKey="details" title={<TabTitleText>Details</TabTitleText>} />
             <Tab eventKey="yaml" title={<TabTitleText>YAML</TabTitleText>} />
-            <Tab eventKey="configuration" title={<TabTitleText>Configuration</TabTitleText>} />
-            <Tab eventKey="diff" title={<TabTitleText>Diff</TabTitleText>} />
-            <Tab eventKey="events" title={<TabTitleText>Events</TabTitleText>} />
-            <Tab eventKey="history" title={<TabTitleText>History</TabTitleText>} />
-            <Tab eventKey="logs" title={<TabTitleText>Logs</TabTitleText>} />
-            <Tab eventKey="metrics" title={<TabTitleText>Metrics</TabTitleText>} />
-            <Tab eventKey="promotion" title={<TabTitleText>Promotion</TabTitleText>} />
-            <Tab eventKey="resource-tree" title={<TabTitleText>Resource Tree</TabTitleText>} />
+            <Tab eventKey="sources" title={<TabTitleText>Sources</TabTitleText>} />
             <Tab eventKey="resources" title={<TabTitleText>Resources</TabTitleText>} />
-            <Tab eventKey="access-test" title={<TabTitleText>Access Test</TabTitleText>} />
-            <Tab eventKey="summary" title={<TabTitleText>Summary</TabTitleText>} />
+            <Tab eventKey="sync-status" title={<TabTitleText>Sync Status</TabTitleText>} />
+            <Tab eventKey="history" title={<TabTitleText>History</TabTitleText>} />
+            <Tab eventKey="events" title={<TabTitleText>Events</TabTitleText>} />
           </Tabs>
 
           {activeTab === "details" ? (
             <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-              {promotion ? (
-                <Alert
-                  variant="info"
-                  title={`Promotion: ${promotion.name} (${promotion.status})`}
-                  isInline
-                >
-                  <Content component="p">
-                    Environments: {promotion.environments}. Gates: {promotion.gates}.
-                  </Content>
-                </Alert>
-              ) : null}
+              <Title headingLevel="h2" size="lg">
+                Application details
+              </Title>
+              <Grid hasGutter>
+                <GridItem md={6}>
+                  <DescriptionList isCompact>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Name</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        <ResourceName kind="Application" name={rec.name} />
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Namespace</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        <ResourceName
+                          kind="Namespace"
+                          name={rec.ns}
+                          to={`/administration/namespaces/${encodeURIComponent(rec.ns)}`}
+                        />
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Labels</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                          <span>No labels</span>
+                          <Button variant="link" isInline onClick={() => pushToast({ variant: "info", title: `Edit labels: ${rec.name}` })}>
+                            Edit
+                          </Button>
+                        </Flex>
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Annotations</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        <Button variant="link" isInline onClick={() => pushToast({ variant: "info", title: "Edit annotations" })}>
+                          0 Annotations
+                        </Button>
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Created at</DescriptionListTerm>
+                      <DescriptionListDescription>{rec.lastReconciled || rec.age}</DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Owner</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        {rec.ownerReferences.length ? (
+                          <OwnerReferencesCell refs={rec.ownerReferences} ns={rec.ns} />
+                        ) : (
+                          "No owner"
+                        )}
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                  </DescriptionList>
+                </GridItem>
+                <GridItem md={6}>
+                  <DescriptionList isCompact>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Health Status</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        <HealthStatus status={rec.health} />
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Current Sync Status</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        {rec.sync === "Synced" || rec.sync === "OutOfSync" ? rec.sync : "(None)"}
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Last Sync Status</DescriptionListTerm>
+                      <DescriptionListDescription>—</DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Target Revision</DescriptionListTerm>
+                      <DescriptionListDescription>{rec.revision}</DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Project</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        {(() => {
+                          const project = findAppProject(rec.ns, rec.project) ?? findAppProject("openshift-gitops", rec.project);
+                          return project ? (
+                            <GitOpsLink to={gitopsDetailPath("appprojects", project.ns, project.name)}>
+                              <ResourceName kind="AppProject" name={rec.project} />
+                            </GitOpsLink>
+                          ) : (
+                            <ResourceName kind="AppProject" name={rec.project} />
+                          );
+                        })()}
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Destination</DescriptionListTerm>
+                      <DescriptionListDescription>{rec.destination}</DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Sync Policy</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        <Flex gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
+                          <Label color="blue" isCompact>
+                            Automated
+                          </Label>
+                          <Label color="blue" isCompact>
+                            Prune
+                          </Label>
+                          <Label color="blue" isCompact>
+                            Self Heal
+                          </Label>
+                        </Flex>
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                  </DescriptionList>
+                </GridItem>
+              </Grid>
+            </Flex>
+          ) : null}
+
+          {!instanceScoped ? (
+            <Alert variant="info" isInline title="Viewing application outside selected instance scope">
+              Instance filter is <code>{instance}</code>. Switch instance in the header to align list and detail
+              context.
+            </Alert>
+          ) : null}
+
+          {activeTab === "sources" ? (
+            <DescriptionList isHorizontal isCompact>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Repository URL</DescriptionListTerm>
+                <DescriptionListDescription>{rec.repo}</DescriptionListDescription>
+              </DescriptionListGroup>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Path</DescriptionListTerm>
+                <DescriptionListDescription>{rec.path}</DescriptionListDescription>
+              </DescriptionListGroup>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Target revision</DescriptionListTerm>
+                <DescriptionListDescription>{rec.revision}</DescriptionListDescription>
+              </DescriptionListGroup>
+            </DescriptionList>
+          ) : null}
+
+          {activeTab === "sync-status" ? (
+            <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
               <DescriptionList isHorizontal isCompact>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Name</DescriptionListTerm>
-                  <DescriptionListDescription>{rec.name}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Namespace</DescriptionListTerm>
-                  <DescriptionListDescription>
-                    <ResourceName
-                      kind="Namespace"
-                      name={rec.ns}
-                      to={`/administration/namespaces/${encodeURIComponent(rec.ns)}`}
-                    />
-                  </DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Labels</DescriptionListTerm>
-                  <DescriptionListDescription>
-                    <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-                      <span>No labels</span>
-                      <Button
-                        variant="link"
-                        isInline
-                        onClick={() => pushToast({ variant: "info", title: `Edit labels: ${rec.name}` })}
-                      >
-                        Edit
-                      </Button>
-                    </Flex>
-                  </DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>AppProject</DescriptionListTerm>
-                  <DescriptionListDescription>
-                    {(() => {
-                      const project = findAppProject(rec.ns, rec.project) ?? findAppProject("argocd", rec.project);
-                      return project ? (
-                        <GitOpsLink to={gitopsDetailPath("appprojects", project.ns, project.name)}>
-                          {rec.project}
-                        </GitOpsLink>
-                      ) : (
-                        rec.project
-                      );
-                    })()}
-                  </DescriptionListDescription>
-                </DescriptionListGroup>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Sync status</DescriptionListTerm>
                   <DescriptionListDescription>
@@ -305,165 +310,22 @@ export default function GitOpsApplicationDetailRich() {
                   </DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
-                  <DescriptionListTerm>Repo</DescriptionListTerm>
-                  <DescriptionListDescription>{rec.repo}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Path</DescriptionListTerm>
+                  <DescriptionListTerm>Health</DescriptionListTerm>
                   <DescriptionListDescription>
-                    <code>{rec.path}</code>
+                    <HealthStatus status={rec.health} />
                   </DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
-                  <DescriptionListTerm>Revision</DescriptionListTerm>
-                  <DescriptionListDescription>
-                    <code>{rec.revision}</code>
-                  </DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Destination</DescriptionListTerm>
-                  <DescriptionListDescription>{rec.destination}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Owner references</DescriptionListTerm>
-                  <DescriptionListDescription>
-                    <OwnerReferencesCell refs={rec.ownerReferences} ns={rec.ns} />
-                  </DescriptionListDescription>
+                  <DescriptionListTerm>Last reconciled</DescriptionListTerm>
+                  <DescriptionListDescription>{rec.lastReconciled}</DescriptionListDescription>
                 </DescriptionListGroup>
               </DescriptionList>
-            </Flex>
-          ) : null}
-
-          {!instanceScoped ? (
-            <Alert variant="info" isInline title="Viewing application outside selected instance scope">
-              Instance filter is <code>{instance}</code>. Metrics reflect this application only; switch instance
-              in the header to align list and detail context.
-            </Alert>
-          ) : null}
-
-          {activeTab === "logs" ? (
-            <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-              <ToggleGroup aria-label="Log container" isCompact>
-                {LOG_CONTAINERS.map((c) => (
-                  <ToggleGroupItem
-                    key={c}
-                    text={c}
-                    isSelected={logContainer === c}
-                    onChange={() => setLogContainer(c)}
-                  />
-                ))}
-              </ToggleGroup>
-              <GitOpsLogStream initial={MOCK_LOGS[logContainer]} container={logContainer} />
-            </Flex>
-          ) : null}
-
-          {activeTab === "diff" ? (
-            <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
               {rec.sync === "OutOfSync" ? (
-                <Alert variant="warning" title="OutOfSync — live differs from desired" isInline>
-                  <Content component="p">
-                    Intentional drift for <code>{rec.name}</code> (image tag mismatch).
-                  </Content>
-                </Alert>
+                <GitOpsYamlUnifiedDiff live={liveYaml(rec)} desired={desiredYaml(rec)} />
               ) : (
-                <Alert variant="success" title="Synced — no material differences" isInline />
+                <Alert variant="success" title="Application is synced to the target revision" isInline />
               )}
-              <GitOpsYamlUnifiedDiff live={liveYaml(rec)} desired={desiredYaml(rec)} />
-              <Grid hasGutter>
-                <GridItem md={6}>
-                  <Title headingLevel="h3" size="md">
-                    Live
-                  </Title>
-                  <CodeBlock>
-                    <CodeBlockCode>{liveYaml(rec)}</CodeBlockCode>
-                  </CodeBlock>
-                </GridItem>
-                <GridItem md={6}>
-                  <Title headingLevel="h3" size="md">
-                    Desired
-                  </Title>
-                  <CodeBlock>
-                    <CodeBlockCode>{desiredYaml(rec)}</CodeBlockCode>
-                  </CodeBlock>
-                </GridItem>
-              </Grid>
             </Flex>
-          ) : null}
-
-          {activeTab === "metrics" && metrics && metricCharts ? (
-            <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-              <Flex gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
-                <Label color={gitOpsSyncLabelColor(rec.sync)} isCompact>Sync: {rec.sync}</Label>
-                <Label color={gitOpsHealthLabelColor(rec.health)} isCompact>Health: {rec.health}</Label>
-                <Label color="grey" isCompact>
-                  Instance: {rec.instanceKey}
-                </Label>
-              </Flex>
-              <Grid hasGutter>
-                <GridItem md={6}>
-                  <Title headingLevel="h3" size="md">
-                    Sync success rate (24h)
-                  </Title>
-                  <div style={{ height: 180 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={metricCharts.syncRate}>
-                        <XAxis dataKey="t" tick={{ fontSize: 11 }} />
-                        <YAxis domain={[70, 100]} tick={{ fontSize: 11 }} width={32} />
-                        <Tooltip />
-                        <Line
-                          type="monotone"
-                          dataKey="v"
-                          stroke="var(--pf-t--global--color--status--success--default)"
-                          dot={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </GridItem>
-                <GridItem md={6}>
-                  <Title headingLevel="h3" size="md">
-                    Reconciliations (24h)
-                  </Title>
-                  <div style={{ height: 180 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={metricCharts.reconciliations}>
-                        <XAxis dataKey="t" tick={{ fontSize: 11 }} />
-                        <YAxis tick={{ fontSize: 11 }} width={32} />
-                        <Tooltip />
-                        <Line
-                          type="monotone"
-                          dataKey="v"
-                          stroke={PF_CHART.info}
-                          dot={false}
-                        />
-                      </LineChart>
-                    </ResponsiveContainer>
-                  </div>
-                </GridItem>
-              </Grid>
-              <DescriptionList isHorizontal isCompact>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Sync totals</DescriptionListTerm>
-                  <DescriptionListDescription>{metrics.syncTotals}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Success rate</DescriptionListTerm>
-                  <DescriptionListDescription>{metrics.successRate}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Reconciliations (24h)</DescriptionListTerm>
-                  <DescriptionListDescription>{metrics.reconciliations}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Resource health</DescriptionListTerm>
-                  <DescriptionListDescription>{metrics.resourceHealth}</DescriptionListDescription>
-                </DescriptionListGroup>
-              </DescriptionList>
-            </Flex>
-          ) : null}
-
-          {activeTab === "access-test" ? (
-            <GitOpsAccessTestPanel resourceLabel={`Application ${rec.name}`} defaultResource="applications" />
           ) : null}
 
           {activeTab === "yaml" ? (
@@ -509,31 +371,6 @@ export default function GitOpsApplicationDetailRich() {
             </div>
           ) : null}
 
-          {activeTab === "configuration" ? (
-            <DescriptionList isHorizontal isCompact>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Auto-sync</DescriptionListTerm>
-                <DescriptionListDescription>Disabled</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Prune</DescriptionListTerm>
-                <DescriptionListDescription>false</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Self-heal</DescriptionListTerm>
-                <DescriptionListDescription>false</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Retry</DescriptionListTerm>
-                <DescriptionListDescription>Limit 5 · backoff 5s–3m</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Ignore differences</DescriptionListTerm>
-                <DescriptionListDescription>None</DescriptionListDescription>
-              </DescriptionListGroup>
-            </DescriptionList>
-          ) : null}
-
           {activeTab === "history" ? (
             <OcsPrototypeListTable ariaLabel="Sync history">
               <Thead>
@@ -563,30 +400,6 @@ export default function GitOpsApplicationDetailRich() {
                 </Tr>
               </Tbody>
             </OcsPrototypeListTable>
-          ) : null}
-
-          {activeTab === "promotion" ? (
-            <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-              {promotion ? (
-                <>
-                  <Alert variant="info" title={`${promotion.name} is ${promotion.status}`} isInline>
-                    Environments: {promotion.environments}. Gates: {promotion.gates}.
-                  </Alert>
-                  <GitOpsLink to={gitopsDetailPath("promotions", promotion.ns, promotion.name)}>
-                    Open promotion pipeline
-                  </GitOpsLink>
-                </>
-              ) : (
-                <>
-                  <Content component="p">No promotion pipeline is attached to this application.</Content>
-                  <GitOpsLink to="/gitops/promotions">View promotion pipelines</GitOpsLink>
-                </>
-              )}
-            </Flex>
-          ) : null}
-
-          {activeTab === "resource-tree" && resourceGraph ? (
-            <GitOpsTopologyView graph={resourceGraph} ariaLabel={`Application ${rec.name} resource graph`} />
           ) : null}
 
           {activeTab === "resources" ? (
@@ -621,35 +434,6 @@ export default function GitOpsApplicationDetailRich() {
               </Tbody>
             </OcsPrototypeListTable>
           ) : null}
-
-          {activeTab === "summary" ? (
-            <DescriptionList isHorizontal isCompact>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Sync</DescriptionListTerm>
-                <DescriptionListDescription>
-                  <HealthStatus status={rec.sync} />
-                </DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Health</DescriptionListTerm>
-                <DescriptionListDescription>
-                  <HealthStatus status={rec.health} />
-                </DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Last reconciled</DescriptionListTerm>
-                <DescriptionListDescription>{rec.lastReconciled}</DescriptionListDescription>
-              </DescriptionListGroup>
-              <DescriptionListGroup>
-                <DescriptionListTerm>Destination</DescriptionListTerm>
-                <DescriptionListDescription>{rec.destination}</DescriptionListDescription>
-              </DescriptionListGroup>
-            </DescriptionList>
-          ) : null}
-
-          <Content component="small" className="pf-v6-u-color-200">
-            Resource graph with topology sidebars on the Resource Tree tab (HPUX-1942 / GITOPS-9059).
-          </Content>
         </Flex>
       </Breadcrumbs>
     </div>

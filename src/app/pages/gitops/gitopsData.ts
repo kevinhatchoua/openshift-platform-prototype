@@ -1,6 +1,6 @@
 import { findPrototypeApplicationSet } from "./prototypeGitopsStore";
 
-export type GitOpsHealth = "Healthy" | "Paused" | "Progressing" | "Degraded" | "Aborting";
+export type GitOpsHealth = "Healthy" | "Paused" | "Progressing" | "Degraded" | "Aborting" | "Unknown";
 
 export type GitOpsOwner = {
   kind: "Application" | "ApplicationSet" | "Rollout" | "ReplicaSet";
@@ -55,7 +55,7 @@ export type ApplicationRecord = {
   name: string;
   ns: string;
   project: string;
-  sync: "Synced" | "OutOfSync";
+  sync: "Synced" | "OutOfSync" | "Unknown";
   health: GitOpsHealth;
   age: string;
   repo: string;
@@ -291,6 +291,28 @@ export const ARGO_INSTANCES: ArgoCdRecord[] = [
 
 export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
   {
+    name: "myapp",
+    ns: "openshift-gitops-operator",
+    project: "default",
+    sync: "Unknown",
+    health: "Unknown",
+    age: "2m",
+    repo: "https://github.com/example/gitops-apps.git",
+    path: "apps/myapp",
+    revision: "master",
+    destination: "in-cluster /",
+    ownerReferences: [
+      {
+        apiVersion: "argoproj.io/v1alpha1",
+        kind: "ApplicationSet",
+        name: "myappset",
+        uid: "myappset-demo-uid",
+      },
+    ],
+    instanceKey: "openshift-gitops/openshift-gitops",
+    lastReconciled: "Just now",
+  },
+  {
     name: "team-b-guestbook",
     ns: "team-b-gitops",
     project: "default",
@@ -428,6 +450,17 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
 
 export const GITOPS_APPLICATION_SETS: ApplicationSetRecord[] = [
   {
+    name: "myappset",
+    ns: "openshift-gitops-operator",
+    generators: "list",
+    generatorTree: [{ type: "list", label: "List — elements: myapp" }],
+    apps: "1",
+    age: "2m",
+    repo: "https://github.com/example/gitops-apps.git",
+    path: "appsets/myappset",
+    status: "Unknown",
+  },
+  {
     name: "cluster-addons",
     ns: "openshift-gitops",
     generators: "cluster",
@@ -551,6 +584,14 @@ export type PromotionPipelineRecord = {
 };
 
 export const GITOPS_APP_PROJECTS: AppProjectRecord[] = [
+  {
+    name: "default",
+    ns: "openshift-gitops",
+    description: "Default AppProject for OpenShift GitOps",
+    destinations: "in-cluster / *",
+    sourceRepos: "*",
+    age: "2m",
+  },
   {
     name: "default",
     ns: "team-b-gitops",

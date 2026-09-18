@@ -18,6 +18,7 @@ interface BreadcrumbsProps {
 }
 
 export default function Breadcrumbs({ items, className, children }: BreadcrumbsProps) {
+  const visibleItems = items.filter((item) => item.label !== "Home");
   const breadcrumbStripClass = [css(spacingStyles.mbMd), "pf-v6-c-page__main-breadcrumb", className]
     .filter(Boolean)
     .join(" ");
@@ -27,8 +28,8 @@ export default function Breadcrumbs({ items, className, children }: BreadcrumbsP
       <section className="pf-v6-c-page__main-tabs pf-m-limit-width">
         <section className={breadcrumbStripClass}>
       <Breadcrumb>
-      {items.map((item, index) => {
-        const isLast = index === items.length - 1;
+      {visibleItems.map((item, index) => {
+        const isLast = index === visibleItems.length - 1;
 
         if (isLast) {
           return (

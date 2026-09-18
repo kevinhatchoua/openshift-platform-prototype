@@ -259,3 +259,60 @@
   overflow: auto;
   max-height: 12rem;
 }
+
+.ocs-gitops-allow-card {
+  flex: 1 1 12rem;
+  min-width: 12rem;
+}
+
+.ocs-gitops-applicationset-toolbar {
+  width: fit-content;
+  padding: var(--pf-t--global--spacer--xs) var(--pf-t--global--spacer--sm);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.ocs-gitops-applicationset-toolbar .pf-v6-c-toolbar__content {
+  gap: var(--pf-t--global--spacer--sm);
+}
+
+.ocs-gitops-operator-detail__subtitle {
+  font-size: var(--pf-t--global--font--size--body--default);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-gitops-operator-tabs {
+  overflow-x: auto;
+}
+
+.ocs-gitops-operator-tabs .pf-v6-c-tabs {
+  flex-wrap: nowrap;
+}
+
+.ocs-gitops-operator-api-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
+  gap: var(--pf-t--global--spacer--md);
+}
+
+.ocs-gitops-operator-api-card__desc {
+  margin: 0 0 var(--pf-t--global--spacer--sm);
+  font-size: var(--pf-t--global--font--size--body--default);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-gitops-operator-api-card__create--disabled {
+  color: var(--pf-t--global--text--color--disabled);
+  font-size: var(--pf-t--global--font--size--body--default);
+}
+
+.ocs-gitops-operator-sidebar {
+  position: sticky;
+  top: var(--pf-t--global--spacer--md);
+}
+
+.ocs-gitops-operator-cr-tab__empty {
+  margin: 0;
+  color: var(--pf-t--global--text--color--subtle);
+}

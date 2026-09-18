@@ -16,6 +16,7 @@ import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclam
 import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
 import type { GitOpsHealth, GitOpsOwner, OwnerReference } from "./gitopsData";
 import { GITOPS_APPLICATION_SETS, gitopsDetailPath } from "./gitopsData";
+import FavoriteButton from "../../components/FavoriteButton";
 import { useToast } from "../../contexts/ToastContext";
 import { gitOpsHealthLabelColor, gitOpsSyncLabelColor } from "../../lib/pfSemanticColors";
 
@@ -24,6 +25,60 @@ export type GitOpsActionItem = {
   label: string;
   isDanger?: boolean;
 };
+
+export type GitOpsBreadcrumbItem = { label: string; path?: string };
+
+/** Console-style detail breadcrumb: e.g. Applications → Application details */
+export function gitopsConsoleDetailCrumbs(
+  listLabel: "Applications" | "ApplicationSets" | "AppProjects",
+  listPath: string
+): GitOpsBreadcrumbItem[] {
+  const detailLabel =
+    listLabel === "Applications"
+      ? "Application details"
+      : listLabel === "ApplicationSets"
+        ? "ApplicationSet details"
+        : "AppProject details";
+  return [{ label: listLabel, path: listPath }, { label: detailLabel }];
+}
+
+export function GitOpsTechPreviewBadge() {
+  return (
+    <Label color="orange" isCompact>
+      Tech preview
+    </Label>
+  );
+}
+
+export function GitOpsDetailPageHeader({
+  kind,
+  name,
+  href,
+  menuKind,
+}: {
+  kind: string;
+  name: string;
+  href: string;
+  menuKind: string;
+}) {
+  return (
+    <Flex
+      alignItems={{ default: "alignItemsCenter" }}
+      justifyContent={{ default: "justifyContentSpaceBetween" }}
+      flexWrap={{ default: "wrap" }}
+      gap={{ default: "gapMd" }}
+    >
+      <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
+        <ResourceName kind={kind} name={name} />
+        <GitOpsTechPreviewBadge />
+      </Flex>
+      <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
+        <FavoriteButton name={name} path={href} />
+        <GitOpsEditDeleteMenu kind={menuKind} name={name} variant="secondary" />
+      </Flex>
+    </Flex>
+  );
+}
 
 const KIND_ABBREV: Record<string, string> = {
   Application: "A",
