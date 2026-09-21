@@ -1,4 +1,4 @@
-import type { CatalogOperator } from "./InstalledOperatorsPage";
+import type { CatalogOperator } from "./installedOperatorsTypes";
 
 /** Additional prototype operators for lifecycle / ELC / compatibility scenarios. */
 export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [

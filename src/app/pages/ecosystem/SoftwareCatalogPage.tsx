@@ -18,7 +18,13 @@ import {
   CheckCircle,
 } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { OlmOperatingModeTabs } from "../../components/ecosystem/OlmOperatingModeTabs";
 import CatalogOperatorDetailPanel from "../../components/CatalogOperatorDetailPanel";
+import {
+  OLM_CATALOG_FACET_LABELS,
+  OLM_OPERATOR_PILL_LABELS,
+  useOlmOperatingMode,
+} from "../../contexts/OlmOperatingModeContext";
 import { CatalogBrandLogo } from "./CatalogBrandLogo";
 import type { LogoCatalogType } from "./catalogLogos";
 
@@ -108,8 +114,6 @@ const EXTRA_TYPE_FACETS: { id: string; label: string; count: number }[] = [
   { id: "pipelines", label: "Pipelines", count: 67 },
 ];
 
-const MIN_TYPE_FACET_DISPLAY = 50;
-
 const STATIC_TYPE_COUNTS = {
   builderImages: 62,
   devfiles: 55,
@@ -163,6 +167,7 @@ function catalogCardPillLabel(item: CatalogItem): string {
 
 export default function SoftwareCatalogPage() {
   const navigate = useNavigate();
+  const { isClassic, isNextGen, mode, setMode } = useOlmOperatingMode();
   const [searchQuery, setSearchQuery] = useState("");
   const [catalogSort, setCatalogSort] = useState<"relevance" | "name">("relevance");
   const [showSidePanel, setShowSidePanel] = useState(false);
@@ -175,11 +180,6 @@ export default function SoftwareCatalogPage() {
     "Provider",
     "Valid subscription",
   ]);
-  /** Faceted “Catalog” filter: OLMv0 vs OLMv1. Both unchecked = show all (no OLM version filter). */
-  const [catalogOlmFilters, setCatalogOlmFilters] = useState({
-    legacyOlmv0: false,
-    clusterExtensionOlmv1: false,
-  });
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
   /** Type facets filter tiles; each catalog item has a matching `catalogType`. */
   const [typeFacet, setTypeFacet] = useState({
@@ -729,10 +729,6 @@ export default function SoftwareCatalogPage() {
     }));
   };
 
-  const toggleCatalogOlmFilter = (key: "legacyOlmv0" | "clusterExtensionOlmv1") => {
-    setCatalogOlmFilters((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
-
   const toggleTypeFacet = (key: keyof typeof typeFacet) => {
     setTypeFacet((prev) => ({ ...prev, [key]: !prev[key] }));
   };
@@ -763,7 +759,7 @@ export default function SoftwareCatalogPage() {
     item: CatalogItem,
     skips?: {
       skipSearch?: boolean;
-      skipCatalogOlm?: boolean;
+      skipOlmMode?: boolean;
       skipSource?: boolean;
       skipProvider?: boolean;
       skipType?: boolean;
@@ -773,17 +769,11 @@ export default function SoftwareCatalogPage() {
       return false;
     }
 
-    if (!skips?.skipCatalogOlm) {
-      const anyCatalogOlmSelected =
-        catalogOlmFilters.legacyOlmv0 || catalogOlmFilters.clusterExtensionOlmv1;
-      if (anyCatalogOlmSelected && item.catalogType === "operators") {
-        const isV0 = item.olmVersion === "v0";
-        const isV1 = item.olmVersion === "v1";
-        const allowV0 = catalogOlmFilters.legacyOlmv0;
-        const allowV1 = catalogOlmFilters.clusterExtensionOlmv1;
-        if (isV0 && !allowV0) return false;
-        if (isV1 && !allowV1) return false;
-        if (!isV0 && !isV1) return false;
+    if (!skips?.skipOlmMode) {
+      if (isNextGen) {
+        if (item.catalogType !== "operators" || item.olmVersion !== "v1") return false;
+      } else if (item.catalogType !== "operators" || item.olmVersion !== "v0") {
+        return false;
       }
     }
 
@@ -816,14 +806,21 @@ export default function SoftwareCatalogPage() {
   const countItemsOfType = (kind: CatalogItemKind) =>
     baseForFacets({ skipType: true }).filter((i) => i.catalogType === kind).length;
 
+  const legacyOperatorCount = catalogItems.filter(
+    (i) =>
+      i.catalogType === "operators" &&
+      i.olmVersion === "v0" &&
+      matchesCatalogItem(i, { skipOlmMode: true }),
+  ).length;
+  const nextGenOperatorCount = catalogItems.filter(
+    (i) =>
+      i.catalogType === "operators" &&
+      i.olmVersion === "v1" &&
+      matchesCatalogItem(i, { skipOlmMode: true }),
+  ).length;
+
   const facetCounts = {
     operators: countItemsOfType("operators"),
-    catalogLegacy: baseForFacets({ skipCatalogOlm: true }).filter(
-      (i) => i.catalogType === "operators" && i.olmVersion === "v0",
-    ).length,
-    catalogCluster: baseForFacets({ skipCatalogOlm: true }).filter(
-      (i) => i.catalogType === "operators" && i.olmVersion === "v1",
-    ).length,
     certified: baseForFacets({ skipSource: true }).filter((i) => i.providerType === "Certified").length,
     community: baseForFacets({ skipSource: true }).filter((i) => i.providerType === "Community").length,
     redHatSource: baseForFacets({ skipSource: true }).filter((i) => i.providerType === "Red Hat").length,
@@ -834,8 +831,6 @@ export default function SoftwareCatalogPage() {
       ]),
     ) as Record<string, number>,
   };
-
-  const operatorsTypeDisplayCount = Math.max(MIN_TYPE_FACET_DISPLAY, facetCounts.operators);
 
   const filteredCatalogItems = catalogItems
     .filter((item) => matchesCatalogItem(item))
@@ -867,6 +862,10 @@ export default function SoftwareCatalogPage() {
             software catalog. Cluster administrators can customize the content made available in the catalog.
           </p>
         </Content>
+
+        <div className="mb-6">
+          <OlmOperatingModeTabs id="software-catalog-olm-tabs" />
+        </div>
 
         {availableUpdates > 0 && !dismissedAlerts.includes("updates") && (
           <AlertGroup className="mb-4">
@@ -943,7 +942,7 @@ export default function SoftwareCatalogPage() {
                       checked={typeFacet.operators}
                       onChange={() => toggleTypeFacet("operators")}
                     />
-                    <span>Operators ({operatorsTypeDisplayCount})</span>
+                    <span>Operators ({facetCounts.operators})</span>
                   </label>
                   <label className="flex items-center gap-[8px] cursor-pointer text-[14px] text-[#151515] dark:text-white">
                     <input
@@ -985,7 +984,7 @@ export default function SoftwareCatalogPage() {
               )}
             </div>
 
-            {/* Catalog (OLM) Filter */}
+            {/* Catalog (OLM) — synced with operating mode toggle */}
             <div className="mb-[16px]">
               <button
                 onClick={() => toggleCategory("Catalog")}
@@ -1002,21 +1001,27 @@ export default function SoftwareCatalogPage() {
                 <div className="space-y-[8px] pl-[4px]">
                   <label className="flex items-center gap-[8px] cursor-pointer text-[14px] text-[#151515] dark:text-white">
                     <input
-                      type="checkbox"
+                      type="radio"
+                      name="catalog-olm-mode"
                       className="size-[14px]"
-                      checked={catalogOlmFilters.legacyOlmv0}
-                      onChange={() => toggleCatalogOlmFilter("legacyOlmv0")}
+                      checked={isClassic}
+                      onChange={() => setMode("classic")}
                     />
-                    <span>Legacy (OLMv0) ({facetCounts.catalogLegacy})</span>
+                    <span>
+                      {OLM_CATALOG_FACET_LABELS.classic} ({legacyOperatorCount})
+                    </span>
                   </label>
                   <label className="flex items-center gap-[8px] cursor-pointer text-[14px] text-[#151515] dark:text-white">
                     <input
-                      type="checkbox"
+                      type="radio"
+                      name="catalog-olm-mode"
                       className="size-[14px]"
-                      checked={catalogOlmFilters.clusterExtensionOlmv1}
-                      onChange={() => toggleCatalogOlmFilter("clusterExtensionOlmv1")}
+                      checked={isNextGen}
+                      onChange={() => setMode("nextgen")}
                     />
-                    <span>Cluster extension (OLMv1) ({facetCounts.catalogCluster})</span>
+                    <span>
+                      {OLM_CATALOG_FACET_LABELS.nextgen} ({nextGenOperatorCount})
+                    </span>
                   </label>
                 </div>
               )}
@@ -1190,6 +1195,22 @@ export default function SoftwareCatalogPage() {
               </select>
             </div>
 
+            {filteredCatalogItems.length === 0 ? (
+              <Alert
+                variant={isNextGen ? "info" : "warning"}
+                isInline
+                title={
+                  isNextGen
+                    ? "No compatible cluster extensions in this catalog"
+                    : "No catalog items match your filters"
+                }
+              >
+                {isNextGen
+                  ? "The Operators catalog lists OLMv1 cluster extensions that pass compatibility checks for this cluster. Try adjusting filters or switch to Operators (Legacy)."
+                  : "Try adjusting search or facet filters, or switch catalog to Operators (OLMv1)."}
+              </Alert>
+            ) : null}
+
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-6 gap-[16px]">
               {filteredCatalogItems.map((item) => {
                 return (
@@ -1206,9 +1227,21 @@ export default function SoftwareCatalogPage() {
                       boxClassName="size-[40px] rounded-[6px] bg-white dark:bg-[#ececec] flex items-center justify-center p-[6px] shrink-0 border border-[rgba(0,0,0,0.08)] dark:border-[rgba(0,0,0,0.12)]"
                       logoClassName="h-[28px] w-[28px] max-h-[28px] max-w-[28px]"
                     />
-                    <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#5c5f62] text-white shrink-0 max-w-[min(148px,48%)] text-right">
-                      {catalogCardPillLabel(item)}
-                    </span>
+                    <div className="flex flex-col items-end gap-[6px] shrink-0 max-w-[min(148px,48%)]">
+                      {item.catalogType === "operators" && item.olmVersion ? (
+                        <span
+                          className={[
+                            "rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight text-white text-right",
+                            item.olmVersion === "v1" ? "bg-[#0066cc]" : "bg-[#5c5f62]",
+                          ].join(" ")}
+                        >
+                          {OLM_OPERATOR_PILL_LABELS[item.olmVersion]}
+                        </span>
+                      ) : null}
+                      <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#5c5f62] text-white text-right">
+                        {catalogCardPillLabel(item)}
+                      </span>
+                    </div>
                   </div>
                   <h3 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[16px] text-[#151515] dark:text-white mb-[8px] leading-snug">
                     {item.name}
