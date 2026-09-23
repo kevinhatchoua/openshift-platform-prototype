@@ -101,6 +101,18 @@
   display: inline-flex;
 }
 
+.ocs-gitops-health-icon svg {
+  fill: currentColor;
+}
+
+.ocs-gitops-health-icon--healthy {
+  color: var(--pf-t--global--icon--color--status--success--default);
+}
+
+.ocs-gitops-health-icon--degraded {
+  color: var(--pf-t--global--icon--color--status--danger--default);
+}
+
 .ocs-gitops-health-icon--paused {
   color: var(--pf-t--global--icon--color--nonstatus--purple--default);
 }

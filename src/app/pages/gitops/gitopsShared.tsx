@@ -218,7 +218,7 @@ export function HealthStatus({
   if (status === "Healthy") {
     return (
       <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-        <Icon status="success" aria-hidden>
+        <Icon className="ocs-gitops-health-icon ocs-gitops-health-icon--healthy" aria-hidden>
           <HeartIcon />
         </Icon>
         <span>{status}</span>
@@ -269,7 +269,7 @@ export function HealthStatus({
     return (
       <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} alignItems={{ default: "alignItemsFlexStart" }}>
         <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-          <Icon status="danger" aria-hidden>
+          <Icon className="ocs-gitops-health-icon ocs-gitops-health-icon--degraded" aria-hidden>
             <HeartBrokenIcon />
           </Icon>
           <span>{status}</span>
