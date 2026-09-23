@@ -45,6 +45,8 @@ import {
   Pagination,
   PaginationVariant,
   Popover,
+  Stack,
+  StackItem,
   Title,
   Tooltip,
   ToolbarGroup,
@@ -74,6 +76,8 @@ import {
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import { OlmOperatingModeTabs } from "../../components/ecosystem/OlmOperatingModeTabs";
 import { OlmOperatorMigrationModal } from "../../components/ecosystem/OlmOperatorMigrationModal";
+import { OlmV1ExtensionUninstallModals } from "../../components/ecosystem/OlmV1ExtensionUninstallModals";
+import { OlmV1ExtensionUpdateModal } from "../../components/ecosystem/OlmV1ExtensionUpdateModal";
 import { getMigrationSummaryReason } from "../../components/ecosystem/olmMigrationEligibility";
 import { useOlmOperatingMode } from "../../contexts/OlmOperatingModeContext";
 import { ADDITIONAL_CATALOG_OPERATORS } from "./installedOperatorsFixtureData";
@@ -422,15 +426,15 @@ function rowMatchesDataViewFilters(
     if (!op.version.toLowerCase().includes(q)) return false;
   }
   if (f.clusterCompatibility.length > 0) {
-    if (op.isOlmV1Extension) return false;
+    if (op.isUnsupported) return false;
     if (!f.clusterCompatibility.includes(op.clusterCompatibility)) return false;
   }
   if (f.support.length > 0) {
-    if (op.isOlmV1Extension) return false;
+    if (op.isUnsupported || !op.supportLifecycle) return false;
     if (!f.support.includes(getEntitlementAwareSupportPhase(lifecycleOp, entitlement))) return false;
   }
   if (f.supportPhaseEnd.trim()) {
-    if (op.isOlmV1Extension) return false;
+    if (op.isUnsupported || !op.supportLifecycle) return false;
     const q = f.supportPhaseEnd.trim().toLowerCase();
     const raw = getEntitlementAwarePhaseEndDateRaw(lifecycleOp, entitlement);
     const formatted = formatLifecycleDateShort(raw).toLowerCase();
@@ -867,6 +871,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     lastUpdated: "Jun 12, 2025, 4:02 PM",
     managedNamespaces: ["openshift-gitops"],
     isOlmV1Extension: true,
+    updateAvailable: "1.13.0",
   },
   {
     name: "Sample observability bundle",
@@ -1396,15 +1401,29 @@ function InstalledOperatorSupportPhaseCell({
   entitlement: SubscriptionEntitlementContext;
 }) {
   const lifecycleOp = getLifecycleEvaluationRow(op, PROTOTYPE_CLUSTER_OCP_LIFECYCLE);
-  const phaseLabel = op.isOlmV1Extension ? "—" : getEntitlementAwareSupportPhase(lifecycleOp, entitlement);
-  const popoverAriaLabel = op.isOlmV1Extension
-    ? "Support phase and OLM v1 extensions"
-    : `Operator lifecycle for ${op.name}`;
-  const bodyContent = op.isOlmV1Extension ? (
-    <OlmV1ExtensionSupportPopoverContents />
-  ) : (
-    <SupportLifecyclePopoverContents op={op} entitlement={entitlement} />
-  );
+  const phaseLabel =
+    op.isUnsupported || !op.supportLifecycle
+      ? "—"
+      : getEntitlementAwareSupportPhase(lifecycleOp, entitlement);
+  const popoverAriaLabel = `Operator lifecycle for ${op.name}`;
+  const bodyContent =
+    op.isOlmV1Extension && !op.supportLifecycle ? (
+      <OlmV1ExtensionSupportPopoverContents />
+    ) : (
+      <Stack hasGutter>
+        {op.isOlmV1Extension ? (
+          <StackItem>
+            <Alert variant="info" title="OLM v1 cluster extension" isInline>
+              Lifecycle dates follow the same published schedules as OLM v0 operators when catalog metadata
+              is available.
+            </Alert>
+          </StackItem>
+        ) : null}
+        <StackItem>
+          <SupportLifecyclePopoverContents op={op} entitlement={entitlement} />
+        </StackItem>
+      </Stack>
+    );
 
   return (
     <Flex
@@ -1446,7 +1465,7 @@ function InstalledOperatorSupportPhaseEndCell({
   op: OperatorRow;
   entitlement: SubscriptionEntitlementContext;
 }) {
-  if (op.isOlmV1Extension || op.isUnsupported) {
+  if (op.isUnsupported || !op.supportLifecycle) {
     return <Content component="small">—</Content>;
   }
 
@@ -1509,10 +1528,14 @@ function InstalledOperatorSupportPhaseEndCell({
 
 export default function InstalledOperatorsPage() {
   const [operators] = useState<CatalogOperator[]>(() => [...INITIAL_CATALOG_OPERATORS]);
-  const { mode, isClassic, isNextGen, setMode } = useOlmOperatingMode();
+  const { mode, isClassic, isNextGen } = useOlmOperatingMode();
   const [migrationModalOpen, setMigrationModalOpen] = useState(false);
   const [migrationInitialOperator, setMigrationInitialOperator] = useState<string | null>(null);
   const [migrationInitialSelection, setMigrationInitialSelection] = useState<string[] | null>(null);
+  const [uninstallTarget, setUninstallTarget] = useState<CatalogOperator | null>(null);
+  const [uninstallModalKind, setUninstallModalKind] = useState<"unsubscribe" | "delete" | null>(null);
+  const [updateTarget, setUpdateTarget] = useState<CatalogOperator | null>(null);
+  const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [selectedOperatorNames, setSelectedOperatorNames] = useState<Set<string>>(new Set());
   const [openKebabIndex, setOpenKebabIndex] = useState<number | null>(null);
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<IoListFilters>({
@@ -1570,52 +1593,40 @@ export default function InstalledOperatorsPage() {
     [operators]
   );
 
-  /** CSV-only columns: hide on Cluster extensions (OLMv1) tab, not only when the cluster has no v0 operators. */
-  const showOlmV0ListColumns = hasOlmV0Operators && isClassic;
-
-  const otherModeOperatorCount = useMemo(
-    () =>
-      isClassic
-        ? operators.filter((o) => o.isOlmV1Extension).length
-        : operators.filter((o) => !o.isOlmV1Extension).length,
-    [operators, isClassic],
-  );
-
-  const otherModeLabel = isClassic
-    ? "cluster extension(s) managed in Next-Gen mode."
-    : "classic operator(s) managed in Classic mode.";
+  /** Lifecycle/compatibility columns on Classic (OLMv0) or Next-Gen (OLMv1) per OCPSTRAT-2620 Goal 1. */
+  const showLifecycleListColumns = isClassic ? hasOlmV0Operators : isNextGen;
 
   const visibleDataColumnCount = useMemo(
     () =>
       TABLE_COLUMN_OPTIONS.filter(({ key }) => {
         if (
-          !showOlmV0ListColumns &&
+          !showLifecycleListColumns &&
           (key === "clusterCompatibility" || key === "support" || key === "supportPhaseEnd")
         ) {
           return false;
         }
         return visibleColumns[key];
       }).length,
-    [visibleColumns, showOlmV0ListColumns]
+    [visibleColumns, showLifecycleListColumns]
   );
 
   const manageColumnsDefaultOrder = useMemo(
     () =>
       DEFAULT_MANAGE_COLUMN_ORDER.filter(
         (col) =>
-          showOlmV0ListColumns ||
+          showLifecycleListColumns ||
           (col.key !== "clusterCompatibility" &&
             col.key !== "support" &&
             col.key !== "supportPhaseEnd")
       ),
-    [showOlmV0ListColumns]
+    [showLifecycleListColumns]
   );
 
   const ioListAdvFilterSpecEffective = useMemo(() => {
-    if (showOlmV0ListColumns) return IO_LIST_ADV_FILTER_SPEC;
+    if (showLifecycleListColumns) return IO_LIST_ADV_FILTER_SPEC;
     const omit = new Set<string>(["clusterCompatibility", "support", "supportPhaseEnd"]);
     return IO_LIST_ADV_FILTER_SPEC.filter((a) => !omit.has(String(a.id)));
-  }, [showOlmV0ListColumns]);
+  }, [showLifecycleListColumns]);
 
   const showSelectionColumn = isClassic;
 
@@ -1685,14 +1696,7 @@ export default function InstalledOperatorsPage() {
     setSelectedOperatorNames(new Set());
   }, [mode, filters, perPage, subscriptionEntitlement]);
 
-  useEffect(() => {
-    if (isNextGen) {
-      onSetFilters({ clusterCompatibility: [], support: [], supportPhaseEnd: "" });
-    }
-  }, [isNextGen, onSetFilters]);
-
-  const toggleOperatorSelected = useCallback((name: string, eligible: boolean) => {
-    if (!eligible) return;
+  const toggleOperatorSelected = useCallback((name: string) => {
     setSelectedOperatorNames((prev) => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name);
@@ -1701,28 +1705,20 @@ export default function InstalledOperatorsPage() {
     });
   }, []);
 
-  const eligibleOnPage = useMemo(
-    () =>
-      pagedOperators.filter(
-        (op) => !op.isOlmV1Extension && op.olmMigrationEligibility === "eligible",
-      ),
-    [pagedOperators],
-  );
-
-  const allEligibleOnPageSelected =
-    eligibleOnPage.length > 0 && eligibleOnPage.every((op) => selectedOperatorNames.has(op.name));
+  const allOnPageSelected =
+    pagedOperators.length > 0 && pagedOperators.every((op) => selectedOperatorNames.has(op.name));
 
   const toggleSelectAllOnPage = useCallback(() => {
     setSelectedOperatorNames((prev) => {
       const next = new Set(prev);
-      if (allEligibleOnPageSelected) {
-        eligibleOnPage.forEach((op) => next.delete(op.name));
+      if (allOnPageSelected) {
+        pagedOperators.forEach((op) => next.delete(op.name));
       } else {
-        eligibleOnPage.forEach((op) => next.add(op.name));
+        pagedOperators.forEach((op) => next.add(op.name));
       }
       return next;
     });
-  }, [allEligibleOnPageSelected, eligibleOnPage]);
+  }, [allOnPageSelected, pagedOperators]);
 
   const openBulkMigration = useCallback(() => {
     const names = selectedEligibleForMigration.map((op) => op.name);
@@ -1815,7 +1811,16 @@ export default function InstalledOperatorsPage() {
     [operators]
   );
 
+  const openOlmV1Update = useCallback((op: OperatorRow) => {
+    setUpdateTarget(op);
+    setUpdateModalOpen(true);
+  }, []);
+
   const navigateToUpdate = (op: OperatorRow) => {
+    if (isNextGen && op.isOlmV1Extension) {
+      openOlmV1Update(op);
+      return;
+    }
     navigate(`/ecosystem/installed-operators/${encodeURIComponent(op.name)}/update`, {
       state: { returnTo: "/ecosystem/installed-operators", operatorName: op.name, operatorData: op },
     });
@@ -1958,33 +1963,30 @@ export default function InstalledOperatorsPage() {
             <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
               <OlmOperatingModeTabs id="installed-operators-olm-tabs" />
 
-              {otherModeOperatorCount > 0 ? (
-                <Content component="p" className="ocs-olm-mode-cross-hint">
-                  {otherModeOperatorCount} {otherModeLabel}{" "}
-                  <Button
-                    variant="link"
-                    isInline
-                    onClick={() => setMode(isClassic ? "nextgen" : "classic")}
-                  >
-                    Switch to {isClassic ? "Operators" : "Operators (Legacy)"}
-                  </Button>
-                </Content>
-              ) : null}
-
-              {isClassic && selectedEligibleForMigration.length >= 2 ? (
+              {isClassic && selectedOperatorsList.length > 0 ? (
                 <Flex gap={{ default: "gapMd" }} alignItems={{ default: "alignItemsCenter" }}>
-                  <Button variant="primary" onClick={openBulkMigration}>
+                  <Button
+                    variant="primary"
+                    onClick={openBulkMigration}
+                    isDisabled={selectedEligibleForMigration.length < 2}
+                    title={
+                      selectedEligibleForMigration.length < 2
+                        ? "Select at least 2 eligible operators to migrate"
+                        : undefined
+                    }
+                  >
                     Migrate operators ({selectedEligibleForMigration.length})
                   </Button>
-                  {selectedWithUpdates.length > 0 ? (
-                    <Button variant="secondary" onClick={openBulkUpdate}>
-                      Update operator{selectedWithUpdates.length === 1 ? "" : "s"} ({selectedWithUpdates.length})
-                    </Button>
-                  ) : null}
-                </Flex>
-              ) : isClassic && selectedWithUpdates.length > 0 && selectedEligibleForMigration.length < 2 ? (
-                <Flex gap={{ default: "gapMd" }}>
-                  <Button variant="secondary" onClick={openBulkUpdate}>
+                  <Button
+                    variant="secondary"
+                    onClick={openBulkUpdate}
+                    isDisabled={selectedWithUpdates.length === 0}
+                    title={
+                      selectedWithUpdates.length === 0
+                        ? "No selected operators have an available update"
+                        : undefined
+                    }
+                  >
                     Update operator{selectedWithUpdates.length === 1 ? "" : "s"} ({selectedWithUpdates.length})
                   </Button>
                 </Flex>
@@ -2074,7 +2076,7 @@ export default function InstalledOperatorsPage() {
                       placeholder="Type to match version"
                       style={{ minWidth: "12rem", maxWidth: "100%" }}
                     />
-                    {showOlmV0ListColumns ? (
+                    {showLifecycleListColumns ? (
                       <>
                         <DataViewCheckboxFilter
                           title="Cluster compatibility"
@@ -2149,9 +2151,9 @@ export default function InstalledOperatorsPage() {
                         <Th screenReaderText="Select row">
                           <Checkbox
                             id="installed-operators-select-all"
-                            aria-label="Select all eligible operators on this page"
-                            isChecked={allEligibleOnPageSelected}
-                            isDisabled={eligibleOnPage.length === 0}
+                            aria-label="Select all operators on this page"
+                            isChecked={allOnPageSelected}
+                            isDisabled={pagedOperators.length === 0}
                             onChange={toggleSelectAllOnPage}
                           />
                         </Th>
@@ -2165,15 +2167,15 @@ export default function InstalledOperatorsPage() {
                       {visibleColumns.version && (
                         <Th dataLabel="Version">{renderSortableHeader("Version", "version")}</Th>
                       )}
-                      {showOlmV0ListColumns && visibleColumns.clusterCompatibility && (
+                      {showLifecycleListColumns && visibleColumns.clusterCompatibility && (
                         <Th dataLabel="Cluster compatibility">
                           {renderSortableHeader("Cluster compatibility", "clusterCompatibility")}
                         </Th>
                       )}
-                      {showOlmV0ListColumns && visibleColumns.support && (
+                      {showLifecycleListColumns && visibleColumns.support && (
                         <Th dataLabel="Support phase">{renderSortableHeader("Support phase", "support")}</Th>
                       )}
-                      {showOlmV0ListColumns && visibleColumns.supportPhaseEnd && (
+                      {showLifecycleListColumns && visibleColumns.supportPhaseEnd && (
                         <Th dataLabel="Current phase end date">
                           {renderSortableHeader("Current phase end date", "supportPhaseEnd")}
                         </Th>
@@ -2206,30 +2208,12 @@ export default function InstalledOperatorsPage() {
                         <Tr key={op.name}>
                           {showSelectionColumn && (
                             <Td selectType="checkbox">
-                              {op.isOlmV1Extension || op.olmMigrationEligibility !== "eligible" ? (
-                                <Tooltip
-                                  content={
-                                    op.isOlmV1Extension
-                                      ? "Cluster extensions are already managed by Operators (OLMv1)."
-                                      : getMigrationSummaryReason(op)
-                                  }
-                                >
-                                  <Checkbox
-                                    id={`installed-operator-select-${i}`}
-                                    aria-label={`Select ${op.name}`}
-                                    isChecked={selectedOperatorNames.has(op.name)}
-                                    isDisabled
-                                    onChange={() => undefined}
-                                  />
-                                </Tooltip>
-                              ) : (
-                                <Checkbox
-                                  id={`installed-operator-select-${i}`}
-                                  aria-label={`Select ${op.name}`}
-                                  isChecked={selectedOperatorNames.has(op.name)}
-                                  onChange={() => toggleOperatorSelected(op.name, true)}
-                                />
-                              )}
+                              <Checkbox
+                                id={`installed-operator-select-${i}`}
+                                aria-label={`Select ${op.name}`}
+                                isChecked={selectedOperatorNames.has(op.name)}
+                                onChange={() => toggleOperatorSelected(op.name)}
+                              />
                             </Td>
                           )}
                           <Td dataLabel="Operator">
@@ -2279,13 +2263,19 @@ export default function InstalledOperatorsPage() {
                                     <Button
                                       variant="link"
                                       isInline
-                                      component={Link}
-                                      to={`/ecosystem/installed-operators/${encodeURIComponent(op.name)}/update`}
-                                      state={{
-                                        returnTo: "/ecosystem/installed-operators",
-                                        operatorName: op.name,
-                                        operatorData: op,
-                                      }}
+                                      {...(isNextGen && op.isOlmV1Extension
+                                        ? {
+                                            onClick: () => openOlmV1Update(op),
+                                          }
+                                        : {
+                                            component: Link,
+                                            to: `/ecosystem/installed-operators/${encodeURIComponent(op.name)}/update`,
+                                            state: {
+                                              returnTo: "/ecosystem/installed-operators",
+                                              operatorName: op.name,
+                                              operatorData: op,
+                                            },
+                                          })}
                                     >
                                       Update available: {op.updateAvailable}
                                     </Button>
@@ -2294,16 +2284,9 @@ export default function InstalledOperatorsPage() {
                               </Flex>
                             </Td>
                           )}
-                          {showOlmV0ListColumns && visibleColumns.clusterCompatibility && (
+                          {showLifecycleListColumns && visibleColumns.clusterCompatibility && (
                             <Td dataLabel="Cluster compatibility">
-                              {op.isOlmV1Extension ? (
-                                <Tooltip
-                                  content="Cluster compatibility applies to OLM v0 managed operators (CSV) only."
-                                  position="top"
-                                >
-                                  <Content component="small">—</Content>
-                                </Tooltip>
-                              ) : op.clusterCompatibility === "Compatible" ? (
+                              {op.clusterCompatibility === "Compatible" ? (
                                 <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
                                   <Icon status="success">
                                     <CheckCircle />
@@ -2320,7 +2303,7 @@ export default function InstalledOperatorsPage() {
                               )}
                             </Td>
                           )}
-                          {showOlmV0ListColumns && visibleColumns.support && (
+                          {showLifecycleListColumns && visibleColumns.support && (
                             <Td dataLabel="Support phase">
                               <InstalledOperatorSupportPhaseCell
                                 op={op}
@@ -2328,7 +2311,7 @@ export default function InstalledOperatorsPage() {
                               />
                             </Td>
                           )}
-                          {showOlmV0ListColumns && visibleColumns.supportPhaseEnd && (
+                          {showLifecycleListColumns && visibleColumns.supportPhaseEnd && (
                             <Td dataLabel="Current phase end date">
                               <InstalledOperatorSupportPhaseEndCell
                                 op={op}
@@ -2404,11 +2387,20 @@ export default function InstalledOperatorsPage() {
                                 >
                                   View details
                                 </DropdownItem>
-                                {typeof op.updateAvailable === "string" && op.updateAvailable.length > 0 ? (
-                                  <DropdownItem itemId="update" onClick={() => navigateToUpdate(op)}>
-                                    Update
-                                  </DropdownItem>
-                                ) : null}
+                                <DropdownItem
+                                  itemId="update"
+                                  isDisabled={
+                                    typeof op.updateAvailable !== "string" || op.updateAvailable.length === 0
+                                  }
+                                  tooltip={
+                                    typeof op.updateAvailable !== "string" || op.updateAvailable.length === 0
+                                      ? "No update is available for this operator"
+                                      : undefined
+                                  }
+                                  onClick={() => navigateToUpdate(op)}
+                                >
+                                  Update
+                                </DropdownItem>
                                 <DropdownItem
                                   itemId="subscription"
                                   onClick={() =>
@@ -2420,22 +2412,77 @@ export default function InstalledOperatorsPage() {
                                   Edit subscription
                                 </DropdownItem>
                                 {isClassic && !op.isOlmV1Extension ? (
-                                  <DropdownItem
-                                    itemId="migrate"
-                                    onClick={() => {
-                                      setMigrationInitialSelection(null);
-                                      setMigrationInitialOperator(op.name);
-                                      setMigrationModalOpen(true);
-                                    }}
-                                  >
-                                    {op.olmMigrationEligibility === "eligible"
-                                      ? "Migrate to Operators (OLMv1)"
-                                      : "Why migration is unavailable"}
-                                  </DropdownItem>
+                                  <>
+                                    <DropdownItem
+                                      itemId="migrate"
+                                      isDisabled={op.olmMigrationEligibility !== "eligible"}
+                                      tooltip={
+                                        op.olmMigrationEligibility !== "eligible"
+                                          ? getMigrationSummaryReason(op)
+                                          : undefined
+                                      }
+                                      onClick={() => {
+                                        setMigrationInitialSelection(null);
+                                        setMigrationInitialOperator(op.name);
+                                        setMigrationModalOpen(true);
+                                      }}
+                                    >
+                                      Migrate to Operators (OLMv1)
+                                    </DropdownItem>
+                                    {op.olmMigrationEligibility !== "eligible" ? (
+                                      <DropdownItem
+                                        itemId="migrate-blockers"
+                                        onClick={() => {
+                                          setMigrationInitialSelection(null);
+                                          setMigrationInitialOperator(op.name);
+                                          setMigrationModalOpen(true);
+                                        }}
+                                      >
+                                        View migration blockers
+                                      </DropdownItem>
+                                    ) : null}
+                                  </>
                                 ) : null}
-                                <DropdownItem itemId="uninstall" isDisabled>
-                                  Uninstall operator
-                                </DropdownItem>
+                                {isNextGen && op.isOlmV1Extension ? (
+                                  <>
+                                    {op.updateAvailable ? (
+                                      <DropdownItem
+                                        itemId="update"
+                                        onClick={() => {
+                                          openOlmV1Update(op);
+                                          setOpenKebabIndex(null);
+                                        }}
+                                      >
+                                        Update to {op.updateAvailable}
+                                      </DropdownItem>
+                                    ) : null}
+                                    <DropdownItem
+                                      itemId="unsubscribe"
+                                      onClick={() => {
+                                        setUninstallTarget(op);
+                                        setUninstallModalKind("unsubscribe");
+                                        setOpenKebabIndex(null);
+                                      }}
+                                    >
+                                      Unsubscribe from updates
+                                    </DropdownItem>
+                                    <DropdownItem
+                                      itemId="delete-extension"
+                                      className="pf-m-danger"
+                                      onClick={() => {
+                                        setUninstallTarget(op);
+                                        setUninstallModalKind("delete");
+                                        setOpenKebabIndex(null);
+                                      }}
+                                    >
+                                      Delete extension and managed resources
+                                    </DropdownItem>
+                                  </>
+                                ) : (
+                                  <DropdownItem itemId="uninstall" isDisabled>
+                                    Uninstall operator
+                                  </DropdownItem>
+                                )}
                               </Dropdown>
                             </Td>
                           )}
@@ -2466,6 +2513,24 @@ export default function InstalledOperatorsPage() {
         initialSelection={migrationInitialSelection}
       />
 
+      <OlmV1ExtensionUninstallModals
+        operator={uninstallTarget}
+        kind={uninstallModalKind}
+        onClose={() => {
+          setUninstallTarget(null);
+          setUninstallModalKind(null);
+        }}
+      />
+
+      <OlmV1ExtensionUpdateModal
+        operator={updateTarget}
+        isOpen={updateModalOpen}
+        onClose={() => {
+          setUpdateModalOpen(false);
+          setUpdateTarget(null);
+        }}
+      />
+
       <Modal
         variant="large"
         isOpen={isManageColumnsModalOpen}
@@ -2477,7 +2542,7 @@ export default function InstalledOperatorsPage() {
           labelId="io-manage-cols-title"
           descriptorId="io-manage-cols-body"
           title="Manage columns"
-          description="Default columns are shown by default. Additional columns include update plan, managed namespaces, and optional row actions. Cluster compatibility, Support phase, and Current phase end date apply to OLM v0 managed operators only. Operator is always shown."
+          description="Default columns are shown by default. Additional columns include update plan, managed namespaces, and optional row actions. Cluster compatibility, Support phase, and Current phase end date apply on both Operators (Legacy) and Operators tabs when lifecycle metadata is available. Operator is always shown."
         />
         <ModalBody id="io-manage-cols-body">
           <Flex

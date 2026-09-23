@@ -11,23 +11,23 @@ import {
   DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
-  Dropdown,
-  DropdownItem,
-  DropdownList,
   Flex,
   Grid,
   GridItem,
   Label,
-  MenuToggle,
   Tab,
   Tabs,
   TabTitleText,
   Title,
 } from "@patternfly/react-core";
-import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import PencilAltIcon from "@patternfly/react-icons/dist/esm/icons/pencil-alt-icon";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import {
+  OlmV1ExtensionUpdateAlert,
+  useOlmV1ExtensionLifecycleActions,
+} from "../../components/ecosystem/OlmV1ExtensionLifecycleActions";
+import { getPrototypeInstalledOperator } from "../ecosystem/installedOperatorsLookup";
 import { ResourceName } from "./gitopsShared";
 
 type ProvidedApi = {
@@ -158,10 +158,37 @@ function ProvidedApiCard({ api }: { api: ProvidedApi }) {
 
 export default function GitOpsOperatorDetailView({ operatorName }: { operatorName: string }) {
   const [activeTab, setActiveTab] = useState<OperatorTab>("details");
-  const [actionsOpen, setActionsOpen] = useState(false);
+  const lookupOperator = getPrototypeInstalledOperator(operatorName);
+  const [operator, setOperator] = useState(
+    () =>
+      lookupOperator ?? {
+        name: operatorName,
+        namespace: "openshift-gitops-operator",
+        version: "1.12.4",
+        channel: "gitops-1.12",
+        source: "redhat-operators",
+        status: "Running" as const,
+        autoUpdate: true,
+        clusterCompatibility: "Compatible" as const,
+        isOlmV1Extension: true,
+        updateAvailable: "1.13.0",
+        managedNamespaces: ["openshift-gitops"],
+      },
+  );
   const operatorPath = `/ecosystem/installed-operators/${encodeURIComponent(operatorName)}`;
   const displayName = "Red Hat OpenShift GitOps";
-  const version = "1.12.4";
+  const version = operator.version;
+
+  const { actionsDropdown, lifecycleModals, openUpdate } = useOlmV1ExtensionLifecycleActions({
+    operator,
+    onVersionUpdated: (newVersion) => {
+      setOperator((prev) => ({
+        ...prev,
+        version: newVersion,
+        updateAvailable: undefined,
+      }));
+    },
+  });
 
   return (
     <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
@@ -190,23 +217,11 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
                 </Flex>
                 <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
                   <FavoriteButton name={displayName} path={operatorPath} />
-                  <Dropdown
-                    isOpen={actionsOpen}
-                    onOpenChange={(open) => setActionsOpen(open)}
-                    popperProps={{ position: "right" }}
-                    toggle={(toggleRef) => (
-                      <MenuToggle ref={toggleRef} onClick={() => setActionsOpen(!actionsOpen)} variant="secondary">
-                        Actions <EllipsisVIcon aria-hidden />
-                      </MenuToggle>
-                    )}
-                  >
-                    <DropdownList>
-                      <DropdownItem onClick={() => setActionsOpen(false)}>Uninstall</DropdownItem>
-                      <DropdownItem onClick={() => setActionsOpen(false)}>View subscription</DropdownItem>
-                    </DropdownList>
-                  </Dropdown>
+                  {actionsDropdown}
                 </Flex>
               </Flex>
+
+              <OlmV1ExtensionUpdateAlert operator={operator} onUpdate={openUpdate} />
 
               <div className="ocs-gitops-operator-tabs">
                 <Tabs
@@ -348,6 +363,7 @@ spec:
           </GridItem>
         </Grid>
       </Breadcrumbs>
+      {lifecycleModals}
     </div>
   );
 }

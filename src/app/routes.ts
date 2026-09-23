@@ -5,7 +5,6 @@ import RootLayout from "./components/RootLayout";
 import Layout from "./components/Layout";
 import HomePage from "./pages/HomePage";
 import FavoritesPage from "./pages/FavoritesPage";
-import EcosystemPage from "./pages/EcosystemPage";
 import WorkloadsPage from "./pages/WorkloadsPage";
 import PodsPage from "./pages/workloads/PodsPage";
 import PodDetailPage from "./pages/workloads/PodDetailPage";
@@ -115,7 +114,7 @@ export const router = createBrowserRouter([
         children: [
           { index: true, Component: HomePage },
           { path: "favorites", Component: FavoritesPage },
-          { path: "ecosystem", Component: EcosystemPage },
+          { path: "ecosystem", loader: () => redirect("/ecosystem/software-catalog") },
           { path: "ecosystem/software-catalog", Component: SoftwareCatalogPage },
           { path: "ecosystem/software-catalog/:operatorId", Component: OperatorDetailPage },
           { path: "ecosystem/software-catalog/:operatorId/update", Component: OperatorUpdatePage },

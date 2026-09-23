@@ -4,6 +4,8 @@ import { AlertTriangle, ExternalLink, ChevronRight, ArrowRight, CheckCircle2, In
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import GitOpsOperatorDetailView from "../gitops/GitOpsOperatorDetailView";
+import OlmV1ExtensionDetailView from "./OlmV1ExtensionDetailView";
+import { isOlmV1ExtensionOperatorName } from "./installedOperatorsLookup";
 
 // Channel definitions with available versions and cluster compatibility
 interface ChannelDef {
@@ -44,8 +46,11 @@ const CHANNELS: ChannelDef[] = [
 export default function OperatorDetailPage() {
   const { operatorId, operatorName } = useParams();
   const decodedOperatorName = decodeURIComponent(operatorName ?? operatorId ?? "");
-  if (decodedOperatorName.toLowerCase().includes("gitops")) {
-    return <GitOpsOperatorDetailView operatorName={decodedOperatorName} />;
+  if (isOlmV1ExtensionOperatorName(decodedOperatorName)) {
+    if (decodedOperatorName.toLowerCase().includes("gitops")) {
+      return <GitOpsOperatorDetailView operatorName={decodedOperatorName} />;
+    }
+    return <OlmV1ExtensionDetailView operatorName={decodedOperatorName} />;
   }
   return <DefaultOperatorDetailPage />;
 }
