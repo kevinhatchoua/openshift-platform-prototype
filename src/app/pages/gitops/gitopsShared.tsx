@@ -14,7 +14,8 @@ import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon";
 import HeartBrokenIcon from "@patternfly/react-icons/dist/esm/icons/heart-broken-icon";
-import HeartIcon from "@patternfly/react-icons/dist/esm/icons/heart-icon";
+import InProgressIcon from "@patternfly/react-icons/dist/esm/icons/in-progress-icon";
+import PauseIcon from "@patternfly/react-icons/dist/esm/icons/pause-icon";
 import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
 import type { GitOpsHealth, GitOpsOwner, OwnerReference } from "./gitopsData";
 import { GITOPS_APPLICATION_SETS, gitopsDetailPath } from "./gitopsData";
@@ -216,8 +217,8 @@ export function HealthStatus({
   if (status === "Healthy") {
     return (
       <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-        <Icon className="ocs-gitops-health-icon ocs-gitops-health-icon--healthy" aria-hidden>
-          <HeartIcon />
+        <Icon status="success" aria-hidden>
+          <CheckCircleIcon />
         </Icon>
         <span>{status}</span>
       </Flex>
@@ -236,14 +237,20 @@ export function HealthStatus({
   if (status === "Paused") {
     return (
       <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-        <Label color={gitOpsHealthLabelColor(status)} isCompact>{status}</Label>
+        <Icon className="ocs-gitops-health-icon ocs-gitops-health-icon--paused" aria-hidden>
+          <PauseIcon />
+        </Icon>
+        <span>{status}</span>
       </Flex>
     );
   }
   if (status === "Progressing") {
     return (
       <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-        <Label color={gitOpsHealthLabelColor(status)} isCompact>{status}</Label>
+        <Icon status="info" aria-hidden>
+          <InProgressIcon />
+        </Icon>
+        <span>{status}</span>
       </Flex>
     );
   }
@@ -261,7 +268,7 @@ export function HealthStatus({
     return (
       <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} alignItems={{ default: "alignItemsFlexStart" }}>
         <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-          <Icon className="ocs-gitops-health-icon ocs-gitops-health-icon--degraded" aria-hidden>
+          <Icon status="danger" aria-hidden>
             <HeartBrokenIcon />
           </Icon>
           <span>{status}</span>
