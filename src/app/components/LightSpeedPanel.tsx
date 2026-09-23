@@ -28,6 +28,7 @@ import {
   getAIResponse,
   getApplyRemediationResponse,
   getClusterSettingsPrecheckResponse,
+  getGitOpsHealthRemediationResponse,
   getPreflightRemediationResponse,
   getUpdateStatusResponse,
 } from "./LightSpeedPanelResponses";
@@ -142,6 +143,11 @@ export default function LightSpeedPanel({ isOpen, onClose, dockTop = null }: Lig
       report = getApplyRemediationResponse();
     } else if (chatContext.startsWith("ols-topology:")) {
       report = getTopologyLightspeedResponse(chatContext);
+    } else if (chatContext.startsWith("ols-gitops-health-remediation:")) {
+      const [, namespace, applicationName] = chatContext.split(":");
+      if (namespace && applicationName) {
+        report = getGitOpsHealthRemediationResponse(applicationName, namespace);
+      }
     }
 
     if (!report) return undefined;

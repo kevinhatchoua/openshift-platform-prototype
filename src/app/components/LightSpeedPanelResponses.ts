@@ -177,6 +177,32 @@ export function getApplyRemediationResponse(): {
   };
 }
 
+export function getGitOpsHealthRemediationResponse(applicationName: string, namespace: string): {
+  content: string;
+  suggestions: string[];
+  tools?: string[];
+} {
+  return {
+    content:
+      `**GitOps health remediation for ${namespace}/${applicationName} (prototype)**\n\n` +
+      `**Observed pattern:** Application health is **Degraded** — likely asymmetric cancel/sync friction or a resource failing health checks.\n\n` +
+      `**Recommended checks**\n` +
+      `1. Open the Application sync error and compare live cluster state to Git.\n` +
+      `2. Review recent sync failures and operator events for the failing resource.\n` +
+      `3. Confirm automated sync policy is not masking a partial deploy.\n\n` +
+      `**Suggested next steps**\n` +
+      `• Re-sync after fixing the underlying manifest or dependency.\n` +
+      `• Run a reverse-path review on cancel, rollback, and delete flows before closing the incident.\n\n` +
+      `Always review AI-generated content prior to use.`,
+    tools: ["kubectl get application", "argocd app get", "argocd app diff"],
+    suggestions: [
+      "What resource is failing health checks?",
+      "Show a safe re-sync sequence",
+      "Compare sync vs health status",
+    ],
+  };
+}
+
 // Comprehensive AI response handler for OpenShift LightSpeed
 export function getAIResponse(userInput: string, currentPath?: string): { 
   content: string; 

@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type MouseEvent, type ReactNode, useState } from "react";
 import { Link } from "react-router";
 import {
   Button,
@@ -13,6 +13,8 @@ import {
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon";
+import HeartBrokenIcon from "@patternfly/react-icons/dist/esm/icons/heart-broken-icon";
+import HeartIcon from "@patternfly/react-icons/dist/esm/icons/heart-icon";
 import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
 import type { GitOpsHealth, GitOpsOwner, OwnerReference } from "./gitopsData";
 import { GITOPS_APPLICATION_SETS, gitopsDetailPath } from "./gitopsData";
@@ -202,8 +204,26 @@ export function ManagedByCell({ owner }: { owner: GitOpsOwner }) {
   return <ResourceName kind={owner.kind} name={owner.name} to={to} />;
 }
 
-export function HealthStatus({ status }: { status: GitOpsHealth | "Synced" | "OutOfSync" | string }) {
-  if (status === "Healthy" || status === "Synced") {
+export function HealthStatus({
+  status,
+  showAiRemediation = false,
+  onAiRemediationClick,
+}: {
+  status: GitOpsHealth | "Synced" | "OutOfSync" | string;
+  showAiRemediation?: boolean;
+  onAiRemediationClick?: (event: MouseEvent) => void;
+}) {
+  if (status === "Healthy") {
+    return (
+      <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+        <Icon className="ocs-gitops-health-icon ocs-gitops-health-icon--healthy" aria-hidden>
+          <HeartIcon />
+        </Icon>
+        <span>{status}</span>
+      </Flex>
+    );
+  }
+  if (status === "Synced") {
     return (
       <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
         <Icon status="success" aria-hidden>
@@ -239,11 +259,26 @@ export function HealthStatus({ status }: { status: GitOpsHealth | "Synced" | "Ou
   }
   if (status === "Degraded") {
     return (
-      <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-        <Icon status="warning" aria-hidden>
-          <ExclamationCircleIcon />
-        </Icon>
-        <span>{status}</span>
+      <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} alignItems={{ default: "alignItemsFlexStart" }}>
+        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+          <Icon className="ocs-gitops-health-icon ocs-gitops-health-icon--degraded" aria-hidden>
+            <HeartBrokenIcon />
+          </Icon>
+          <span>{status}</span>
+        </Flex>
+        {showAiRemediation ? (
+          <Button
+            variant="link"
+            isInline
+            className="ocs-gitops-health-remediation-link"
+            onClick={(event) => {
+              event.stopPropagation();
+              onAiRemediationClick?.(event);
+            }}
+          >
+            View AI remediation
+          </Button>
+        ) : null}
       </Flex>
     );
   }

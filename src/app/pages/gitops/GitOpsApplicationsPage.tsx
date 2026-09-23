@@ -1,4 +1,4 @@
-import { useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
 import { Button, Content, Flex, Pagination, PaginationVariant, ToolbarGroup, ToolbarItem } from "@patternfly/react-core";
 import {
@@ -12,6 +12,7 @@ import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
 import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { useChat } from "../../contexts/ChatContext";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import {
   OCS_PROTOTYPE_DATAVIEW_CLASS,
@@ -68,6 +69,7 @@ function rowMatches(row: ApplicationRecord, filters: ApplicationFilters, attenti
 export default function GitOpsApplicationsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
+  const { clearMessages, setContext, setIsOpen } = useChat();
   const { instance } = useGitOpsInstance();
   const attentionMode = searchParams.get("attention") === "1";
   const urlSyncKey = searchParams.getAll("sync").join("\0");
@@ -116,6 +118,15 @@ export default function GitOpsApplicationsPage() {
   useEffect(() => {
     setPage(1);
   }, [filters.name, filters.namespace, filters.sync ?? [], filters.health ?? [], perPage, setPage]);
+
+  const openHealthRemediation = useCallback(
+    (item: ApplicationRecord) => {
+      clearMessages();
+      setContext(`ols-gitops-health-remediation:${item.ns}:${item.name}`);
+      setIsOpen(true);
+    },
+    [clearMessages, setContext, setIsOpen]
+  );
 
   return (
     <div className="ocs-app-page-outer w-full">
@@ -202,8 +213,8 @@ export default function GitOpsApplicationsPage() {
                   <Th dataLabel="Sync status">
                     <PlainTableHeader label="Sync status" />
                   </Th>
-                  <Th dataLabel="Health">
-                    <PlainTableHeader label="Health" />
+                  <Th dataLabel="Health Status">
+                    <PlainTableHeader label="Health Status" />
                   </Th>
                   <Th dataLabel="Managed by">
                     <PlainTableHeader label="Managed by" />
@@ -240,8 +251,12 @@ export default function GitOpsApplicationsPage() {
                         <Td dataLabel="Sync status">
                           <HealthStatus status={item.sync} />
                         </Td>
-                        <Td dataLabel="Health">
-                          <HealthStatus status={item.health} />
+                        <Td dataLabel="Health Status">
+                          <HealthStatus
+                            status={item.health}
+                            showAiRemediation={item.health === "Degraded"}
+                            onAiRemediationClick={() => openHealthRemediation(item)}
+                          />
                         </Td>
                         <Td dataLabel="Managed by">
                           <OwnerReferencesCell refs={item.ownerReferences} ns={item.ns} />

@@ -97,6 +97,24 @@
   color: var(--pf-t--global--color--status--danger--default);
 }
 
+.ocs-gitops-health-icon {
+  display: inline-flex;
+}
+
+.ocs-gitops-health-icon--healthy {
+  color: var(--pf-t--global--icon--color--status--success--default);
+}
+
+.ocs-gitops-health-icon--degraded {
+  color: var(--pf-t--global--icon--color--status--warning--default);
+}
+
+.ocs-gitops-health-remediation-link {
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-underline-offset: 0.15em;
+}
+
 .ocs-gitops-stat-link {
   text-decoration: none;
   color: inherit;
