@@ -14,6 +14,7 @@ import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon";
 import HeartBrokenIcon from "@patternfly/react-icons/dist/esm/icons/heart-broken-icon";
+import HeartIcon from "@patternfly/react-icons/dist/esm/icons/heart-icon";
 import InProgressIcon from "@patternfly/react-icons/dist/esm/icons/in-progress-icon";
 import PauseIcon from "@patternfly/react-icons/dist/esm/icons/pause-icon";
 import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
@@ -218,7 +219,7 @@ export function HealthStatus({
     return (
       <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
         <Icon status="success" aria-hidden>
-          <CheckCircleIcon />
+          <HeartIcon />
         </Icon>
         <span>{status}</span>
       </Flex>
