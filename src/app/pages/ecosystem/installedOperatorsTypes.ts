@@ -13,6 +13,17 @@ export type OlmMigrationBlocker = {
 
 export type OlmMigrationDemoResult = "success" | "failed" | "error" | "incomplete";
 
+/** Simulated / reported outcome for a migration attempt (OCPSTRAT-2692 prototype). */
+export type OlmMigrationRunResult = "success" | "failed" | "error" | "incomplete" | "skipped";
+
+export type OlmMigrationActivityStatus =
+  | "queued"
+  | "migrating"
+  | "succeeded"
+  | "failed_rollback"
+  | "error"
+  | "incomplete";
+
 type InstalledOperator = {
   name: string;
   namespace: string;
@@ -43,4 +54,7 @@ export type CatalogOperator = InstalledOperator & {
   olmMigrationBlockers?: OlmMigrationBlocker[];
   /** Prototype-only simulated migration outcome for eligible operators. */
   olmMigrationDemoResult?: OlmMigrationDemoResult;
+  /** In-table migration progress (background run). */
+  olmMigrationActivity?: OlmMigrationActivityStatus;
+  olmMigrationActivityDetail?: string;
 };

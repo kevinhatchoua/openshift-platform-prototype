@@ -1,6 +1,7 @@
 import { useMemo } from "react";
 import { useLocation } from "react-router";
 import PrototypeDemoMenu from "./PrototypeDemoMenu";
+import OlmMigrationScenarioMenu from "./ecosystem/OlmMigrationScenarioMenu";
 
 const HUB_PROTOTYPES_URL =
   import.meta.env.VITE_HUB_PROTOTYPES_URL?.trim() ||
@@ -42,7 +43,10 @@ export default function BackToPrototypesBanner() {
           <span className="ocs-back-to-prototypes-banner__context">{contextLabel}</span>
         ) : null}
         <span className="ocs-back-to-prototypes-banner__note">· Links and data are not live</span>
-        <PrototypeDemoMenu />
+        <span className="ocs-back-to-prototypes-banner__controls">
+          <OlmMigrationScenarioMenu />
+          <PrototypeDemoMenu />
+        </span>
       </div>
     </div>
   );

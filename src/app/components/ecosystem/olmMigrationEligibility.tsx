@@ -11,6 +11,7 @@ import {
   StackItem,
 } from "@patternfly/react-core";
 import { ExternalLink } from "@/lib/pfIcons";
+import { OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
 import type {
   CatalogOperator,
   OlmMigrationBlocker,
@@ -31,10 +32,10 @@ function defaultBlockersForEligibility(
     return [
       {
         code: "already_migrated",
-        title: "Already managed by Operators (OLMv1)",
+        title: `Already managed by ${OLM_MODE_LABELS.nextgen}`,
         description: `${op.name} is already under OLMv1 management.`,
-        resolution: "Switch to the Operators tab to review or update this operator.",
-        actionLabel: "View in Operators mode",
+        resolution: `Switch to the ${OLM_MODE_LABELS.nextgen} tab to review or update this operator.`,
+        actionLabel: `View in ${OLM_MODE_LABELS.nextgen}`,
         actionHref: detailsHref,
       },
     ];
@@ -63,7 +64,7 @@ function defaultBlockersForEligibility(
         title: `Operator is ${op.status.toLowerCase()}`,
         description:
           op.compatibilityMessage ??
-          "Migration requires a healthy operator before management can move to Operators (OLMv1).",
+          `Migration requires a healthy operator before management can move to ${OLM_MODE_LABELS.nextgen}.`,
         resolution:
           "Resolve operator health issues, confirm all operands are running, then retry migration from the row menu.",
         actionLabel: "View operator details",

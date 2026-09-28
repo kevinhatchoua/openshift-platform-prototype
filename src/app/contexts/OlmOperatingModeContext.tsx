@@ -12,18 +12,18 @@ import {
 export type OlmOperatingMode = "classic" | "nextgen";
 
 export const OLM_MODE_LABELS: Record<OlmOperatingMode, string> = {
-  classic: "Operators (Legacy)",
-  nextgen: "Operators",
+  classic: "Legacy Operators",
+  nextgen: "Next-Gen Operators",
 };
 
 export const OLM_CATALOG_FACET_LABELS: Record<OlmOperatingMode, string> = {
-  classic: "Operators (Legacy)",
-  nextgen: "Operators",
+  classic: "Legacy Operators",
+  nextgen: "Next-Gen Operators",
 };
 
 export const OLM_OPERATOR_PILL_LABELS: Record<"v0" | "v1", string> = {
-  v0: "Operators (Legacy)",
-  v1: "Operators",
+  v0: "Legacy Operators",
+  v1: "Next-Gen Operators",
 };
 
 const STORAGE_KEY = "ocp-prototype-olm-operating-mode";

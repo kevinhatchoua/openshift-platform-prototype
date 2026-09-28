@@ -39,4 +39,9 @@ export default defineConfig({
     chunkSizeWarningLimit: 2200,
   },
   assetsInclude: ['**/*.svg', '**/*.csv'],
+  server: {
+    host: '127.0.0.1',
+    port: 5173,
+    strictPort: true,
+  },
 })

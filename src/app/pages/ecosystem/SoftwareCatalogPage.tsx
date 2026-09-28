@@ -1206,8 +1206,8 @@ export default function SoftwareCatalogPage() {
                 }
               >
                 {isNextGen
-                  ? "The Operators catalog lists OLMv1 cluster extensions that pass compatibility checks for this cluster. Try adjusting filters or switch to Operators (Legacy)."
-                  : "Try adjusting search or facet filters, or switch catalog to Operators (OLMv1)."}
+                  ? `The Next-Gen Operators catalog lists OLMv1 cluster extensions that pass compatibility checks for this cluster. Try adjusting filters or switch to ${OLM_CATALOG_FACET_LABELS.classic}.`
+                  : `Try adjusting search or facet filters, or switch catalog to ${OLM_CATALOG_FACET_LABELS.nextgen}.`}
               </Alert>
             ) : null}
 

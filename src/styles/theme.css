@@ -4057,6 +4057,25 @@ html.dark .ocs-net-topo-panel__canvas {
   flex-wrap: wrap;
 }
 
+.ocs-back-to-prototypes-banner__controls {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ocs-back-to-prototypes-banner__controls .pf-v6-c-menu-toggle {
+  max-width: min(22rem, 42vw);
+}
+
+.ocs-io-toolbar-pagination-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--pf-t--global--spacer--md);
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
 .ocs-back-to-prototypes-banner__reset-switch {
   margin-inline-start: 4px;
 }
@@ -4165,6 +4184,40 @@ html.dark .ocs-net-topo-panel__canvas {
 
 .ocs-back-to-prototypes-banner .ocs-prototype-demo-menu__toggle .pf-v6-c-menu-toggle__toggle-icon,
 .ocs-back-to-prototypes-banner .ocs-prototype-demo-menu__toggle .pf-v6-svg-icon {
+  color: #151515;
+}
+
+.ocs-olm-migration-scenario-menu {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.ocs-olm-migration-scenario-menu__label {
+  font-size: 13px;
+  font-weight: 600;
+  color: #151515;
+  white-space: nowrap;
+}
+
+.ocs-back-to-prototypes-banner .ocs-olm-migration-scenario-menu__toggle.pf-v6-c-menu-toggle,
+.ocs-back-to-prototypes-banner .ocs-olm-migration-scenario-menu__toggle {
+  color: #151515;
+  background-color: #fff;
+  border-color: #6a6e73;
+  min-width: 10rem;
+  max-width: 14rem;
+  --pf-v6-c-menu-toggle--Color: #151515;
+  --pf-v6-c-menu-toggle--BackgroundColor: #fff;
+  --pf-v6-c-menu-toggle--BorderColor: #6a6e73;
+  --pf-v6-c-menu-toggle--hover--BackgroundColor: #f0f0f0;
+  --pf-v6-c-menu-toggle--expanded--BackgroundColor: #f0f0f0;
+  --pf-v6-c-menu-toggle__toggle-icon--Color: #151515;
+}
+
+.ocs-back-to-prototypes-banner .ocs-olm-migration-scenario-menu__toggle .pf-v6-c-menu-toggle__toggle-icon,
+.ocs-back-to-prototypes-banner .ocs-olm-migration-scenario-menu__toggle .pf-v6-svg-icon {
   color: #151515;
 }
 

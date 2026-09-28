@@ -45,6 +45,7 @@ import {
   Pagination,
   PaginationVariant,
   Popover,
+  Spinner,
   Stack,
   StackItem,
   Title,
@@ -76,10 +77,20 @@ import {
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import { OlmOperatingModeTabs } from "../../components/ecosystem/OlmOperatingModeTabs";
 import { OlmOperatorMigrationModal } from "../../components/ecosystem/OlmOperatorMigrationModal";
+import { OlmOperatorRollbackModal } from "../../components/ecosystem/OlmOperatorRollbackModal";
+import {
+  migrationActivityFromResult,
+  migrationActivityLabel,
+  runOlmMigrationInBackground,
+  toastForMigrationResult,
+  type OlmMigrationActivityStatus,
+} from "../../components/ecosystem/olmMigrationBackgroundRun";
+import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
+import { useToast } from "../../contexts/ToastContext";
 import { OlmV1ExtensionUninstallModals } from "../../components/ecosystem/OlmV1ExtensionUninstallModals";
 import { OlmV1ExtensionUpdateModal } from "../../components/ecosystem/OlmV1ExtensionUpdateModal";
 import { getMigrationSummaryReason } from "../../components/ecosystem/olmMigrationEligibility";
-import { useOlmOperatingMode } from "../../contexts/OlmOperatingModeContext";
+import { useOlmOperatingMode, OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
 import { ADDITIONAL_CATALOG_OPERATORS } from "./installedOperatorsFixtureData";
 import type { CatalogOperator } from "./installedOperatorsTypes";
 
@@ -145,8 +156,10 @@ type TableColumnKey =
   | "support"
   | "supportPhaseEnd"
   | "status"
+  | "migrationStatus"
   | "lastUpdated"
   | "managedNamespaces"
+  | "catalogVersion"
   | "rowActions";
 
 type DataColumnKey = Exclude<TableColumnKey, "rowActions">;
@@ -160,12 +173,14 @@ const TABLE_COLUMN_OPTIONS: { key: DataColumnKey; label: string }[] = [
   { key: "status", label: "Status" },
   { key: "lastUpdated", label: "Last updated" },
   { key: "managedNamespaces", label: "Managed namespaces" },
+  { key: "catalogVersion", label: "Catalog version" },
 ];
 
 /** “Default columns” in Manage columns (Operator is always on). */
 const DEFAULT_MANAGE_COLUMN_ORDER: { key: TableColumnKey; label: string }[] = [
   { key: "version", label: "Version" },
   { key: "status", label: "Status" },
+  { key: "migrationStatus", label: "Migration status" },
   { key: "clusterCompatibility", label: "Cluster compatibility" },
   { key: "support", label: "Support phase" },
   { key: "supportPhaseEnd", label: "Current phase end date" },
@@ -175,18 +190,21 @@ const DEFAULT_MANAGE_COLUMN_ORDER: { key: TableColumnKey; label: string }[] = [
 const ADDITIONAL_MANAGE_COLUMN_ORDER: { key: TableColumnKey; label: string }[] = [
   { key: "updatePlan", label: "Update plan" },
   { key: "managedNamespaces", label: "Managed namespaces" },
+  { key: "catalogVersion", label: "Catalog version" },
   { key: "rowActions", label: "Actions" },
 ];
 
 const RESTORE_DEFAULT_VISIBLE: Record<TableColumnKey, boolean> = {
   version: true,
   status: true,
+  migrationStatus: true,
   clusterCompatibility: true,
   support: true,
   supportPhaseEnd: true,
   lastUpdated: true,
   updatePlan: false,
   managedNamespaces: false,
+  catalogVersion: false,
   rowActions: true,
 };
 
@@ -196,6 +214,30 @@ const ioManageColRowStyle = (withDivider: boolean): CSSProperties => ({
     ? { borderBottom: "1px solid var(--pf-t--global--border--color--default)" }
     : {}),
 });
+
+/** Yes = managed from Operators (OLMv1) catalog; No = Operators (Legacy) / OLMv0. */
+function catalogVersionDisplay(op: CatalogOperator): "Yes" | "No" {
+  return op.isOlmV1Extension ? "Yes" : "No";
+}
+
+function migrationStatusLabelColor(
+  activity: OlmMigrationActivityStatus | undefined,
+): "green" | "red" | "orange" | "blue" | "grey" {
+  switch (activity) {
+    case "migrating":
+    case "queued":
+      return "blue";
+    case "succeeded":
+      return "green";
+    case "failed_rollback":
+    case "error":
+      return "red";
+    case "incomplete":
+      return "orange";
+    default:
+      return "grey";
+  }
+}
 
 /**
  * PatternFly Data View filters (see @patternfly/react-data-view) — `useDataViewFilters` shape.
@@ -564,7 +606,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
         description:
           "Cluster Logging 6.4.3 is below the minimum version required for OLMv1 migration (6.5+).",
         resolution:
-          "Update the operator to 6.5.1 or later before migrating management to Operators (OLMv1).",
+          `Update the operator to 6.5.1 or later before migrating management to ${OLM_MODE_LABELS.nextgen}.`,
         actionLabel: "Update operator",
         actionHref: "/ecosystem/installed-operators/Cluster%20Logging/update",
       },
@@ -849,6 +891,9 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     lastUpdated: "Dec 20, 2025, 9:15 AM",
     managedNamespaces: ["kiali-operator", "istio-system"],
     olmMigrationEligibility: "eligible",
+    olmMigrationDemoResult: "failed",
+    olmMigrationReason:
+      "Migration library could not complete catalog handover (prototype simulated failure).",
   },
   {
     name: "OpenShift GitOps (cluster extension)",
@@ -1527,17 +1572,21 @@ function InstalledOperatorSupportPhaseEndCell({
 }
 
 export default function InstalledOperatorsPage() {
-  const [operators] = useState<CatalogOperator[]>(() => [...INITIAL_CATALOG_OPERATORS]);
+  const [operators, setOperators] = useState<CatalogOperator[]>(() => [...INITIAL_CATALOG_OPERATORS]);
   const { mode, isClassic, isNextGen } = useOlmOperatingMode();
   const [migrationModalOpen, setMigrationModalOpen] = useState(false);
   const [migrationInitialOperator, setMigrationInitialOperator] = useState<string | null>(null);
   const [migrationInitialSelection, setMigrationInitialSelection] = useState<string[] | null>(null);
+  const [rollbackTarget, setRollbackTarget] = useState<CatalogOperator | null>(null);
+  const { olmMigrationScenario } = usePrototypeDemo();
+  const { pushToast } = useToast();
   const [uninstallTarget, setUninstallTarget] = useState<CatalogOperator | null>(null);
   const [uninstallModalKind, setUninstallModalKind] = useState<"unsubscribe" | "delete" | null>(null);
   const [updateTarget, setUpdateTarget] = useState<CatalogOperator | null>(null);
   const [updateModalOpen, setUpdateModalOpen] = useState(false);
   const [selectedOperatorNames, setSelectedOperatorNames] = useState<Set<string>>(new Set());
   const [openKebabIndex, setOpenKebabIndex] = useState<number | null>(null);
+  const [bulkActionsOpen, setBulkActionsOpen] = useState(false);
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<IoListFilters>({
     initialFilters: INITIAL_IO_FILTERS,
   });
@@ -1596,30 +1645,33 @@ export default function InstalledOperatorsPage() {
   /** Lifecycle/compatibility columns on Classic (OLMv0) or Next-Gen (OLMv1) per OCPSTRAT-2620 Goal 1. */
   const showLifecycleListColumns = isClassic ? hasOlmV0Operators : isNextGen;
 
-  const visibleDataColumnCount = useMemo(
-    () =>
-      TABLE_COLUMN_OPTIONS.filter(({ key }) => {
-        if (
-          !showLifecycleListColumns &&
-          (key === "clusterCompatibility" || key === "support" || key === "supportPhaseEnd")
-        ) {
-          return false;
-        }
-        return visibleColumns[key];
-      }).length,
-    [visibleColumns, showLifecycleListColumns]
-  );
+  const visibleDataColumnCount = useMemo(() => {
+    const base = TABLE_COLUMN_OPTIONS.filter(({ key }) => {
+      if (
+        !showLifecycleListColumns &&
+        (key === "clusterCompatibility" || key === "support" || key === "supportPhaseEnd")
+      ) {
+        return false;
+      }
+      return visibleColumns[key];
+    }).length;
+    return base + (isClassic && visibleColumns.migrationStatus ? 1 : 0);
+  }, [visibleColumns, showLifecycleListColumns, isClassic]);
 
   const manageColumnsDefaultOrder = useMemo(
     () =>
-      DEFAULT_MANAGE_COLUMN_ORDER.filter(
-        (col) =>
+      DEFAULT_MANAGE_COLUMN_ORDER.filter((col) => {
+        if (col.key === "migrationStatus" && !isClassic) {
+          return false;
+        }
+        return (
           showLifecycleListColumns ||
           (col.key !== "clusterCompatibility" &&
             col.key !== "support" &&
             col.key !== "supportPhaseEnd")
-      ),
-    [showLifecycleListColumns]
+        );
+      }),
+    [showLifecycleListColumns, isClassic],
   );
 
   const ioListAdvFilterSpecEffective = useMemo(() => {
@@ -1666,6 +1718,114 @@ export default function InstalledOperatorsPage() {
       ),
     [selectedOperatorsList],
   );
+
+  const startBackgroundMigration = useCallback(
+    (targets: CatalogOperator[]) => {
+      if (targets.length === 0) {
+        return;
+      }
+      void runOlmMigrationInBackground(
+        targets,
+        olmMigrationScenario,
+        {
+          onQueued: (names) => {
+            setOperators((prev) =>
+              prev.map((op) =>
+                names.includes(op.name)
+                  ? { ...op, olmMigrationActivity: "queued", olmMigrationActivityDetail: undefined }
+                  : op,
+              ),
+            );
+            pushToast({
+              variant: "info",
+              title: `Migration queued for ${names.length} operator${names.length === 1 ? "" : "s"}. Progress updates appear in the table.`,
+            });
+          },
+          onMigrating: (name) => {
+            setOperators((prev) =>
+              prev.map((op) => (op.name === name ? { ...op, olmMigrationActivity: "migrating" } : op)),
+            );
+          },
+          onComplete: (row) => {
+            pushToast(toastForMigrationResult(row.operator, row.result));
+            setOperators((prev) =>
+              prev.map((op) => {
+                if (op.name !== row.operator.name) {
+                  return op;
+                }
+                if (row.result === "success") {
+                  return {
+                    ...op,
+                    isOlmV1Extension: true,
+                    olmMigrationEligibility: "migrated",
+                    olmMigrationActivity: undefined,
+                    olmMigrationActivityDetail: undefined,
+                    olmMigrationReason: undefined,
+                    olmMigrationDemoResult: undefined,
+                    olmMigrationBlockers: undefined,
+                  };
+                }
+                if (row.result === "skipped") {
+                  return {
+                    ...op,
+                    olmMigrationActivity: undefined,
+                    olmMigrationActivityDetail: undefined,
+                  };
+                }
+                const activity = migrationActivityFromResult(row.result);
+                return {
+                  ...op,
+                  olmMigrationActivity: activity,
+                  olmMigrationActivityDetail: row.message,
+                  olmMigrationReason: row.message,
+                };
+              }),
+            );
+          },
+          onRunFinished: (rows) => {
+            if (rows.length <= 1) {
+              return;
+            }
+            const success = rows.filter((r) => r.result === "success").length;
+            const failed = rows.filter((r) => r.result === "failed" || r.result === "error").length;
+            const incomplete = rows.filter((r) => r.result === "incomplete").length;
+            pushToast({
+              variant: failed > 0 || incomplete > 0 ? "warning" : "success",
+              title: `Batch migration finished: ${success} succeeded, ${failed} failed, ${incomplete} incomplete.`,
+            });
+          },
+        },
+        { stepDelayMs: 1500 },
+      );
+    },
+    [olmMigrationScenario, pushToast],
+  );
+
+  const handleConfirmMigration = useCallback(
+    (targets: CatalogOperator[]) => {
+      setMigrationInitialOperator(null);
+      setMigrationInitialSelection(null);
+      setSelectedOperatorNames(new Set());
+      startBackgroundMigration(targets);
+    },
+    [startBackgroundMigration],
+  );
+
+  const handleRollbackConfirmed = useCallback((operatorName: string) => {
+    setOperators((prev) =>
+      prev.map((op) => {
+        if (op.name !== operatorName || !op.isOlmV1Extension) {
+          return op;
+        }
+        return {
+          ...op,
+          isOlmV1Extension: false,
+          olmMigrationEligibility: "eligible" as const,
+          olmMigrationReason: undefined,
+        };
+      }),
+    );
+  }, []);
 
   const selectedWithUpdates = useMemo(
     () =>
@@ -1731,6 +1891,10 @@ export default function InstalledOperatorsPage() {
     const first = selectedWithUpdates[0];
     if (first) navigateToUpdate(first);
   }, [selectedWithUpdates]);
+
+  const bulkUpdateEnabled = selectedWithUpdates.length > 0;
+  const bulkMigrateEnabled = isClassic && selectedEligibleForMigration.length > 0;
+  const bulkActionsHasSelection = selectedOperatorsList.length > 0;
 
   const toggleSort = useCallback((col: SortColumnKey) => {
     if (col !== sortColumn) {
@@ -1963,35 +2127,6 @@ export default function InstalledOperatorsPage() {
             <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
               <OlmOperatingModeTabs id="installed-operators-olm-tabs" />
 
-              {isClassic && selectedOperatorsList.length > 0 ? (
-                <Flex gap={{ default: "gapMd" }} alignItems={{ default: "alignItemsCenter" }}>
-                  <Button
-                    variant="primary"
-                    onClick={openBulkMigration}
-                    isDisabled={selectedEligibleForMigration.length < 2}
-                    title={
-                      selectedEligibleForMigration.length < 2
-                        ? "Select at least 2 eligible operators to migrate"
-                        : undefined
-                    }
-                  >
-                    Migrate operators ({selectedEligibleForMigration.length})
-                  </Button>
-                  <Button
-                    variant="secondary"
-                    onClick={openBulkUpdate}
-                    isDisabled={selectedWithUpdates.length === 0}
-                    title={
-                      selectedWithUpdates.length === 0
-                        ? "No selected operators have an available update"
-                        : undefined
-                    }
-                  >
-                    Update operator{selectedWithUpdates.length === 1 ? "" : "s"} ({selectedWithUpdates.length})
-                  </Button>
-                </Flex>
-              ) : null}
-
               <DataView
               ouiaId="installed-operators-data-view"
               className="ocs-io-dataview"
@@ -2117,7 +2252,65 @@ export default function InstalledOperatorsPage() {
                   </IoDataViewFiltersWithMidActions>
                 }
                 pagination={
-                  <Pagination
+                  <div className="ocs-io-toolbar-pagination-actions">
+                    <Dropdown
+                      isOpen={bulkActionsOpen}
+                      onOpenChange={setBulkActionsOpen}
+                      popperProps={{ position: "right-end" }}
+                      toggle={(toggleRef) => (
+                        <MenuToggle
+                          ref={toggleRef}
+                          variant="secondary"
+                          aria-label="Bulk operator actions"
+                          onClick={() => setBulkActionsOpen((open) => !open)}
+                          isExpanded={bulkActionsOpen}
+                        >
+                          Actions
+                        </MenuToggle>
+                      )}
+                      onSelect={() => setBulkActionsOpen(false)}
+                    >
+                      <DropdownItem
+                        itemId="bulk-update"
+                        isDisabled={!bulkUpdateEnabled}
+                        tooltip={
+                          !bulkActionsHasSelection
+                            ? "Select one or more operators"
+                            : !bulkUpdateEnabled
+                              ? "No selected operators have an available update"
+                              : undefined
+                        }
+                        onClick={() => {
+                          if (bulkUpdateEnabled) {
+                            openBulkUpdate();
+                          }
+                        }}
+                      >
+                        Update operator{selectedWithUpdates.length === 1 ? "" : "s"} (
+                        {selectedWithUpdates.length})
+                      </DropdownItem>
+                      {isClassic ? (
+                        <DropdownItem
+                          itemId="bulk-migrate"
+                          isDisabled={!bulkMigrateEnabled}
+                          tooltip={
+                            !bulkActionsHasSelection
+                              ? "Select one or more operators"
+                              : !bulkMigrateEnabled
+                                ? "Select one or more eligible operators to migrate"
+                                : undefined
+                          }
+                          onClick={() => {
+                            if (bulkMigrateEnabled) {
+                              openBulkMigration();
+                            }
+                          }}
+                        >
+                          Migrate to {OLM_MODE_LABELS.nextgen} ({selectedEligibleForMigration.length})
+                        </DropdownItem>
+                      ) : null}
+                    </Dropdown>
+                    <Pagination
                     perPageOptions={[
                       { title: "5", value: 5 },
                       { title: "10", value: 10 },
@@ -2139,6 +2332,7 @@ export default function InstalledOperatorsPage() {
                     titles={{ items: "operators" }}
                     paginationAriaLabel="Installed operators pagination (top)"
                   />
+                  </div>
                 }
               />
 
@@ -2164,6 +2358,9 @@ export default function InstalledOperatorsPage() {
                       {visibleColumns.status && (
                         <Th dataLabel="Status">{renderSortableHeader("Status", "status")}</Th>
                       )}
+                      {isClassic && visibleColumns.migrationStatus && (
+                        <Th dataLabel="Migration status">{renderPlainHeader("Migration status")}</Th>
+                      )}
                       {visibleColumns.version && (
                         <Th dataLabel="Version">{renderSortableHeader("Version", "version")}</Th>
                       )}
@@ -2188,6 +2385,9 @@ export default function InstalledOperatorsPage() {
                       )}
                       {visibleColumns.managedNamespaces && (
                         <Th dataLabel="Managed namespaces">{renderPlainHeader("Managed namespaces")}</Th>
+                      )}
+                      {visibleColumns.catalogVersion && (
+                        <Th dataLabel="Catalog version">{renderPlainHeader("Catalog version")}</Th>
                       )}
                       {visibleColumns.rowActions && (
                         <Th modifier="fitContent" dataLabel="Actions">
@@ -2249,6 +2449,36 @@ export default function InstalledOperatorsPage() {
                                   </Icon>
                                   Pending
                                 </Flex>
+                              )}
+                            </Td>
+                          )}
+                          {isClassic && visibleColumns.migrationStatus && (
+                            <Td dataLabel="Migration status">
+                              {op.olmMigrationActivity ? (
+                                <Flex
+                                  alignItems={{ default: "alignItemsCenter" }}
+                                  gap={{ default: "gapSm" }}
+                                  flexWrap={{ default: "wrap" }}
+                                >
+                                  {op.olmMigrationActivity === "migrating" ? (
+                                    <Spinner size="sm" aria-label="Migration in progress" />
+                                  ) : null}
+                                  {op.olmMigrationActivityDetail ? (
+                                    <Tooltip content={op.olmMigrationActivityDetail}>
+                                      <Label color={migrationStatusLabelColor(op.olmMigrationActivity)}>
+                                        {migrationActivityLabel(op.olmMigrationActivity)}
+                                      </Label>
+                                    </Tooltip>
+                                  ) : (
+                                    <Label color={migrationStatusLabelColor(op.olmMigrationActivity)}>
+                                      {migrationActivityLabel(op.olmMigrationActivity)}
+                                    </Label>
+                                  )}
+                                </Flex>
+                              ) : op.olmMigrationEligibility === "migrated" ? (
+                                <Label color="blue">Already migrated</Label>
+                              ) : (
+                                "—"
                               )}
                             </Td>
                           )}
@@ -2357,6 +2587,16 @@ export default function InstalledOperatorsPage() {
                               </Flex>
                             </Td>
                           )}
+                          {visibleColumns.catalogVersion && (
+                            <Td dataLabel="Catalog version">
+                              <Label
+                                isCompact
+                                color={catalogVersionDisplay(op) === "Yes" ? "green" : "grey"}
+                              >
+                                {catalogVersionDisplay(op)}
+                              </Label>
+                            </Td>
+                          )}
                           {visibleColumns.rowActions && (
                             <Td dataLabel="Actions" isActionCell hasAction>
                               <Dropdown
@@ -2427,7 +2667,7 @@ export default function InstalledOperatorsPage() {
                                         setMigrationModalOpen(true);
                                       }}
                                     >
-                                      Migrate to Operators (OLMv1)
+                                      Migrate to {OLM_MODE_LABELS.nextgen}
                                     </DropdownItem>
                                     {op.olmMigrationEligibility !== "eligible" ? (
                                       <DropdownItem
@@ -2445,6 +2685,15 @@ export default function InstalledOperatorsPage() {
                                 ) : null}
                                 {isNextGen && op.isOlmV1Extension ? (
                                   <>
+                                    <DropdownItem
+                                      itemId="rollback-legacy"
+                                      onClick={() => {
+                                        setRollbackTarget(op);
+                                        setOpenKebabIndex(null);
+                                      }}
+                                    >
+                                      Roll back to {OLM_MODE_LABELS.classic}
+                                    </DropdownItem>
                                     {op.updateAvailable ? (
                                       <DropdownItem
                                         itemId="update"
@@ -2506,11 +2755,18 @@ export default function InstalledOperatorsPage() {
           setMigrationModalOpen(false);
           setMigrationInitialOperator(null);
           setMigrationInitialSelection(null);
-          setSelectedOperatorNames(new Set());
         }}
         operators={operators}
+        onConfirmMigration={handleConfirmMigration}
         initialOperatorName={migrationInitialOperator}
         initialSelection={migrationInitialSelection}
+      />
+
+      <OlmOperatorRollbackModal
+        operator={rollbackTarget}
+        isOpen={rollbackTarget !== null}
+        onClose={() => setRollbackTarget(null)}
+        onRollbackConfirmed={handleRollbackConfirmed}
       />
 
       <OlmV1ExtensionUninstallModals
@@ -2542,7 +2798,7 @@ export default function InstalledOperatorsPage() {
           labelId="io-manage-cols-title"
           descriptorId="io-manage-cols-body"
           title="Manage columns"
-          description="Default columns are shown by default. Additional columns include update plan, managed namespaces, and optional row actions. Cluster compatibility, Support phase, and Current phase end date apply on both Operators (Legacy) and Operators tabs when lifecycle metadata is available. Operator is always shown."
+          description={`Default columns are shown by default. Additional columns include update plan, managed namespaces, catalog version (Yes/No for OLMv1 catalog), and optional row actions. Cluster compatibility, Support phase, and Current phase end date apply on both ${OLM_MODE_LABELS.classic} and ${OLM_MODE_LABELS.nextgen} tabs when lifecycle metadata is available. Operator is always shown.`}
         />
         <ModalBody id="io-manage-cols-body">
           <Flex
