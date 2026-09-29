@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Link } from "react-router";
 import {
   Button,
@@ -6,16 +7,21 @@ import {
   DescriptionListDescription,
   DescriptionListGroup,
   DescriptionListTerm,
+  Flex,
+  Icon,
   Popover,
+  Spinner,
   Stack,
   StackItem,
+  Tooltip,
 } from "@patternfly/react-core";
-import { ExternalLink } from "@/lib/pfIcons";
+import { AlertCircle, CheckCircle, Clock, ExternalLink } from "@/lib/pfIcons";
 import { OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
 import type {
   CatalogOperator,
   OlmMigrationBlocker,
   OlmMigrationEligibility,
+  OlmMigrationActivityStatus,
 } from "../../pages/ecosystem/installedOperatorsTypes";
 
 export type { OlmMigrationBlocker };
@@ -218,5 +224,183 @@ export function OlmMigrationEligibilityDetailsPopover({
         {triggerLabel}
       </Button>
     </Popover>
+  );
+}
+
+type MigrationStatusPresentation = {
+  label: string;
+  iconStatus: "success" | "danger" | "warning" | "info" | "custom";
+  icon: ReactNode;
+  tooltipTitle: string;
+  tooltipBody: string;
+  showSpinner?: boolean;
+};
+
+function migrationTooltipBody(title: string, body: string) {
+  return (
+    <Stack hasGutter>
+      <StackItem>
+        <Content component="p" className="pf-v6-u-mb-0">
+          <strong>{title}</strong>
+        </Content>
+      </StackItem>
+      <StackItem>
+        <Content component="small">{body}</Content>
+      </StackItem>
+    </Stack>
+  );
+}
+
+function presentationForActivity(
+  op: CatalogOperator,
+  activity: OlmMigrationActivityStatus,
+): MigrationStatusPresentation {
+  const detail = op.olmMigrationActivityDetail?.trim();
+  switch (activity) {
+    case "queued":
+      return {
+        label: "Queued",
+        iconStatus: "info",
+        icon: <Clock aria-hidden />,
+        tooltipTitle: "Migration queued",
+        tooltipBody:
+          detail ??
+          "This operator is waiting to start migration. Work continues in the background; you can leave this page.",
+        showSpinner: false,
+      };
+    case "migrating":
+      return {
+        label: "In progress",
+        iconStatus: "info",
+        icon: <Clock aria-hidden />,
+        tooltipTitle: "Migration in progress",
+        tooltipBody:
+          detail ??
+          "Catalog management is moving to Next-Gen Operators. Bundle version does not change. Watch toasts for completion.",
+        showSpinner: true,
+      };
+    case "failed_rollback":
+      return {
+        label: "Failed",
+        iconStatus: "danger",
+        icon: <AlertCircle aria-hidden />,
+        tooltipTitle: "Migration failed — rolled back",
+        tooltipBody:
+          detail ??
+          "Migration did not complete. The operator was automatically rolled back to Classic management. Resolve issues and retry.",
+      };
+    case "error":
+      return {
+        label: "Error",
+        iconStatus: "danger",
+        icon: <AlertCircle aria-hidden />,
+        tooltipTitle: "Migration error",
+        tooltipBody:
+          detail ??
+          "An unexpected error stopped migration. Review operator details and subscription before retrying.",
+      };
+    case "incomplete":
+      return {
+        label: "Incomplete",
+        iconStatus: "warning",
+        icon: <AlertCircle aria-hidden />,
+        tooltipTitle: "Migration incomplete",
+        tooltipBody:
+          detail ??
+          "Migration did not finish cleanly. Review the operator and managed resources before you retry.",
+      };
+    case "succeeded":
+      return {
+        label: "Migrated",
+        iconStatus: "success",
+        icon: <CheckCircle aria-hidden />,
+        tooltipTitle: "Migration succeeded",
+        tooltipBody:
+          detail ??
+          `This operator is now managed under ${OLM_MODE_LABELS.nextgen}. Bundle version is unchanged.`,
+      };
+  }
+}
+
+function presentationForEligibility(op: CatalogOperator): MigrationStatusPresentation | null {
+  const eligibility = op.olmMigrationEligibility;
+  if (!eligibility) {
+    return null;
+  }
+
+  switch (eligibility) {
+    case "eligible":
+      return {
+        label: "Eligible",
+        iconStatus: "success",
+        icon: <CheckCircle aria-hidden />,
+        tooltipTitle: "Migration available",
+        tooltipBody: `This operator can migrate to ${OLM_MODE_LABELS.nextgen}. Only catalog management changes; bundle version (${op.version}) stays the same. Use Actions or the row menu to start migration.`,
+      };
+    case "ineligible": {
+      const reason = getMigrationSummaryReason(op);
+      const blockers = getMigrationBlockers(op);
+      const blockerDetail = blockers[0]?.description;
+      return {
+        label: "Not eligible",
+        iconStatus: "warning",
+        icon: <AlertCircle aria-hidden />,
+        tooltipTitle: "Migration not available",
+        tooltipBody: blockerDetail ? `${reason}. ${blockerDetail}` : reason,
+      };
+    }
+    case "conflict":
+      return {
+        label: "Blocked",
+        iconStatus: "danger",
+        icon: <AlertCircle aria-hidden />,
+        tooltipTitle: "Migration blocked",
+        tooltipBody:
+          op.olmMigrationReason ??
+          "Platform constraints prevent migration for this operator. Follow platform guidance before retrying.",
+      };
+    case "migrated":
+      return {
+        label: "Migrated",
+        iconStatus: "success",
+        icon: <CheckCircle aria-hidden />,
+        tooltipTitle: `Already on ${OLM_MODE_LABELS.nextgen}`,
+        tooltipBody: `This operator is already managed under ${OLM_MODE_LABELS.nextgen}. Switch tabs to update or roll back.`,
+      };
+    default:
+      return null;
+  }
+}
+
+/** Installed Operators list — migration column (parity with cluster compatibility icon + text). */
+export function InstalledOperatorMigrationStatusCell({ operator }: { operator: CatalogOperator }) {
+  const presentation = operator.olmMigrationActivity
+    ? presentationForActivity(operator, operator.olmMigrationActivity)
+    : presentationForEligibility(operator);
+
+  if (!presentation) {
+    return <>—</>;
+  }
+
+  const row = (
+    <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+      {presentation.showSpinner ? (
+        <Spinner size="sm" aria-label="Migration in progress" />
+      ) : (
+        <Icon status={presentation.iconStatus}>{presentation.icon}</Icon>
+      )}
+      {presentation.label}
+    </Flex>
+  );
+
+  return (
+    <Tooltip
+      content={migrationTooltipBody(presentation.tooltipTitle, presentation.tooltipBody)}
+      maxWidth="24rem"
+    >
+      <span className="ocs-io-migration-status-tooltip-target" tabIndex={0}>
+        {row}
+      </span>
+    </Tooltip>
   );
 }

@@ -45,7 +45,6 @@ import {
   Pagination,
   PaginationVariant,
   Popover,
-  Spinner,
   Stack,
   StackItem,
   Title,
@@ -76,20 +75,20 @@ import {
 } from "../../components/dataView/ListAdvancedFilterModal";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import { OlmOperatingModeTabs } from "../../components/ecosystem/OlmOperatingModeTabs";
+import { OlmClassicExperienceBanner } from "../../components/ecosystem/OlmClassicExperienceBanner";
+import { OlmMigrationStrategyNotice } from "../../components/ecosystem/OlmMigrationStrategyNotice";
 import { OlmOperatorMigrationModal } from "../../components/ecosystem/OlmOperatorMigrationModal";
 import { OlmOperatorRollbackModal } from "../../components/ecosystem/OlmOperatorRollbackModal";
 import {
   migrationActivityFromResult,
-  migrationActivityLabel,
   runOlmMigrationInBackground,
   toastForMigrationResult,
-  type OlmMigrationActivityStatus,
 } from "../../components/ecosystem/olmMigrationBackgroundRun";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import { useToast } from "../../contexts/ToastContext";
 import { OlmV1ExtensionUninstallModals } from "../../components/ecosystem/OlmV1ExtensionUninstallModals";
 import { OlmV1ExtensionUpdateModal } from "../../components/ecosystem/OlmV1ExtensionUpdateModal";
-import { getMigrationSummaryReason } from "../../components/ecosystem/olmMigrationEligibility";
+import { getMigrationSummaryReason, InstalledOperatorMigrationStatusCell } from "../../components/ecosystem/olmMigrationEligibility";
 import { useOlmOperatingMode, OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
 import { ADDITIONAL_CATALOG_OPERATORS } from "./installedOperatorsFixtureData";
 import type { CatalogOperator } from "./installedOperatorsTypes";
@@ -218,25 +217,6 @@ const ioManageColRowStyle = (withDivider: boolean): CSSProperties => ({
 /** Yes = managed from Operators (OLMv1) catalog; No = Operators (Legacy) / OLMv0. */
 function catalogVersionDisplay(op: CatalogOperator): "Yes" | "No" {
   return op.isOlmV1Extension ? "Yes" : "No";
-}
-
-function migrationStatusLabelColor(
-  activity: OlmMigrationActivityStatus | undefined,
-): "green" | "red" | "orange" | "blue" | "grey" {
-  switch (activity) {
-    case "migrating":
-    case "queued":
-      return "blue";
-    case "succeeded":
-      return "green";
-    case "failed_rollback":
-    case "error":
-      return "red";
-    case "incomplete":
-      return "orange";
-    default:
-      return "grey";
-  }
 }
 
 /**
@@ -2126,6 +2106,8 @@ export default function InstalledOperatorsPage() {
 
             <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
               <OlmOperatingModeTabs id="installed-operators-olm-tabs" />
+              <OlmClassicExperienceBanner />
+              <OlmMigrationStrategyNotice />
 
               <DataView
               ouiaId="installed-operators-data-view"
@@ -2454,32 +2436,7 @@ export default function InstalledOperatorsPage() {
                           )}
                           {isClassic && visibleColumns.migrationStatus && (
                             <Td dataLabel="Migration status">
-                              {op.olmMigrationActivity ? (
-                                <Flex
-                                  alignItems={{ default: "alignItemsCenter" }}
-                                  gap={{ default: "gapSm" }}
-                                  flexWrap={{ default: "wrap" }}
-                                >
-                                  {op.olmMigrationActivity === "migrating" ? (
-                                    <Spinner size="sm" aria-label="Migration in progress" />
-                                  ) : null}
-                                  {op.olmMigrationActivityDetail ? (
-                                    <Tooltip content={op.olmMigrationActivityDetail}>
-                                      <Label color={migrationStatusLabelColor(op.olmMigrationActivity)}>
-                                        {migrationActivityLabel(op.olmMigrationActivity)}
-                                      </Label>
-                                    </Tooltip>
-                                  ) : (
-                                    <Label color={migrationStatusLabelColor(op.olmMigrationActivity)}>
-                                      {migrationActivityLabel(op.olmMigrationActivity)}
-                                    </Label>
-                                  )}
-                                </Flex>
-                              ) : op.olmMigrationEligibility === "migrated" ? (
-                                <Label color="blue">Already migrated</Label>
-                              ) : (
-                                "—"
-                              )}
+                              <InstalledOperatorMigrationStatusCell operator={op} />
                             </Td>
                           )}
                           {visibleColumns.version && (

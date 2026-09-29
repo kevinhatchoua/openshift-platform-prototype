@@ -1315,6 +1315,19 @@ html.dark .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-pl
   outline-offset: 2px;
 }
 
+.ocs-io-migration-status-tooltip-target {
+  display: inline-block;
+  cursor: default;
+  border-radius: var(--pf-t--global--border--radius--small);
+}
+.ocs-io-migration-status-tooltip-target:focus {
+  outline: none;
+}
+.ocs-io-migration-status-tooltip-target:focus-visible {
+  outline: 2px solid var(--pf-t--global--color--brand--default, #06c);
+  outline-offset: 2px;
+}
+
 /**
  * Phase end date tooltip: `Content` uses `--pf-v6-c-content--Color`, which follows the **page**
  * shell (dark theme → near-white text). The tooltip uses PatternFly inverse surface colors.

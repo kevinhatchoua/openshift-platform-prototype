@@ -52,7 +52,7 @@ export function toastForMigrationResult(op: CatalogOperator, result: OlmMigratio
     case "failed":
       return {
         variant: "danger",
-        title: `${op.name}: migration failed — automatically rolled back to Legacy.`,
+        title: `${op.name}: migration failed — automatically rolled back to Classic.`,
       };
     case "error":
       return {

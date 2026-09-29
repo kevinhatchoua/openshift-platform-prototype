@@ -2,7 +2,7 @@
 
 **STRAT:** [OCPSTRAT-2692](https://issues.redhat.com/browse/OCPSTRAT-2692)  
 **Design / prototype:** [HPUX-2195](https://issues.redhat.com/browse/HPUX-2195)  
-**Live path:** `/ecosystem/installed-operators` → **Legacy Operators** tab
+**Live path:** `/ecosystem/installed-operators` → **Classic Operators** tab
 
 ## Console touchpoints
 
@@ -14,7 +14,7 @@
 | **Migration status** column | In-table progress | Queued / Migrating (spinner) / Failed (rolled back) / Error / Incomplete |
 | Toast notifications | Per-operator + batch summary | Success, danger, warning variants |
 | Row kebab → **View migration blockers** | Ineligible / conflict | Blockers panel + resolution links |
-| Installed Operators list (Next-Gen Operators) | **Roll back to Legacy Operators** | Double-confirmation rollback modal |
+| Installed Operators list (Next-Gen Operators) | **Roll back to Classic Operators** | Double-confirmation rollback modal |
 
 ## Modal phases (migration)
 
@@ -30,7 +30,7 @@ After **Confirm**, the modal closes immediately. Long-running work continues on 
 
 - **Queued** → **Migrating** (spinner) → outcome label on the row  
 - Per-operator toast on each outcome; optional batch summary toast when n > 1  
-- **Success** removes the row from Legacy tab (operator moves to Next-Gen catalog management)  
+- **Success** removes the row from Classic tab (operator moves to Next-Gen catalog management)  
 
 ## Outcome behavior (UX contract)
 

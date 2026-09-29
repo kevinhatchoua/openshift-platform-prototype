@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Alert,
@@ -18,7 +18,7 @@ import {
   CheckCircle,
 } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import { OlmOperatingModeTabs } from "../../components/ecosystem/OlmOperatingModeTabs";
+import { OlmClassicExperienceBanner } from "../../components/ecosystem/OlmClassicExperienceBanner";
 import CatalogOperatorDetailPanel from "../../components/CatalogOperatorDetailPanel";
 import {
   OLM_CATALOG_FACET_LABELS,
@@ -167,7 +167,11 @@ function catalogCardPillLabel(item: CatalogItem): string {
 
 export default function SoftwareCatalogPage() {
   const navigate = useNavigate();
-  const { isClassic, isNextGen, mode, setMode } = useOlmOperatingMode();
+  const { setMode } = useOlmOperatingMode();
+  /** OCPSTRAT-3644: unified catalog lists both operator generations; sidebar narrows the set. */
+  const [operatorCatalogFilter, setOperatorCatalogFilter] = useState<"all" | "nextgen" | "classic">(
+    "all",
+  );
   const [searchQuery, setSearchQuery] = useState("");
   const [catalogSort, setCatalogSort] = useState<"relevance" | "name">("relevance");
   const [showSidePanel, setShowSidePanel] = useState(false);
@@ -186,7 +190,7 @@ export default function SoftwareCatalogPage() {
     builderImages: false,
     devfiles: false,
     helmCharts: false,
-    operators: false,
+    operators: true,
     templates: false,
   });
   const [showAllTypes, setShowAllTypes] = useState(false);
@@ -199,6 +203,14 @@ export default function SoftwareCatalogPage() {
     source: [] as string[],
     provider: [] as string[],
   });
+
+  useEffect(() => {
+    if (operatorCatalogFilter === "nextgen") {
+      setMode("nextgen");
+    } else {
+      setMode("classic");
+    }
+  }, [operatorCatalogFilter, setMode]);
 
   const RAW_OPERATORS: Array<Omit<CatalogItem, "catalogType">> = [
     // OLMv0 Operators (default set - large catalog)
@@ -769,10 +781,11 @@ export default function SoftwareCatalogPage() {
       return false;
     }
 
-    if (!skips?.skipOlmMode) {
-      if (isNextGen) {
-        if (item.catalogType !== "operators" || item.olmVersion !== "v1") return false;
-      } else if (item.catalogType !== "operators" || item.olmVersion !== "v0") {
+    if (!skips?.skipOlmMode && item.catalogType === "operators") {
+      if (operatorCatalogFilter === "nextgen" && item.olmVersion !== "v1") {
+        return false;
+      }
+      if (operatorCatalogFilter === "classic" && item.olmVersion !== "v0") {
         return false;
       }
     }
@@ -806,7 +819,7 @@ export default function SoftwareCatalogPage() {
   const countItemsOfType = (kind: CatalogItemKind) =>
     baseForFacets({ skipType: true }).filter((i) => i.catalogType === kind).length;
 
-  const legacyOperatorCount = catalogItems.filter(
+  const classicOperatorCount = catalogItems.filter(
     (i) =>
       i.catalogType === "operators" &&
       i.olmVersion === "v0" &&
@@ -832,10 +845,29 @@ export default function SoftwareCatalogPage() {
     ) as Record<string, number>,
   };
 
+  function catalogRelevanceRank(item: CatalogItem): number {
+    if (item.catalogType !== "operators") {
+      return 0;
+    }
+    if (item.olmVersion === "v1") {
+      return 1;
+    }
+    if (item.olmVersion === "v0") {
+      return 2;
+    }
+    return 1;
+  }
+
   const filteredCatalogItems = catalogItems
     .filter((item) => matchesCatalogItem(item))
     .sort((a, b) => {
-      if (catalogSort !== "name") return 0;
+      if (catalogSort === "name") {
+        return a.name.localeCompare(b.name);
+      }
+      const rankDiff = catalogRelevanceRank(a) - catalogRelevanceRank(b);
+      if (rankDiff !== 0) {
+        return rankDiff;
+      }
       return a.name.localeCompare(b.name);
     });
 
@@ -859,13 +891,12 @@ export default function SoftwareCatalogPage() {
           <h1 id="main-title">Software Catalog</h1>
           <p>
             Add shared applications, services, event sources, or source-to-image builders to your Project from the
-            software catalog. Cluster administrators can customize the content made available in the catalog.
+            software catalog. Operator packages include Next-Gen and Classic entries; default sort lists Classic
+            operators after Next-Gen.
           </p>
         </Content>
 
-        <div className="mb-6">
-          <OlmOperatingModeTabs id="software-catalog-olm-tabs" />
-        </div>
+        {operatorCatalogFilter !== "nextgen" ? <OlmClassicExperienceBanner /> : null}
 
         {availableUpdates > 0 && !dismissedAlerts.includes("updates") && (
           <AlertGroup className="mb-4">
@@ -1004,11 +1035,11 @@ export default function SoftwareCatalogPage() {
                       type="radio"
                       name="catalog-olm-mode"
                       className="size-[14px]"
-                      checked={isClassic}
-                      onChange={() => setMode("classic")}
+                      checked={operatorCatalogFilter === "all"}
+                      onChange={() => setOperatorCatalogFilter("all")}
                     />
                     <span>
-                      {OLM_CATALOG_FACET_LABELS.classic} ({legacyOperatorCount})
+                      All operator packages ({classicOperatorCount + nextGenOperatorCount})
                     </span>
                   </label>
                   <label className="flex items-center gap-[8px] cursor-pointer text-[14px] text-[#151515] dark:text-white">
@@ -1016,11 +1047,23 @@ export default function SoftwareCatalogPage() {
                       type="radio"
                       name="catalog-olm-mode"
                       className="size-[14px]"
-                      checked={isNextGen}
-                      onChange={() => setMode("nextgen")}
+                      checked={operatorCatalogFilter === "nextgen"}
+                      onChange={() => setOperatorCatalogFilter("nextgen")}
                     />
                     <span>
                       {OLM_CATALOG_FACET_LABELS.nextgen} ({nextGenOperatorCount})
+                    </span>
+                  </label>
+                  <label className="flex items-center gap-[8px] cursor-pointer text-[14px] text-[#151515] dark:text-white">
+                    <input
+                      type="radio"
+                      name="catalog-olm-mode"
+                      className="size-[14px]"
+                      checked={operatorCatalogFilter === "classic"}
+                      onChange={() => setOperatorCatalogFilter("classic")}
+                    />
+                    <span>
+                      {OLM_CATALOG_FACET_LABELS.classic} ({classicOperatorCount})
                     </span>
                   </label>
                 </div>
@@ -1197,17 +1240,17 @@ export default function SoftwareCatalogPage() {
 
             {filteredCatalogItems.length === 0 ? (
               <Alert
-                variant={isNextGen ? "info" : "warning"}
+                variant={operatorCatalogFilter === "nextgen" ? "info" : "warning"}
                 isInline
                 title={
-                  isNextGen
+                  operatorCatalogFilter === "nextgen"
                     ? "No compatible cluster extensions in this catalog"
                     : "No catalog items match your filters"
                 }
               >
-                {isNextGen
-                  ? `The Next-Gen Operators catalog lists OLMv1 cluster extensions that pass compatibility checks for this cluster. Try adjusting filters or switch to ${OLM_CATALOG_FACET_LABELS.classic}.`
-                  : `Try adjusting search or facet filters, or switch catalog to ${OLM_CATALOG_FACET_LABELS.nextgen}.`}
+                {operatorCatalogFilter === "nextgen"
+                  ? `The Next-Gen Operators catalog lists OLMv1 cluster extensions that pass compatibility checks for this cluster. Try adjusting filters or include ${OLM_CATALOG_FACET_LABELS.classic}.`
+                  : `Try adjusting search or facet filters, or switch the Catalog filter to ${OLM_CATALOG_FACET_LABELS.nextgen}.`}
               </Alert>
             ) : null}
 
@@ -1236,6 +1279,11 @@ export default function SoftwareCatalogPage() {
                           ].join(" ")}
                         >
                           {OLM_OPERATOR_PILL_LABELS[item.olmVersion]}
+                        </span>
+                      ) : null}
+                      {item.catalogType === "operators" && item.olmVersion === "v0" ? (
+                        <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#f0ab00] text-[#151515] text-right">
+                          Deprecated
                         </span>
                       ) : null}
                       <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#5c5f62] text-white text-right">
