@@ -1,17 +1,14 @@
-import { useState } from "react";
 import { MenuToggle, Select, SelectList, SelectOption } from "@patternfly/react-core";
-
-export const CONSOLE_PROJECTS = [
-  "All projects",
-  "default",
-  "openshift-ovn-kubernetes",
-  "openshift-nmstate",
-  "payments",
-];
+import { useState } from "react";
+import {
+  CONSOLE_PROJECTS,
+  type ConsoleProject,
+  useConsoleProject,
+} from "../contexts/ConsoleProjectContext";
 
 /** OCP namespace bar: `Project: <name> ▾` above breadcrumbs, not a secondary button. */
 export default function NamespaceBar() {
-  const [project, setProject] = useState("All projects");
+  const { project, setProject } = useConsoleProject();
   const [isOpen, setIsOpen] = useState(false);
 
   return (
@@ -20,7 +17,7 @@ export default function NamespaceBar() {
         isOpen={isOpen}
         selected={project}
         onSelect={(_e, value) => {
-          setProject(String(value));
+          setProject(String(value) as ConsoleProject);
           setIsOpen(false);
         }}
         onOpenChange={setIsOpen}
@@ -48,3 +45,5 @@ export default function NamespaceBar() {
     </div>
   );
 }
+
+export { CONSOLE_PROJECTS };

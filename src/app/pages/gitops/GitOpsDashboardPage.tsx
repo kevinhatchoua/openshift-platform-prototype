@@ -7,6 +7,8 @@ import {
   CardBody,
   CardTitle,
   Content,
+  EmptyState,
+  EmptyStateBody,
   Flex,
   Gallery,
   GalleryItem,
@@ -28,20 +30,20 @@ import {
 } from "recharts";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { useConsoleProject, appMatchesConsoleProject } from "../../contexts/ConsoleProjectContext";
 import { OcsPrototypeListTable, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import {
   ARGO_INSTANCES,
+  buildDashboardMetrics,
   buildGitOpsAppsUrl,
   GITOPS_ALL_INSTANCES,
   GITOPS_APPLICATION_SETS,
   GITOPS_ROLLOUTS,
   applicationsForInstance,
-  dashboardMetricsForInstance,
   gitopsDetailPath,
   recentOperationsForInstance,
 } from "./gitopsData";
-import GitOpsInstancePicker, { useGitOpsInstance } from "./GitOpsInstancePicker";
 import { HealthStatus, ResourceName } from "./gitopsShared";
 import {
   connectivityLabelColor,
@@ -187,27 +189,29 @@ function MultiSegmentDonut({
 }
 
 const RECONCILE_SERIES = [
-  { t: "0h", v: 8 },
-  { t: "4h", v: 14 },
-  { t: "8h", v: 11 },
-  { t: "12h", v: 18 },
-  { t: "16h", v: 16 },
-  { t: "20h", v: 19 },
-  { t: "24h", v: 17 },
+  { t: "24h ago", v: 8 },
+  { t: "18h ago", v: 14 },
+  { t: "12h ago", v: 11 },
+  { t: "6h ago", v: 18 },
+  { t: "3h ago", v: 16 },
+  { t: "1h ago", v: 19 },
+  { t: "Now", v: 17 },
 ];
 
 export default function GitOpsDashboardPage() {
   const navigate = useNavigate();
   const { permission } = usePrototypeDemo();
+  const { project } = useConsoleProject();
   const [metricsDenied, setMetricsDenied] = useState<string | null>(null);
-  const { instance, setInstance } = useGitOpsInstance();
-  const apps = applicationsForInstance(instance);
-  const metrics = dashboardMetricsForInstance(instance);
-  const operations = recentOperationsForInstance(instance);
-  const instances =
-    instance === GITOPS_ALL_INSTANCES
-      ? ARGO_INSTANCES
-      : ARGO_INSTANCES.filter((a) => `${a.ns}/${a.name}` === instance);
+  const apps = applicationsForInstance(GITOPS_ALL_INSTANCES).filter((a) =>
+    appMatchesConsoleProject(a.ns, project),
+  );
+  const metrics = buildDashboardMetrics(apps);
+  const appKeys = new Set(apps.map((a) => `${a.ns}/${a.name}`));
+  const operations = recentOperationsForInstance(GITOPS_ALL_INSTANCES).filter((op) =>
+    appKeys.has(`${op.ns}/${op.name}`),
+  );
+  const instances = ARGO_INSTANCES;
   const totalApps = apps.length;
   const syncedPct = totalApps === 0 ? 100 : metrics.syncSuccessRate;
   const connected = instances.filter((i) => i.clusterConnectivity.startsWith("1")).length;
@@ -282,7 +286,7 @@ export default function GitOpsDashboardPage() {
       segment.filterType === "sync"
         ? { sync: [segment.filterValue] }
         : { health: [segment.filterValue] };
-    navigate(buildGitOpsAppsUrl(instance, filters));
+    navigate(buildGitOpsAppsUrl(GITOPS_ALL_INSTANCES, filters));
   };
 
   const openMetrics = (metric: "sync" | "reconcile") => {
@@ -317,8 +321,13 @@ export default function GitOpsDashboardPage() {
               </Title>
               <FavoriteButton name="GitOps Overview" path="/gitops/overview" />
             </Flex>
-            <GitOpsInstancePicker instance={instance} setInstance={setInstance} />
           </Flex>
+
+          <Alert variant="info" isInline title="Dashboard scope">
+            Metrics and application counts follow the <strong>Project</strong> selector in the console
+            header (not the Argo CD instance picker). Use Applications or Settings for instance-specific
+            views.
+          </Alert>
 
           {metricsDenied ? (
             <Alert
@@ -331,6 +340,18 @@ export default function GitOpsDashboardPage() {
             </Alert>
           ) : null}
 
+          {totalApps === 0 ? (
+            <EmptyState titleText="No GitOps applications in this project">
+              <EmptyStateBody>
+                Switch <strong>Project</strong> to <strong>All projects</strong> or choose a namespace that
+                contains Argo CD Applications. Create an application from the Applications list when you are
+                ready.
+              </EmptyStateBody>
+              <Button variant="primary" onClick={() => navigate("/gitops/applications")}>
+                Go to Applications
+              </Button>
+            </EmptyState>
+          ) : (
           <Grid hasGutter>
             <GridItem md={4}>
               <Card isFullHeight>
@@ -443,8 +464,9 @@ export default function GitOpsDashboardPage() {
               </Card>
             </GridItem>
           </Grid>
+          )}
 
-          {metrics.needsAttention.length > 0 ? (
+          {totalApps > 0 && metrics.needsAttention.length > 0 ? (
             <Card>
               <CardTitle>Needs attention</CardTitle>
               <CardBody>
@@ -489,6 +511,7 @@ export default function GitOpsDashboardPage() {
             </Card>
           ) : null}
 
+          {totalApps > 0 ? (
           <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
             <Title headingLevel="h2" size="lg">
               Recent operations
@@ -541,6 +564,7 @@ export default function GitOpsDashboardPage() {
               </Tbody>
             </OcsPrototypeListTable>
           </Flex>
+          ) : null}
 
           <Title headingLevel="h2" size="lg">
             Infrastructure

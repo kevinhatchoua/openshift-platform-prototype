@@ -713,7 +713,7 @@ export const GITOPS_PROMOTION_PIPELINES: PromotionPipelineRecord[] = [
   },
 ];
 
-function buildDashboardMetrics(apps: ApplicationRecord[] = GITOPS_APPLICATIONS): DashboardMetrics {
+export function buildDashboardMetrics(apps: ApplicationRecord[] = GITOPS_APPLICATIONS): DashboardMetrics {
   const synced = apps.filter((a) => a.sync === "Synced").length;
   const outOfSync = apps.filter((a) => a.sync === "OutOfSync").length;
   const healthy = apps.filter((a) => a.health === "Healthy").length;

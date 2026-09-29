@@ -507,6 +507,7 @@ export default function GitOpsRolloutDetailPage() {
             <Tab eventKey="yaml" title={<TabTitleText>YAML</TabTitleText>} />
             <Tab eventKey="revisions" title={<TabTitleText>Revisions</TabTitleText>} />
             <Tab eventKey="experiments" title={<TabTitleText>Experiments</TabTitleText>} />
+            <Tab eventKey="analysisRuns" title={<TabTitleText>Analysis runs</TabTitleText>} />
             <Tab eventKey="pods" title={<TabTitleText>Pods</TabTitleText>} />
             <Tab eventKey="events" title={<TabTitleText>Events</TabTitleText>} />
           </Tabs>
@@ -716,16 +717,79 @@ export default function GitOpsRolloutDetailPage() {
                 </Flex>
               ) : null}
             </Flex>
+          ) : activeTab === "analysisRuns" ? (
+            <FlexItem grow={{ default: "grow" }} alignSelf={{ default: "alignSelfStretch" }}>
+              <Title headingLevel="h2" size="lg" className="pf-v6-u-mb-md">
+                Analysis runs
+              </Title>
+              <Content component="p" className="pf-v6-u-mb-md pf-v6-u-color-200">
+                P1 rollout feature: AnalysisRun resources tied to canary / blue-green steps (GitOps 1.23).
+              </Content>
+              {experimentRows.filter((r) => r.name.includes("analysis")).length === 0 ? (
+                <EmptyState variant={EmptyStateVariant.sm} titleText="No analysis runs" headingLevel="h3">
+                  <EmptyStateBody>No AnalysisRuns are recorded for this Rollout yet.</EmptyStateBody>
+                </EmptyState>
+              ) : (
+                <div className="ocs-pods-list__panel">
+                  <DataView ouiaId="rollout-analysis-runs" className={OCS_PROTOTYPE_DATAVIEW_CLASS}>
+                    <OcsPrototypeListTable ariaLabel="Rollout analysis runs">
+                      <Thead>
+                        <Tr>
+                          <Th dataLabel="Name">
+                            <PlainTableHeader label="Name" />
+                          </Th>
+                          <Th dataLabel="Phase">
+                            <PlainTableHeader label="Phase" />
+                          </Th>
+                          <Th dataLabel="Duration">
+                            <PlainTableHeader label="Duration" />
+                          </Th>
+                          <Th dataLabel="Metrics">
+                            <PlainTableHeader label="Metrics summary" />
+                          </Th>
+                        </Tr>
+                      </Thead>
+                      <Tbody>
+                        {experimentRows
+                          .filter((r) => r.name.includes("analysis"))
+                          .map((row) => (
+                            <Tr key={row.name}>
+                              <Td dataLabel="Name">
+                                <Button
+                                  variant="link"
+                                  isInline
+                                  onClick={() =>
+                                    navigate(experimentDetailPath(ns, rolloutName, row.name))
+                                  }
+                                >
+                                  {row.name}
+                                </Button>
+                              </Td>
+                              <Td dataLabel="Phase">
+                                <ExperimentPhase phase={row.phase} />
+                              </Td>
+                              <Td dataLabel="Duration">{row.duration}</Td>
+                              <Td dataLabel="Metrics">
+                                <Content component="small">{row.metrics}</Content>
+                              </Td>
+                            </Tr>
+                          ))}
+                      </Tbody>
+                    </OcsPrototypeListTable>
+                  </DataView>
+                </div>
+              )}
+            </FlexItem>
           ) : activeTab === "experiments" ? (
             <FlexItem grow={{ default: "grow" }} alignSelf={{ default: "alignSelfStretch" }}>
               <Title headingLevel="h2" size="lg" className="pf-v6-u-mb-md">
-                Experiments / AnalysisRuns
+                Experiments
               </Title>
               <Content component="p" className="pf-v6-u-mb-md pf-v6-u-color-200">
-                Additive to Rollout domain actions (Promote, Abort, Restart, Retry — HPUX-1943). Use the
-                actions menu for promote/abort; this tab tracks AnalysisRuns / Experiments only.
+                Experiment resources for this Rollout. Domain promote/abort actions stay in the Rollout
+                actions menu.
               </Content>
-              {experimentRows.length === 0 ? (
+              {experimentRows.filter((r) => r.name.includes("experiment")).length === 0 ? (
                 <EmptyState
                   variant={EmptyStateVariant.sm}
                   titleText="No experiments"
@@ -756,7 +820,9 @@ export default function GitOpsRolloutDetailPage() {
                         </Tr>
                       </Thead>
                       <Tbody>
-                        {experimentRows.map((row) => (
+                        {experimentRows
+                          .filter((r) => r.name.includes("experiment"))
+                          .map((row) => (
                           <Tr key={row.name}>
                             <Td dataLabel="Name">
                               <Button

@@ -47,6 +47,7 @@ import BackToPrototypesBanner from "./BackToPrototypesBanner";
 import { MastheadFedoraMark } from "./MastheadFedoraMark";
 import ConsoleNotificationDrawer, { NotificationBell } from "./ConsoleNotificationDrawer";
 import NamespaceBar from "./NamespaceBar";
+import { ConsoleProjectProvider } from "../contexts/ConsoleProjectContext";
 import { usePermissions } from "../contexts/PermissionsContext";
 import { useChat } from "../contexts/ChatContext";
 import { useFavorites } from "../contexts/FavoritesContext";
@@ -535,6 +536,7 @@ export default function Layout() {
     ) : undefined;
 
   return (
+    <ConsoleProjectProvider>
     <>
       <div
         className={css(
@@ -635,5 +637,6 @@ export default function Layout() {
       </Button>
       ) : null}
     </>
+    </ConsoleProjectProvider>
   );
 }
