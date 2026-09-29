@@ -26,7 +26,7 @@ export const OLM_OPERATOR_PILL_LABELS: Record<"v0" | "v1", string> = {
   v1: "Next-Gen Operators",
 };
 
-const STORAGE_KEY = "ocp-prototype-olm-operating-mode";
+const STORAGE_KEY = "ocp-prototype-olm-operating-mode-v2";
 
 function readMode(): OlmOperatingMode {
   try {
@@ -35,7 +35,7 @@ function readMode(): OlmOperatingMode {
   } catch {
     /* ignore */
   }
-  return "classic";
+  return "nextgen";
 }
 
 type OlmOperatingModeContextValue = {

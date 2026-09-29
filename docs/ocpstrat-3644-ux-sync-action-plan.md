@@ -12,7 +12,7 @@
 | Option B coexistence | Dedicated spaces / separate catalogs | **Accurate** — prototype uses separated Classic vs Next-Gen contexts; Software Catalog now also shows **unified operator list** with Classic sorted last (relevance). |
 | Terminology | Use **Classic**, not “Legacy” in UI | **Accurate** — aligned in prototype labels (RH UX guideline). |
 | Installed Operators MVP | **Tabbed** Classic / Next-Gen | **Accurate** — keep tabs for MVP; separate pages deferred. |
-| Catalog | Single catalog, Classic at bottom, enabled by default | **Partially in prototype** — unified operator packages + relevance sort; admin cluster toggle for disabling Classic is **future** (cluster setting). |
+| Catalog | Single catalog, Classic at bottom, enabled by default | **In prototype** — unified operator packages + relevance sort; banner CTA deep-links to `?catalog=nextgen`; admin cluster toggle for disabling Classic is **future** (cluster setting). |
 | Migration UI | Blocked pending OLM API/strategy | **Accurate** — prototype explores UX; info notice added; eng blocked on OLM team. |
 | Data view / column mgmt | Jackson migrates IO table to DataView | **Accurate for eng** — prototype already uses `@patternfly/react-data-view` on Installed Operators; console-core migration is Jackson’s track. |
 
@@ -28,11 +28,11 @@
 
 | Action | Owner | Status |
 |--------|--------|--------|
-| Update coexistence + migration Google Docs; screenshots; Slack link | Kevin | **In progress** — migration doc created; refresh coexistence doc for Classic wording + unified catalog shots |
-| Update Jira (HPUX-2188 family, HPUX-2193/2195, OCPSTRAT-3644/2692) | Kevin | **Partial** — HPUX-2193/2195 linked; refresh HPUX-2190–2192 for Classic terminology |
+| Update coexistence + migration Google Docs; screenshots; Slack link | Kevin | **In progress** — migration doc updated; run `update_olm_coexistence_design_doc.py` for coexistence doc |
+| Update Jira (HPUX-2188 family, HPUX-2193/2195, OCPSTRAT-3644/2692) | Kevin | **Partial** — refresh for Classic terminology + unified catalog |
 | Migrate Installed Operators to DataView (console-core) | Jackson Lee | Eng — not prototype |
 | Consult OLM on v0→v1 migration (CSV, ClusterExtension, wizard vs bulk) | Group + Jordan/Leo | **Blocking** migration implementation |
-| Prototype UX alignment (terminology, banner, catalog sort, migration notice) | Kevin / UX | **Implemented in repo** (pending push) |
+| Prototype UX alignment (terminology, banner, catalog sort, migration notice) | Kevin / UX | **Implemented** — banner deep-link `?catalog=nextgen`; catalog URL sync |
 
 ## Recommended next steps (Kevin)
 

@@ -214,7 +214,7 @@ const ioManageColRowStyle = (withDivider: boolean): CSSProperties => ({
     : {}),
 });
 
-/** Yes = managed from Operators (OLMv1) catalog; No = Operators (Legacy) / OLMv0. */
+/** Yes = Next-Gen (OLMv1) catalog; No = Classic (OLMv0) management. */
 function catalogVersionDisplay(op: CatalogOperator): "Yes" | "No" {
   return op.isOlmV1Extension ? "Yes" : "No";
 }

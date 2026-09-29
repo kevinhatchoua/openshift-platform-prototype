@@ -27,14 +27,14 @@ export function OlmOperatingModeTabs({ id = "olm-operating-mode" }: OlmOperating
       className="ocs-olm-mode-tabs"
     >
       <Tab
-        eventKey="classic"
-        title={<TabTitleText>{OLM_MODE_LABELS.classic}</TabTitleText>}
-        ouiaId="olm-mode-tab-classic"
-      />
-      <Tab
         eventKey="nextgen"
         title={<TabTitleText>{OLM_MODE_LABELS.nextgen}</TabTitleText>}
         ouiaId="olm-mode-tab-nextgen"
+      />
+      <Tab
+        eventKey="classic"
+        title={<TabTitleText>{OLM_MODE_LABELS.classic}</TabTitleText>}
+        ouiaId="olm-mode-tab-classic"
       />
     </Tabs>
   );

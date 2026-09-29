@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { Link, useNavigate } from "react-router";
+import { useState, useEffect, useCallback } from "react";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import {
   Alert,
   AlertActionCloseButton,
@@ -25,6 +25,10 @@ import {
   OLM_OPERATOR_PILL_LABELS,
   useOlmOperatingMode,
 } from "../../contexts/OlmOperatingModeContext";
+import {
+  parseOperatorCatalogFilter,
+  type OperatorCatalogFilter,
+} from "../../components/ecosystem/olmCatalogRoutes";
 import { CatalogBrandLogo } from "./CatalogBrandLogo";
 import type { LogoCatalogType } from "./catalogLogos";
 
@@ -167,10 +171,29 @@ function catalogCardPillLabel(item: CatalogItem): string {
 
 export default function SoftwareCatalogPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { setMode } = useOlmOperatingMode();
-  /** OCPSTRAT-3644: unified catalog lists both operator generations; sidebar narrows the set. */
-  const [operatorCatalogFilter, setOperatorCatalogFilter] = useState<"all" | "nextgen" | "classic">(
-    "all",
+  /** OCPSTRAT-3644: catalog facet selects Next-Gen (default) or Classic operator packages. */
+  const [operatorCatalogFilter, setOperatorCatalogFilter] = useState<OperatorCatalogFilter>(
+    () => parseOperatorCatalogFilter(searchParams.get("catalog")) ?? "nextgen",
+  );
+  const setCatalogFilter = useCallback(
+    (next: OperatorCatalogFilter) => {
+      setOperatorCatalogFilter(next);
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (next === "nextgen") {
+            params.delete("catalog");
+          } else {
+            params.set("catalog", next);
+          }
+          return params;
+        },
+        { replace: true },
+      );
+    },
+    [setSearchParams],
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [catalogSort, setCatalogSort] = useState<"relevance" | "name">("relevance");
@@ -205,9 +228,16 @@ export default function SoftwareCatalogPage() {
   });
 
   useEffect(() => {
+    const fromUrl = parseOperatorCatalogFilter(searchParams.get("catalog"));
+    if (fromUrl && fromUrl !== operatorCatalogFilter) {
+      setOperatorCatalogFilter(fromUrl);
+    }
+  }, [searchParams, operatorCatalogFilter]);
+
+  useEffect(() => {
     if (operatorCatalogFilter === "nextgen") {
       setMode("nextgen");
-    } else {
+    } else if (operatorCatalogFilter === "classic") {
       setMode("classic");
     }
   }, [operatorCatalogFilter, setMode]);
@@ -891,8 +921,8 @@ export default function SoftwareCatalogPage() {
           <h1 id="main-title">Software Catalog</h1>
           <p>
             Add shared applications, services, event sources, or source-to-image builders to your Project from the
-            software catalog. Operator packages include Next-Gen and Classic entries; default sort lists Classic
-            operators after Next-Gen.
+            software catalog. {OLM_CATALOG_FACET_LABELS.nextgen} is shown by default; switch to{" "}
+            {OLM_CATALOG_FACET_LABELS.classic} in the sidebar when you need OLMv0 packages.
           </p>
         </Content>
 
@@ -1035,20 +1065,8 @@ export default function SoftwareCatalogPage() {
                       type="radio"
                       name="catalog-olm-mode"
                       className="size-[14px]"
-                      checked={operatorCatalogFilter === "all"}
-                      onChange={() => setOperatorCatalogFilter("all")}
-                    />
-                    <span>
-                      All operator packages ({classicOperatorCount + nextGenOperatorCount})
-                    </span>
-                  </label>
-                  <label className="flex items-center gap-[8px] cursor-pointer text-[14px] text-[#151515] dark:text-white">
-                    <input
-                      type="radio"
-                      name="catalog-olm-mode"
-                      className="size-[14px]"
                       checked={operatorCatalogFilter === "nextgen"}
-                      onChange={() => setOperatorCatalogFilter("nextgen")}
+                      onChange={() => setCatalogFilter("nextgen")}
                     />
                     <span>
                       {OLM_CATALOG_FACET_LABELS.nextgen} ({nextGenOperatorCount})
@@ -1060,7 +1078,7 @@ export default function SoftwareCatalogPage() {
                       name="catalog-olm-mode"
                       className="size-[14px]"
                       checked={operatorCatalogFilter === "classic"}
-                      onChange={() => setOperatorCatalogFilter("classic")}
+                      onChange={() => setCatalogFilter("classic")}
                     />
                     <span>
                       {OLM_CATALOG_FACET_LABELS.classic} ({classicOperatorCount})

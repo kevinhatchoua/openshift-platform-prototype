@@ -4,6 +4,7 @@ import {
   OLM_MODE_LABELS,
   useOlmOperatingMode,
 } from "../../contexts/OlmOperatingModeContext";
+import { NEXT_GEN_CATALOG_PATH } from "./olmCatalogRoutes";
 
 /**
  * Shown on Classic (OLMv0) ecosystem surfaces per OCPSTRAT-3644 sync — identifies the
@@ -29,7 +30,7 @@ export function OlmClassicExperienceBanner() {
       </Content>
       <AlertActionLink
         component={Link}
-        to="/ecosystem/software-catalog"
+        to={NEXT_GEN_CATALOG_PATH}
         onClick={() => setMode("nextgen")}
       >
         Open {OLM_MODE_LABELS.nextgen} in Software Catalog
