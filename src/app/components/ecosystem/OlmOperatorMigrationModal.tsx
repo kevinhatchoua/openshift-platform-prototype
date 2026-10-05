@@ -1,20 +1,31 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type MouseEvent } from "react";
 import {
+  ActionList,
+  ActionListGroup,
+  ActionListItem,
   Alert,
   Button,
   Checkbox,
   Content,
   Flex,
-  Label,
   FormGroup,
+  Label,
   Modal,
   ModalBody,
   ModalFooter,
   ModalHeader,
+  ModalVariant,
   Spinner,
   Stack,
   StackItem,
+  Wizard,
+  WizardFooter,
+  WizardFooterWrapper,
+  WizardHeader,
+  WizardStep,
+  useWizardContext,
 } from "@patternfly/react-core";
+import type { WizardStepType } from "@patternfly/react-core";
 import { Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
 import type { CatalogOperator, OlmMigrationEligibility } from "../../pages/ecosystem/installedOperatorsTypes";
@@ -36,8 +47,6 @@ export type OperatorMigrationRow = {
   message: string;
 };
 
-type ModalPhase = "select" | "dryRun" | "review" | "blocked";
-
 const ELIGIBILITY_LABEL: Record<
   OlmMigrationEligibility,
   { text: string; color: "green" | "orange" | "blue" | "red" | "grey" }
@@ -53,6 +62,10 @@ const DRY_RUN_LABEL: Record<MigrationDryRunRow["status"], { text: string; color:
   blocked: { text: "Blocked", color: "red" },
 };
 
+const STEP_SELECT = "migrate-select";
+const STEP_DRY_RUN = "migrate-dry-run";
+const STEP_REVIEW = "migrate-review";
+
 type OlmOperatorMigrationModalProps = {
   isOpen: boolean;
   onClose: () => void;
@@ -63,17 +76,103 @@ type OlmOperatorMigrationModalProps = {
   initialSelection?: string[] | null;
 };
 
-function stepHint(phase: ModalPhase): string | null {
-  switch (phase) {
-    case "select":
-      return "Step 1 of 3 — Select operators";
-    case "dryRun":
-      return "Step 2 of 3 — Dry run (no changes)";
-    case "review":
-      return "Step 3 of 3 — Review and execute (point of no return)";
-    default:
-      return null;
+type MigrationWizardFooterProps = {
+  selectedCount: number;
+  dryRunLoading: boolean;
+  dryRunPassCount: number;
+  selectedOperatorCount: number;
+  canExecute: boolean;
+  isSingleOperatorFlow: boolean;
+  onRunDryRunAgain: () => void;
+};
+
+function MigrationWizardFooter({
+  selectedCount,
+  dryRunLoading,
+  dryRunPassCount,
+  selectedOperatorCount,
+  canExecute,
+  isSingleOperatorFlow,
+  onRunDryRunAgain,
+}: MigrationWizardFooterProps) {
+  const { activeStep, onNext, onBack, onClose } = useWizardContext();
+
+  if (activeStep?.id === STEP_SELECT) {
+    return (
+      <WizardFooter
+        activeStep={activeStep}
+        onNext={onNext}
+        onBack={onBack}
+        onClose={onClose}
+        isBackHidden
+        nextButtonText="Next"
+        isNextDisabled={selectedCount === 0}
+        cancelButtonText="Cancel"
+      />
+    );
   }
+
+  if (activeStep?.id === STEP_DRY_RUN) {
+    const dryRunComplete =
+      !dryRunLoading && dryRunPassCount > 0 && dryRunPassCount === selectedOperatorCount;
+
+    return (
+      <WizardFooterWrapper>
+        <ActionList>
+          <ActionListGroup>
+            <ActionListItem>
+              <Button variant="secondary" onClick={onBack}>
+                Back
+              </Button>
+            </ActionListItem>
+            <ActionListItem>
+              <Button
+                variant="link"
+                onClick={onRunDryRunAgain}
+                isDisabled={dryRunLoading || selectedOperatorCount === 0}
+              >
+                Run dry run again
+              </Button>
+            </ActionListItem>
+            <ActionListItem>
+              <Button variant="primary" onClick={onNext} isDisabled={!dryRunComplete}>
+                Next
+              </Button>
+            </ActionListItem>
+          </ActionListGroup>
+          <ActionListGroup>
+            <ActionListItem>
+              <Button variant="link" onClick={onClose}>
+                Cancel
+              </Button>
+            </ActionListItem>
+          </ActionListGroup>
+        </ActionList>
+      </WizardFooterWrapper>
+    );
+  }
+
+  if (activeStep?.id === STEP_REVIEW) {
+    return (
+      <WizardFooter
+        activeStep={activeStep}
+        onNext={onNext}
+        onBack={onBack}
+        onClose={onClose}
+        isCancelHidden
+        nextButtonText={
+          isSingleOperatorFlow ? "Start migration" : `Start migration (${dryRunPassCount})`
+        }
+        isNextDisabled={!canExecute}
+        nextButtonProps={{
+          variant: "danger",
+          ...(canExecute ? {} : { "aria-describedby": "olm-migration-execute-prereq" }),
+        }}
+      />
+    );
+  }
+
+  return null;
 }
 
 export function OlmOperatorMigrationModal({
@@ -85,8 +184,8 @@ export function OlmOperatorMigrationModal({
   initialSelection = null,
 }: OlmOperatorMigrationModalProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [phase, setPhase] = useState<ModalPhase>("select");
   const [blockedOperator, setBlockedOperator] = useState<CatalogOperator | null>(null);
+  const [wizardSessionKey, setWizardSessionKey] = useState(0);
   const [dryRunLoading, setDryRunLoading] = useState(false);
   const [dryRunRows, setDryRunRows] = useState<MigrationDryRunRow[]>([]);
   const [ackReviewedDryRun, setAckReviewedDryRun] = useState(false);
@@ -115,11 +214,12 @@ export function OlmOperatorMigrationModal({
 
   const isSingleOperatorFlow = selectedOperators.length === 1;
   const dryRunPassCount = dryRunRows.filter((row) => row.status === "pass").length;
+  const dryRunComplete =
+    dryRunPassCount > 0 && dryRunPassCount === selectedOperators.length && !dryRunLoading;
   const canExecute =
     ackReviewedDryRun &&
     ackPonr &&
-    dryRunPassCount > 0 &&
-    dryRunPassCount === selectedOperators.length;
+    dryRunComplete;
 
   const executeBlockers: string[] = [];
   if (!ackReviewedDryRun) {
@@ -128,13 +228,12 @@ export function OlmOperatorMigrationModal({
   if (!ackPonr) {
     executeBlockers.push("Confirm you understand point-of-no-return and manual recovery risks.");
   }
-  if (dryRunPassCount !== selectedOperators.length || dryRunPassCount === 0) {
+  if (!dryRunComplete) {
     executeBlockers.push("Complete a successful dry run for all selected operators.");
   }
 
   const reset = () => {
     setSelected(new Set());
-    setPhase("select");
     setBlockedOperator(null);
     setDryRunLoading(false);
     setDryRunRows([]);
@@ -164,14 +263,7 @@ export function OlmOperatorMigrationModal({
       return;
     }
 
-    setSelected(new Set());
-    setPhase("select");
-    setBlockedOperator(null);
-    setDryRunLoading(false);
-    setDryRunRows([]);
-    setAckReviewedDryRun(false);
-    setAckPonr(false);
-    setAckBackup(false);
+    reset();
 
     if (initialSelection && initialSelection.length > 0) {
       const eligible = initialSelection.filter((name) =>
@@ -180,32 +272,29 @@ export function OlmOperatorMigrationModal({
         ),
       );
       setSelected(new Set(eligible));
+      setWizardSessionKey((key) => key + 1);
       return;
     }
 
     if (!initialOperatorName) {
+      setWizardSessionKey((key) => key + 1);
       return;
     }
 
     const op = classicOperators.find((row) => row.name === initialOperatorName);
     if (!op) {
+      setWizardSessionKey((key) => key + 1);
       return;
     }
 
     if (op.olmMigrationEligibility === "eligible") {
       setSelected(new Set([op.name]));
+      setWizardSessionKey((key) => key + 1);
       return;
     }
 
     setBlockedOperator(op);
-    setPhase("blocked");
   }, [isOpen, initialOperatorName, initialSelection, classicOperators]);
-
-  useEffect(() => {
-    if (phase === "dryRun" && selectedOperators.length > 0 && dryRunRows.length === 0 && !dryRunLoading) {
-      void runDryRun(selectedOperators);
-    }
-  }, [phase, selectedOperators, dryRunRows.length, dryRunLoading, runDryRun]);
 
   const toggleRow = (name: string, eligibility: OlmMigrationEligibility | undefined) => {
     if (eligibility !== "eligible") return;
@@ -217,14 +306,6 @@ export function OlmOperatorMigrationModal({
     });
   };
 
-  const goToDryRun = () => {
-    setDryRunRows([]);
-    setAckReviewedDryRun(false);
-    setAckPonr(false);
-    setAckBackup(false);
-    setPhase("dryRun");
-  };
-
   const confirmAndStart = () => {
     if (!canExecute) {
       return;
@@ -233,36 +314,44 @@ export function OlmOperatorMigrationModal({
     handleClose();
   };
 
-  const title =
-    phase === "select"
-      ? `Migrate operators to ${OLM_MODE_LABELS.nextgen}`
-      : phase === "dryRun"
-        ? "Dry run migration plan"
-        : phase === "review"
-          ? isSingleOperatorFlow
-            ? `Execute migration for ${selectedOperators[0]?.name}?`
-            : "Execute bulk migration"
-          : "Migration unavailable";
+  const handleWizardStepChange = (
+    _event: MouseEvent<HTMLButtonElement>,
+    currentStep: WizardStepType,
+  ) => {
+    if (currentStep?.id === STEP_DRY_RUN) {
+      setDryRunRows([]);
+      setAckReviewedDryRun(false);
+      setAckPonr(false);
+      setAckBackup(false);
+      if (selectedOperators.length > 0) {
+        void runDryRun(selectedOperators);
+      }
+    }
+  };
 
-  const step = stepHint(phase);
+  const wizardFooter = (
+    <MigrationWizardFooter
+      selectedCount={selected.size}
+      dryRunLoading={dryRunLoading}
+      dryRunPassCount={dryRunPassCount}
+      selectedOperatorCount={selectedOperators.length}
+      canExecute={canExecute}
+      isSingleOperatorFlow={isSingleOperatorFlow}
+      onRunDryRunAgain={() => void runDryRun(selectedOperators)}
+    />
+  );
 
-  return (
-    <Modal
-      className="ocs-olm-migration-modal"
-      variant="medium"
-      isOpen={isOpen}
-      onClose={handleClose}
-      aria-labelledby="olm-migration-title"
-      aria-describedby="olm-migration-modal-desc"
-    >
-      <ModalHeader title={title} labelId="olm-migration-title" description={step ?? undefined} />
-      <ModalBody id="olm-migration-modal-desc">
-        {step ? (
-          <p id="olm-migration-step-desc" className="pf-v6-u-screen-reader">
-            {step}
-          </p>
-        ) : null}
-        {phase === "blocked" && blockedOperator ? (
+  if (isOpen && blockedOperator) {
+    return (
+      <Modal
+        className="ocs-olm-migration-modal"
+        variant={ModalVariant.medium}
+        isOpen={isOpen}
+        onClose={handleClose}
+        aria-labelledby="olm-migration-blocked-title"
+      >
+        <ModalHeader title="Migration unavailable" labelId="olm-migration-blocked-title" />
+        <ModalBody>
           <Stack hasGutter>
             <StackItem>
               <Alert
@@ -279,9 +368,45 @@ export function OlmOperatorMigrationModal({
               <OlmMigrationBlockersPanel operator={blockedOperator} />
             </StackItem>
           </Stack>
-        ) : null}
+        </ModalBody>
+        <ModalFooter>
+          <Button variant="primary" onClick={handleClose}>
+            Close
+          </Button>
+        </ModalFooter>
+      </Modal>
+    );
+  }
 
-        {phase === "select" && (
+  return (
+    <Modal
+      className="ocs-olm-migration-modal ocs-olm-migration-modal--wizard"
+      variant={ModalVariant.large}
+      isOpen={isOpen}
+      onEscapePress={handleClose}
+      aria-labelledby="olm-migration-title"
+      aria-describedby="olm-migration-modal-desc"
+    >
+      <Wizard
+        key={wizardSessionKey}
+        className="ocs-olm-migration-wizard"
+        navAriaLabel="Migration steps"
+        isVisitRequired
+        shouldFocusContent
+        onClose={handleClose}
+        onSave={confirmAndStart}
+        onStepChange={handleWizardStepChange}
+        header={
+          <WizardHeader
+            title={`Migrate operators to ${OLM_MODE_LABELS.nextgen}`}
+            onClose={handleClose}
+            titleId="olm-migration-title"
+            description="Move operator management to Next-Gen Operators without changing bundle versions. Dry run first, then review before execute."
+          />
+        }
+        footer={wizardFooter}
+      >
+        <WizardStep name="Select operators" id={STEP_SELECT}>
           <Stack hasGutter>
             <StackItem>
               <Content>
@@ -302,7 +427,7 @@ export function OlmOperatorMigrationModal({
                 OLMv1 dependency constraints (filtered below).
               </Content>
             </StackItem>
-            <StackItem isFilled>
+            <StackItem>
               <Table aria-label="Operator migration eligibility" variant="compact">
                 <Thead>
                   <Tr>
@@ -351,9 +476,9 @@ export function OlmOperatorMigrationModal({
               </Table>
             </StackItem>
           </Stack>
-        )}
+        </WizardStep>
 
-        {phase === "dryRun" && (
+        <WizardStep name="Dry run" id={STEP_DRY_RUN}>
           <Stack hasGutter>
             <StackItem>
               <Alert variant="info" isInline title="Dry run does not change the cluster">
@@ -379,7 +504,7 @@ export function OlmOperatorMigrationModal({
                       {selectedOperators.length === 1 ? "" : "s"} passed dry run and can proceed to execute.
                     </Content>
                   </StackItem>
-                  <StackItem isFilled>
+                  <StackItem>
                     <Table aria-label="Migration dry run results" variant="compact">
                       <Thead>
                         <Tr>
@@ -423,9 +548,9 @@ export function OlmOperatorMigrationModal({
               )}
             </StackItem>
           </Stack>
-        )}
+        </WizardStep>
 
-        {phase === "review" && (
+        <WizardStep name="Review" id={STEP_REVIEW} isDisabled={!dryRunComplete}>
           <Stack hasGutter>
             <StackItem>
               <Alert variant="danger" isInline title="Point of no return">
@@ -500,65 +625,8 @@ export function OlmOperatorMigrationModal({
               </FormGroup>
             </StackItem>
           </Stack>
-        )}
-      </ModalBody>
-      <ModalFooter>
-        {phase === "select" && (
-          <>
-            <Button variant="link" onClick={handleClose}>
-              Cancel
-            </Button>
-            <Button variant="primary" isDisabled={selected.size === 0} onClick={goToDryRun}>
-              Next: Dry run ({selected.size})
-            </Button>
-          </>
-        )}
-        {phase === "dryRun" && (
-          <>
-            <Button variant="secondary" onClick={() => setPhase("select")}>
-              Back
-            </Button>
-            <Button
-              variant="link"
-              onClick={() => void runDryRun(selectedOperators)}
-              isDisabled={dryRunLoading || selectedOperators.length === 0}
-            >
-              Run dry run again
-            </Button>
-            <Button
-              variant="primary"
-              isDisabled={
-                dryRunLoading || dryRunPassCount === 0 || dryRunPassCount !== selectedOperators.length
-              }
-              onClick={() => setPhase("review")}
-            >
-              Next: Review and execute
-            </Button>
-          </>
-        )}
-        {phase === "review" && (
-          <>
-            <Button variant="secondary" onClick={() => setPhase("dryRun")}>
-              Back
-            </Button>
-            <Button
-              variant="danger"
-              isDisabled={!canExecute}
-              aria-describedby={
-                !canExecute ? "olm-migration-execute-prereq" : undefined
-              }
-              onClick={confirmAndStart}
-            >
-              {isSingleOperatorFlow ? "Start migration" : `Start migration (${dryRunPassCount})`}
-            </Button>
-          </>
-        )}
-        {phase === "blocked" && (
-          <Button variant="primary" onClick={handleClose}>
-            Close
-          </Button>
-        )}
-      </ModalFooter>
+        </WizardStep>
+      </Wizard>
     </Modal>
   );
 }

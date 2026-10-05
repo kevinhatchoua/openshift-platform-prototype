@@ -4439,3 +4439,27 @@ html.dark .ocs-net-topo-panel__canvas {
 .ocs-net-topo-panel--nmstate .ocs-net-topo-group--dragging .ocs-net-topo-group__hull-path {
   cursor: grabbing;
 }
+
+/* OLM migration — PatternFly Wizard in modal (footer spacing) */
+.ocs-olm-migration-modal--wizard.pf-v6-c-modal-box {
+  padding: 0;
+  overflow: hidden;
+}
+
+.ocs-olm-migration-modal--wizard .ocs-olm-migration-wizard {
+  min-height: min(32rem, 70vh);
+}
+
+.ocs-olm-migration-modal--wizard .ocs-olm-migration-wizard .pf-v6-c-wizard__outer-wrap {
+  min-height: 0;
+}
+
+.ocs-olm-migration-modal--wizard .ocs-olm-migration-wizard .pf-v6-c-wizard__main {
+  min-height: 0;
+}
+
+.ocs-olm-migration-modal__prereq-list,
+.ocs-olm-migration-modal__operator-list {
+  margin: 0;
+  padding-inline-start: var(--pf-t--global--spacer--lg);
+}
