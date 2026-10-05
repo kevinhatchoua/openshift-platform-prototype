@@ -75,6 +75,7 @@ import InstalledOperatorsPage from "./pages/ecosystem/InstalledOperatorsPage";
 import HelmPage from "./pages/ecosystem/HelmPage";
 import OperatorDetailPage from "./pages/ecosystem/OperatorDetailPage";
 import OperatorUpdatePage from "./pages/ecosystem/OperatorUpdatePage";
+import OperatorInstallPage from "./pages/ecosystem/OperatorInstallPage";
 import OperatorInstallingPage from "./pages/ecosystem/OperatorInstallingPage";
 import OperatorInstalledPage from "./pages/ecosystem/OperatorInstalledPage";
 import NodeDetailPage from "./pages/compute/NodeDetailPage";
@@ -116,11 +117,12 @@ export const router = createBrowserRouter([
           { path: "favorites", Component: FavoritesPage },
           { path: "ecosystem", loader: () => redirect("/ecosystem/software-catalog") },
           { path: "ecosystem/software-catalog", Component: SoftwareCatalogPage },
-          { path: "ecosystem/software-catalog/:operatorId", Component: OperatorDetailPage },
-          { path: "ecosystem/software-catalog/:operatorId/update", Component: OperatorUpdatePage },
-          { path: "ecosystem/software-catalog/:operatorId/install", Component: OperatorInstallingPage },
+          /** Install form before `:operatorId` detail so `/install` never resolves to the wrong screen. */
+          { path: "ecosystem/software-catalog/:operatorId/install", Component: OperatorInstallPage },
           { path: "ecosystem/software-catalog/:operatorId/installing", Component: OperatorInstallingPage },
           { path: "ecosystem/software-catalog/:operatorId/installed", Component: OperatorInstalledPage },
+          { path: "ecosystem/software-catalog/:operatorId/update", Component: OperatorUpdatePage },
+          { path: "ecosystem/software-catalog/:operatorId", Component: OperatorDetailPage },
 
           { path: "ecosystem/installed-operators", Component: InstalledOperatorsPage },
           { path: "ecosystem/installed-operators/:operatorName", Component: OperatorDetailPage },

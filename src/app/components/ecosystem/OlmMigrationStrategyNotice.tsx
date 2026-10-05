@@ -2,11 +2,10 @@ import { useState } from "react";
 import { Alert, AlertActionCloseButton, Content } from "@patternfly/react-core";
 import { useOlmOperatingMode } from "../../contexts/OlmOperatingModeContext";
 
-const DISMISS_KEY = "ocs-olm-migration-strategy-notice-dismissed";
+const DISMISS_KEY = "ocs-olm-migration-strategy-notice-dismissed-v2";
 
 /**
- * Prototype / design-only notice — eng sync (Sep 28, 2026): migration UI depends on OLM team
- * defining cluster workflows (CSV vs ClusterExtension, manual vs automated).
+ * Classic Installed Operators — migration wizard entry notice (OCPSTRAT-2692 prototype).
  */
 export function OlmMigrationStrategyNotice() {
   const { isClassic } = useOlmOperatingMode();
@@ -26,7 +25,7 @@ export function OlmMigrationStrategyNotice() {
     <Alert
       variant="info"
       isInline
-      title="Migration workflows pending OLM strategy"
+      title="Operator migration uses dry run, review, then execute"
       className="ocs-olm-migration-strategy-notice pf-v6-u-mb-md"
       actionClose={
         <AlertActionCloseButton
@@ -42,10 +41,17 @@ export function OlmMigrationStrategyNotice() {
       }
     >
       <Content component="p" className="pf-v6-u-mb-0">
-        Bulk migrate and automatic rollback in this prototype explore target UX only. Console
-        implementation stays blocked until the Operator Lifecycle Manager team confirms how
-        OLMv0→v1 migration runs on-cluster (for example manual extension creation vs automated
-        migration). Expect possible shift to a guided wizard rather than a single bulk action.
+        Select operators, run a <strong>dry run</strong> (no cluster changes), then confirm at the{" "}
+        <strong>point of no return</strong> before migration executes. Track progress in the Migration
+        status column.{" "}
+        <a
+          href="https://docs.openshift.com"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="pf-v6-u-font-weight-bold"
+        >
+          Learn about migration risks
+        </a>
       </Content>
     </Alert>
   );

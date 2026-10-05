@@ -25,12 +25,12 @@ export function resolveMigrationDemoResult(
 
   if (scenario === "preview-failed-rollback") {
     if (op.name === "Kiali Operator") return "failed";
-    if (op.name === "Cert Manager") return "incomplete";
+    if (op.name === "Cert Manager") return "failed_ponr";
     return "success";
   }
 
   if (scenario === "preview-errors") {
-    if (op.name === "Cert Manager") return "incomplete";
+    if (op.name === "Cert Manager") return "failed_ponr";
     if (op.name === "Kiali Operator") return "error";
     return "success";
   }

@@ -11,16 +11,23 @@ export type OlmMigrationBlocker = {
   actionHref?: string;
 };
 
-export type OlmMigrationDemoResult = "success" | "failed" | "error" | "incomplete";
+export type OlmMigrationDemoResult = "success" | "failed" | "error" | "incomplete" | "failed_ponr";
 
 /** Simulated / reported outcome for a migration attempt (OCPSTRAT-2692 prototype). */
-export type OlmMigrationRunResult = "success" | "failed" | "error" | "incomplete" | "skipped";
+export type OlmMigrationRunResult =
+  | "success"
+  | "failed"
+  | "error"
+  | "incomplete"
+  | "failed_ponr"
+  | "skipped";
 
 export type OlmMigrationActivityStatus =
   | "queued"
   | "migrating"
   | "succeeded"
   | "failed_rollback"
+  | "failed_manual"
   | "error"
   | "incomplete";
 

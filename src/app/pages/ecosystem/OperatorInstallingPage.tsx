@@ -1,22 +1,19 @@
 import { useState, useEffect } from "react";
-import { useParams, Link, useNavigate } from "react-router";
+import { useParams, Link, useNavigate, useLocation } from "react-router";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { OcsNamedResourceDataView, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { readOperatorCatalogInstallState } from "./operatorCatalogInstallState";
 
 export default function OperatorInstallingPage() {
   const { operatorId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("Configuring resource xyz");
   const [timeLeft, setTimeLeft] = useState("About 23 min left");
 
-  // Mock operator data
-  const operator = {
-    id: operatorId,
-    name: "Business Automation",
-    provider: "Red Hat",
-  };
+  const operator = readOperatorCatalogInstallState(operatorId, location.state);
 
   const resources = [
     {

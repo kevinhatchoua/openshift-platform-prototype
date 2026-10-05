@@ -363,6 +363,80 @@ html:not(.dark) .ocs-cluster-update-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__
   color: var(--pf-t--global--text--color--regular);
 }
 
+/** OLM migration wizard — scrollable body, footer separation, contrast on dark chrome. */
+.ocs-olm-migration-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__body {
+  max-height: min(56vh, 32rem);
+  overflow-y: auto;
+}
+
+.ocs-olm-migration-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__footer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--pf-t--global--border--color--default);
+  padding-top: var(--pf-v6-global--spacer--md);
+  gap: var(--pf-v6-global--spacer--sm);
+}
+
+.ocs-olm-migration-modal__operator-list,
+.ocs-olm-migration-modal__prereq-list {
+  margin: 0;
+  padding-left: var(--pf-v6-global--spacer--lg);
+}
+
+html.dark .ocs-olm-migration-modal.pf-v6-c-modal-box {
+  background-color: var(--pf-color-gray-80);
+  color: #f5f5f5;
+}
+
+html.dark .ocs-olm-migration-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__title-text,
+html.dark .ocs-olm-migration-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__body,
+html.dark .ocs-olm-migration-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__description {
+  color: #f5f5f5;
+}
+
+html.dark .ocs-olm-migration-modal .pf-v6-c-button.pf-m-danger:not(:disabled) {
+  background-color: var(--pf-t--global--color--status--danger--default, #c9190b);
+  color: #fff;
+}
+
+html.dark .ocs-olm-migration-modal .pf-v6-c-button.pf-m-danger:not(:disabled):hover {
+  background-color: var(--pf-t--global--color--status--danger--hover, #a30000);
+  color: #fff;
+}
+
+html.dark .ocs-olm-migration-modal .pf-v6-c-button.pf-m-danger:disabled {
+  background-color: var(--pf-v6-global--palette--black-600, #4d4d4d);
+  color: #f0f0f0;
+  opacity: 1;
+}
+
+html.dark .ocs-olm-migration-modal .pf-v6-c-button.pf-m-secondary {
+  color: #92c5f6;
+  border-color: #92c5f6;
+}
+
+html:not(.dark) .ocs-olm-migration-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__body {
+  color: var(--pf-t--global--text--color--regular);
+}
+
+/** Software Catalog — operator detail drawer (PF v6 panelContent pattern). */
+.ocs-software-catalog-drawer.pf-v6-c-drawer {
+  min-height: 0;
+}
+
+.ocs-software-catalog-drawer .pf-v6-c-drawer__content {
+  min-width: 0;
+}
+
+.ocs-software-catalog-drawer__panel.pf-v6-c-drawer__panel {
+  background-color: var(--pf-t--global--background--color--primary--default);
+  color: var(--pf-t--global--text--color--regular);
+}
+
+html.dark .ocs-software-catalog-drawer__panel.pf-v6-c-drawer__panel {
+  background-color: var(--pf-color-gray-80);
+  color: #f5f5f5;
+}
+
 /** Schedule update window — compact PatternFly DatePicker / TimePicker / FormSelect row. */
 .ocs-schedule-modal-fields {
   width: 100%;
@@ -2524,6 +2598,47 @@ html.dark .ocs-nnc-stage {
 .ocs-catalog-detail__bullets {
   margin: 0;
   padding-inline-start: var(--pf-t--global--spacer--md);
+}
+
+.ocs-catalog-detail__head .pf-v6-c-drawer__head-content {
+  align-items: flex-start;
+}
+
+.ocs-catalog-detail__head-main {
+  min-width: 0;
+}
+
+.ocs-catalog-detail__head-actions {
+  padding-inline-end: var(--pf-t--global--spacer--2xl);
+}
+
+.ocs-operator-install-page__header {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pf-t--global--spacer--md);
+}
+
+.ocs-operator-install-page__form {
+  max-width: none;
+}
+
+.ocs-operator-install-page__header-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--pf-t--global--spacer--md);
+}
+
+.ocs-operator-install-page__sidebar-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pf-t--global--spacer--md);
+}
+
+.ocs-operator-install-page__api-grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--md);
 }
 
 .ocs-net-topo-panel__stage .pf-v6-c-drawer {

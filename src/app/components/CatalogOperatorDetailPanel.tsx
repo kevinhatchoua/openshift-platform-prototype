@@ -44,6 +44,7 @@ type CatalogOperatorDetailPanelProps = {
   item: CatalogDetailItem;
   onClose: () => void;
   onInstall?: () => void;
+  onCreate?: () => void;
   onUpdate?: () => void;
   onViewDetails?: () => void;
 };
@@ -52,32 +53,55 @@ export default function CatalogOperatorDetailPanel({
   item,
   onClose,
   onInstall,
+  onCreate,
   onUpdate,
   onViewDetails,
 }: CatalogOperatorDetailPanelProps) {
   const isOperator = item.catalogType === "operators";
+  const showPrimaryAction = !item.installed && (isOperator ? onInstall : onCreate);
 
   return (
     <>
-      <DrawerHead>
-        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }} flex={{ default: "flex_1" }}>
-          <CatalogBrandLogo
-            id={item.id}
-            catalogType={item.catalogType as LogoCatalogType}
-            boxClassName="ocs-catalog-detail__logo"
-            logoClassName="ocs-catalog-detail__logo-img"
-          />
-          <Flex direction={{ default: "column" }} flex={{ default: "flex_1" }}>
-            <Title headingLevel="h2" size="xl">
-              {item.name}
-            </Title>
-            <Content component="small">Provided by {item.provider}</Content>
+      <DrawerHead className="ocs-catalog-detail__head">
+        <Flex
+          direction={{ default: "column" }}
+          gap={{ default: "gapMd" }}
+          flex={{ default: "flex_1" }}
+          className="ocs-catalog-detail__head-main"
+        >
+          <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }} flex={{ default: "flex_1" }}>
+            <CatalogBrandLogo
+              id={item.id}
+              catalogType={item.catalogType as LogoCatalogType}
+              boxClassName="ocs-catalog-detail__logo"
+              logoClassName="ocs-catalog-detail__logo-img"
+            />
+            <Flex direction={{ default: "column" }} flex={{ default: "flex_1" }}>
+              <Title headingLevel="h2" size="xl">
+                {item.name}
+              </Title>
+              <Content component="small">Provided by {item.provider}</Content>
+            </Flex>
           </Flex>
+          {showPrimaryAction ? (
+            <div className="ocs-catalog-detail__head-actions">
+              {isOperator ? (
+                <Button variant="primary" onClick={onInstall}>
+                  Install
+                </Button>
+              ) : (
+                <Button variant="primary" onClick={onCreate}>
+                  Create
+                </Button>
+              )}
+            </div>
+          ) : null}
         </Flex>
         <DrawerActions>
           <DrawerCloseButton onClose={onClose} />
         </DrawerActions>
       </DrawerHead>
+      <Divider />
 
       <DrawerPanelBody>
         {isOperator && item.hasUpdate ? (
@@ -232,16 +256,6 @@ export default function CatalogOperatorDetailPanel({
           </div>
         </div>
 
-        {isOperator && !item.installed ? (
-          <>
-            <Divider className="pf-v6-u-my-md" />
-            <Flex justifyContent={{ default: "justifyContentFlexEnd" }}>
-              <Button variant="primary" onClick={onInstall}>
-                Install
-              </Button>
-            </Flex>
-          </>
-        ) : null}
       </DrawerPanelBody>
     </>
   );

@@ -47,7 +47,7 @@ export function getMigrationResultDetails(
       headline: "Migration failed — automatically rolled back",
       detail:
         op.olmMigrationReason ??
-        `The migration library could not complete the OLMv0→OLMv1 handover. Management was restored to ${OLM_MODE_LABELS.classic}. Running workloads were not interrupted.`,
+        `The migration library could not complete the OLMv0→OLMv1 handover before the point of no return. Management was restored to ${OLM_MODE_LABELS.classic}. Running workloads were not interrupted.`,
       autoRollbackApplied: true,
       nextSteps: [
         { label: "View operator details", href: detailsHref },
@@ -55,6 +55,20 @@ export function getMigrationResultDetails(
           ? [{ label: `Update to ${op.updateAvailable}`, href: updateHref }]
           : []),
         { label: "Retry migration", href: detailsHref },
+      ],
+    };
+  }
+
+  if (result === "failed_ponr") {
+    return {
+      headline: "Migration failed — manual action required",
+      detail:
+        op.olmMigrationReason ??
+        "Migration passed the point of no return before failing. Automatic rollback does not apply. Review managed resources and CRDs; restore from backup if custom resources were removed.",
+      nextSteps: [
+        { label: "View operator details", href: detailsHref },
+        { label: "Edit subscription", href: subscriptionHref },
+        { label: "Open documentation", href: "https://docs.openshift.com" },
       ],
     };
   }

@@ -707,8 +707,9 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     lastUpdated: "Mar 18, 2026, 2:05 AM",
     managedNamespaces: ["cert-manager", "cert-manager-operator"],
     olmMigrationEligibility: "eligible",
-    olmMigrationDemoResult: "incomplete",
-    olmMigrationReason: "Prototype: simulates partial migration for demo",
+    olmMigrationDemoResult: "failed_ponr",
+    olmMigrationReason:
+      "Prototype: simulates failure after point of no return (manual recovery required).",
   },
   {
     name: "OpenShift DNS",

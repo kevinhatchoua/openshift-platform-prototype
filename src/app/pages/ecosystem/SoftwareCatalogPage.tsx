@@ -906,9 +906,76 @@ export default function SoftwareCatalogPage() {
     setShowSidePanel(true);
   };
 
+  const catalogDetailPanel =
+    selectedCatalogItem && showSidePanel ? (
+      <DrawerPanelContent
+        isPlain
+        hasNoGlass
+        widths={{ default: "width_100", lg: "width_50" }}
+        focusTrap={{ enabled: true }}
+        className="ocs-software-catalog-drawer__panel"
+      >
+        <CatalogOperatorDetailPanel
+          item={{
+            id: selectedCatalogItem.id,
+            name: selectedCatalogItem.name,
+            provider: selectedCatalogItem.provider,
+            providerType: selectedCatalogItem.providerType,
+            description: selectedCatalogItem.description,
+            installed: selectedCatalogItem.installed,
+            hasUpdate: selectedCatalogItem.hasUpdate,
+            newVersion: selectedCatalogItem.newVersion,
+            currentVersion: selectedCatalogItem.currentVersion,
+            catalogType: selectedCatalogItem.catalogType,
+            typeLabel: CATALOG_TYPE_LABEL[selectedCatalogItem.catalogType],
+          }}
+          onClose={() => {
+            setShowSidePanel(false);
+            setSelectedCatalogItem(null);
+          }}
+          onInstall={() => {
+            if (!selectedCatalogItem) return;
+            navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/install`, {
+              state: {
+                id: selectedCatalogItem.id,
+                name: selectedCatalogItem.name,
+                provider: selectedCatalogItem.provider,
+                version: selectedCatalogItem.currentVersion ?? "0.16.0",
+                channel: "stable",
+              },
+            });
+            setShowSidePanel(false);
+          }}
+          onCreate={() => {
+            if (!selectedCatalogItem) return;
+            navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/install`, {
+              state: {
+                id: selectedCatalogItem.id,
+                name: selectedCatalogItem.name,
+                provider: selectedCatalogItem.provider,
+              },
+            });
+            setShowSidePanel(false);
+          }}
+          onUpdate={() => {
+            navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/update`);
+            setShowSidePanel(false);
+          }}
+          onViewDetails={() => {
+            navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}`);
+            setShowSidePanel(false);
+          }}
+        />
+      </DrawerPanelContent>
+    ) : null;
+
   return (
-    <Drawer isExpanded={showSidePanel && !!selectedCatalogItem} position="end">
-      <DrawerContent>
+    <Drawer
+      isExpanded={showSidePanel && !!selectedCatalogItem}
+      position="end"
+      className="ocs-software-catalog-drawer"
+    >
+      <DrawerContent panelContent={catalogDetailPanel}>
     <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
         <Breadcrumbs
           items={[
@@ -1354,43 +1421,6 @@ export default function SoftwareCatalogPage() {
         </Breadcrumbs>
       </div>
       </DrawerContent>
-      {selectedCatalogItem && showSidePanel ? (
-        <DrawerPanelContent
-          isPlain
-          hasNoGlass
-          widths={{ default: "width_100", lg: "width_50" }}
-          focusTrap={{ enabled: true }}
-        >
-          <CatalogOperatorDetailPanel
-            item={{
-              id: selectedCatalogItem.id,
-              name: selectedCatalogItem.name,
-              provider: selectedCatalogItem.provider,
-              providerType: selectedCatalogItem.providerType,
-              description: selectedCatalogItem.description,
-              installed: selectedCatalogItem.installed,
-              hasUpdate: selectedCatalogItem.hasUpdate,
-              newVersion: selectedCatalogItem.newVersion,
-              currentVersion: selectedCatalogItem.currentVersion,
-              catalogType: selectedCatalogItem.catalogType,
-              typeLabel: CATALOG_TYPE_LABEL[selectedCatalogItem.catalogType],
-            }}
-            onClose={() => setShowSidePanel(false)}
-            onInstall={() => {
-              navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/install`);
-              setShowSidePanel(false);
-            }}
-            onUpdate={() => {
-              navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/update`);
-              setShowSidePanel(false);
-            }}
-            onViewDetails={() => {
-              navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}`);
-              setShowSidePanel(false);
-            }}
-          />
-        </DrawerPanelContent>
-      ) : null}
     </Drawer>
   );
 }

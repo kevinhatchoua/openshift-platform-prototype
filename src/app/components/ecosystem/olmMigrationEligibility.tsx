@@ -281,13 +281,23 @@ function presentationForActivity(
       };
     case "failed_rollback":
       return {
-        label: "Failed",
+        label: "Failed (rolled back)",
         iconStatus: "danger",
         icon: <AlertCircle aria-hidden />,
         tooltipTitle: "Migration failed — rolled back",
         tooltipBody:
           detail ??
-          "Migration did not complete. The operator was automatically rolled back to Classic management. Resolve issues and retry.",
+          "Migration did not complete before the point of no return. The operator was automatically rolled back to Classic management. Resolve issues and retry.",
+      };
+    case "failed_manual":
+      return {
+        label: "Failed (manual action required)",
+        iconStatus: "danger",
+        icon: <AlertCircle aria-hidden />,
+        tooltipTitle: "Migration failed after point of no return",
+        tooltipBody:
+          detail ??
+          "Automatic rollback does not apply. Review operator conditions, managed resources, and CRDs. Restore from backup if custom resources were removed.",
       };
     case "error":
       return {

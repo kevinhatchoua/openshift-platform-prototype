@@ -1,11 +1,16 @@
-import type { CatalogOperator, OlmMigrationRunResult } from "../../pages/ecosystem/installedOperatorsTypes";
+import type {
+  CatalogOperator,
+  OlmMigrationActivityStatus,
+  OlmMigrationRunResult,
+} from "../../pages/ecosystem/installedOperatorsTypes";
 import type { OlmMigrationScenario } from "../../contexts/PrototypeDemoContext";
+import { OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
 import type { ToastInput } from "../../contexts/ToastContext";
 import { getMigrationResultDetails } from "./olmMigrationRemediations";
 import { resolveMigrationDemoResult } from "./olmMigrationScenarioPreview";
 import type { OperatorMigrationRow } from "./OlmOperatorMigrationModal";
 
-export type OlmMigrationActivityStatus = "queued" | "migrating" | "succeeded" | "failed_rollback" | "error" | "incomplete";
+export type { OlmMigrationActivityStatus };
 
 export function migrationActivityFromResult(result: OlmMigrationRunResult): OlmMigrationActivityStatus | undefined {
   switch (result) {
@@ -13,6 +18,8 @@ export function migrationActivityFromResult(result: OlmMigrationRunResult): OlmM
       return "succeeded";
     case "failed":
       return "failed_rollback";
+    case "failed_ponr":
+      return "failed_manual";
     case "error":
       return "error";
     case "incomplete":
@@ -32,6 +39,8 @@ export function migrationActivityLabel(status: OlmMigrationActivityStatus | unde
       return "Migrated";
     case "failed_rollback":
       return "Failed (rolled back)";
+    case "failed_manual":
+      return "Failed (manual action required)";
     case "error":
       return "Error";
     case "incomplete":
@@ -47,12 +56,17 @@ export function toastForMigrationResult(op: CatalogOperator, result: OlmMigratio
     case "success":
       return {
         variant: "success",
-        title: `${op.name} migrated to Operators (OLMv1). Bundle version unchanged (${op.version}).`,
+        title: `${op.name} migrated to ${OLM_MODE_LABELS.nextgen}. Bundle version unchanged (${op.version}).`,
       };
     case "failed":
       return {
         variant: "danger",
-        title: `${op.name}: migration failed — automatically rolled back to Classic.`,
+        title: `${op.name}: migration failed — automatically rolled back to ${OLM_MODE_LABELS.classic}.`,
+      };
+    case "failed_ponr":
+      return {
+        variant: "danger",
+        title: `${op.name}: migration failed after point of no return — manual recovery may be required.`,
       };
     case "error":
       return {
