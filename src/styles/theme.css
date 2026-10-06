@@ -363,13 +363,13 @@ html:not(.dark) .ocs-cluster-update-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__
   color: var(--pf-t--global--text--color--regular);
 }
 
-/** OLM migration wizard — scrollable body, footer separation, contrast on dark chrome. */
-.ocs-olm-migration-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__body {
+/** OLM migration (blocked) modal — scrollable body; wizard variant uses PF Wizard layout instead. */
+.ocs-olm-migration-modal:not(.ocs-olm-migration-modal--wizard).pf-v6-c-modal-box .pf-v6-c-modal-box__body {
   max-height: min(56vh, 32rem);
   overflow-y: auto;
 }
 
-.ocs-olm-migration-modal.pf-v6-c-modal-box .pf-v6-c-modal-box__footer {
+.ocs-olm-migration-modal:not(.ocs-olm-migration-modal--wizard).pf-v6-c-modal-box .pf-v6-c-modal-box__footer {
   flex-shrink: 0;
   border-top: 1px solid var(--pf-t--global--border--color--default);
   padding-top: var(--pf-v6-global--spacer--md);
@@ -4454,26 +4454,75 @@ html.dark .ocs-net-topo-panel__canvas {
   cursor: grabbing;
 }
 
-/* OLM migration — PatternFly Wizard in modal (footer spacing) */
+/* OLM migration — PatternFly Wizard in modal */
 .ocs-olm-migration-modal--wizard.pf-v6-c-modal-box {
   padding: 0;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  width: min(76rem, 96vw);
+  max-width: 96vw;
+  max-height: 92vh;
 }
 
-.ocs-olm-migration-modal--wizard .ocs-olm-migration-wizard {
-  min-height: min(32rem, 70vh);
+.ocs-olm-migration-modal--wizard .ocs-olm-migration-wizard.pf-v6-c-wizard {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: 92vh;
 }
 
 .ocs-olm-migration-modal--wizard .ocs-olm-migration-wizard .pf-v6-c-wizard__outer-wrap {
   min-height: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
 }
 
 .ocs-olm-migration-modal--wizard .ocs-olm-migration-wizard .pf-v6-c-wizard__main {
   min-height: 0;
+  flex: 1 1 auto;
+  overflow: auto;
+}
+
+.ocs-olm-migration-modal--wizard .ocs-olm-migration-wizard .pf-v6-c-wizard__footer {
+  flex-shrink: 0;
+}
+
+.ocs-olm-migration-modal--wizard .ocs-olm-migration-dry-run-table {
+  display: block;
+  max-height: min(42vh, 32rem);
+  overflow: auto;
+}
+
+.ocs-olm-migration-modal--wizard .ocs-olm-migration-eligibility-table {
+  display: block;
+  max-height: min(42vh, 32rem);
+  overflow: auto;
 }
 
 .ocs-olm-migration-modal__prereq-list,
 .ocs-olm-migration-modal__operator-list {
   margin: 0;
   padding-inline-start: var(--pf-t--global--spacer--lg);
+}
+
+.ocs-olm-migration-dry-run-log__header {
+  margin-block-end: var(--pf-t--global--spacer--xs);
+}
+
+.ocs-olm-migration-dry-run-log {
+  margin-block: var(--pf-t--global--spacer--sm);
+  max-height: 14rem;
+  overflow: auto;
+  padding: var(--pf-t--global--spacer--sm);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--secondary--default);
+  border: 1px solid var(--pf-t--global--border--color--default);
+  font-family: var(--pf-t--global--font--family--monospace, ui-monospace, monospace);
+  font-size: var(--pf-t--global--font--size--body--sm);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  word-break: break-word;
 }

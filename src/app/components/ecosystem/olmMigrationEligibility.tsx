@@ -236,18 +236,17 @@ type MigrationStatusPresentation = {
   showSpinner?: boolean;
 };
 
+/** Tooltip body tokens aligned with phase-end-date tooltips (inverse surface on dark/glass pages). */
 function migrationTooltipBody(title: string, body: string) {
   return (
-    <Stack hasGutter>
-      <StackItem>
-        <Content component="p" className="pf-v6-u-mb-0">
-          <strong>{title}</strong>
+    <div className="ocs-io-phase-end-date-tooltip-body">
+      <div className="ocs-io-phase-end-date-tooltip-body__details">
+        <Content component="p" className="pf-v6-u-mb-sm">
+          <strong className="ocs-io-phase-end-date-tooltip-body__heading">{title}</strong>
         </Content>
-      </StackItem>
-      <StackItem>
         <Content component="small">{body}</Content>
-      </StackItem>
-    </Stack>
+      </div>
+    </div>
   );
 }
 
@@ -403,12 +402,20 @@ export function InstalledOperatorMigrationStatusCell({ operator }: { operator: C
     </Flex>
   );
 
+  const tooltipSummary = `${presentation.tooltipTitle}. ${presentation.tooltipBody}`;
+
   return (
     <Tooltip
       content={migrationTooltipBody(presentation.tooltipTitle, presentation.tooltipBody)}
       maxWidth="24rem"
+      trigger="mouseenter focus"
+      enableFlip
     >
-      <span className="ocs-io-migration-status-tooltip-target" tabIndex={0}>
+      <span
+        className="ocs-io-migration-status-tooltip-target"
+        tabIndex={0}
+        aria-label={`Migration status: ${presentation.label}. ${tooltipSummary}`}
+      >
         {row}
       </span>
     </Tooltip>

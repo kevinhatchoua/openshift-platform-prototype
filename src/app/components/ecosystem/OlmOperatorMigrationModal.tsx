@@ -7,9 +7,11 @@ import {
   Button,
   Checkbox,
   Content,
+  ExpandableSection,
   Flex,
   FormGroup,
   Label,
+  Title,
   Modal,
   ModalBody,
   ModalFooter,
@@ -27,6 +29,7 @@ import {
 } from "@patternfly/react-core";
 import type { WizardStepType } from "@patternfly/react-core";
 import { Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import DownloadIcon from "@patternfly/react-icons/dist/esm/icons/download-icon";
 import { OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
 import type { CatalogOperator, OlmMigrationEligibility } from "../../pages/ecosystem/installedOperatorsTypes";
 import {
@@ -35,6 +38,7 @@ import {
   getMigrationSummaryReason,
 } from "./olmMigrationEligibility";
 import {
+  type MigrationDryRunDetail,
   type MigrationDryRunRow,
   simulateMigrationDryRun,
 } from "./olmMigrationDryRun";
@@ -62,9 +66,27 @@ const DRY_RUN_LABEL: Record<MigrationDryRunRow["status"], { text: string; color:
   blocked: { text: "Blocked", color: "red" },
 };
 
+type DryRunOperatorPhase = "idle" | "pending" | "running" | "complete";
+
 const STEP_SELECT = "migrate-select";
 const STEP_DRY_RUN = "migrate-dry-run";
 const STEP_REVIEW = "migrate-review";
+
+function downloadMigrationDryRunDebugLog(lines: string[]): void {
+  if (lines.length === 0) {
+    return;
+  }
+  const stamp = new Date().toISOString().replace(/:/g, "-");
+  const blob = new Blob([`${lines.join("\n")}\n`], {
+    type: "application/x-ndjson;charset=utf-8",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = `olm-migration-dry-run-${stamp}.jsonl`;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 type OlmOperatorMigrationModalProps = {
   isOpen: boolean;
@@ -83,8 +105,145 @@ type MigrationWizardFooterProps = {
   selectedOperatorCount: number;
   canExecute: boolean;
   isSingleOperatorFlow: boolean;
+  onRunDryRun: () => void;
   onRunDryRunAgain: () => void;
+  dryRunHasRun: boolean;
+  /** Selection came from the list; dry run is the first wizard step (no Back). */
+  skipSelectStep: boolean;
 };
+
+function MigrationDryRunStatusCell({
+  phase,
+  dryRow,
+}: {
+  phase: DryRunOperatorPhase;
+  dryRow?: MigrationDryRunRow;
+}) {
+  if (phase === "running") {
+    return (
+      <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
+        <Spinner size="sm" aria-label="Running dry run" />
+        <Content component="small">Running</Content>
+      </Flex>
+    );
+  }
+  if (phase === "pending") {
+    return (
+      <Label color="grey" isCompact>
+        Pending
+      </Label>
+    );
+  }
+  if (dryRow) {
+    const meta = DRY_RUN_LABEL[dryRow.status];
+    return (
+      <Label color={meta.color} isCompact>
+        {meta.text}
+      </Label>
+    );
+  }
+  return (
+    <Content component="small" className="pf-v6-u-color-200">
+      Not started
+    </Content>
+  );
+}
+
+function MigrationDryRunOperatorsTable({
+  operators,
+  dryRunRows,
+  operatorPhases,
+  showPlanColumns,
+}: {
+  operators: CatalogOperator[];
+  dryRunRows: MigrationDryRunRow[];
+  operatorPhases: Record<string, DryRunOperatorPhase>;
+  showPlanColumns: boolean;
+}) {
+  const rowByName = useMemo(
+    () => new Map(dryRunRows.map((row) => [row.operator.name, row])),
+    [dryRunRows],
+  );
+
+  return (
+    <Table
+      aria-label="Migration dry run operators"
+      variant="compact"
+      className="ocs-olm-migration-dry-run-table"
+    >
+      <Thead>
+        <Tr>
+          <Th scope="col">Operator</Th>
+          <Th scope="col">Package</Th>
+          <Th scope="col">Version</Th>
+          <Th scope="col">Channel</Th>
+          <Th scope="col">Install namespace</Th>
+          <Th scope="col">Dry run</Th>
+          {showPlanColumns ? <Th scope="col">Planned action</Th> : null}
+          {showPlanColumns ? <Th scope="col">Target catalog</Th> : null}
+        </Tr>
+      </Thead>
+      <Tbody>
+        {operators.map((op) => {
+          const dryRow = rowByName.get(op.name);
+          const phase = operatorPhases[op.name] ?? "idle";
+          return (
+            <Tr key={op.name}>
+              <Td dataLabel="Operator">{op.name}</Td>
+              <Td dataLabel="Package">{op.name}</Td>
+              <Td dataLabel="Version">{op.version}</Td>
+              <Td dataLabel="Channel">{op.channel}</Td>
+              <Td dataLabel="Install namespace">{op.namespace}</Td>
+              <Td dataLabel="Dry run">
+                <MigrationDryRunStatusCell phase={phase} dryRow={dryRow} />
+              </Td>
+              {showPlanColumns ? (
+                <Td dataLabel="Planned action">
+                  {dryRow ? (
+                    <Content component="small">{dryRow.plannedAction}</Content>
+                  ) : (
+                    "—"
+                  )}
+                </Td>
+              ) : null}
+              {showPlanColumns ? (
+                <Td dataLabel="Target catalog">
+                  {dryRow ? (
+                    <Content component="small">{dryRow.targetCatalog}</Content>
+                  ) : (
+                    "—"
+                  )}
+                </Td>
+              ) : null}
+            </Tr>
+          );
+        })}
+      </Tbody>
+    </Table>
+  );
+}
+
+function MigrationDryRunResourceSummary({ detail }: { detail: MigrationDryRunDetail }) {
+  const kinds = Object.entries(detail.kind_counts).sort(([a], [b]) => a.localeCompare(b));
+  return (
+    <Table aria-label="Resources included in dry run plan" variant="compact">
+      <Thead>
+        <Tr>
+          <Th scope="col">Kind</Th>
+          <Th scope="col">Count</Th>
+        </Tr>
+      </Thead>
+      <Tbody>
+        {kinds.map(([kind, count]) => (
+          <Tr key={kind}>
+            <Td dataLabel="Kind">{kind}</Td>
+            <Td dataLabel="Count">{count}</Td>
+          </Tr>
+        ))}
+      </Tbody>
+    </Table>
+  );
+}
 
 function MigrationWizardFooter({
   selectedCount,
@@ -93,17 +252,20 @@ function MigrationWizardFooter({
   selectedOperatorCount,
   canExecute,
   isSingleOperatorFlow,
+  onRunDryRun,
   onRunDryRunAgain,
+  dryRunHasRun,
+  skipSelectStep,
 }: MigrationWizardFooterProps) {
-  const { activeStep, onNext, onBack, onClose } = useWizardContext();
+  const { activeStep, goToNextStep, goToPrevStep, close } = useWizardContext();
 
   if (activeStep?.id === STEP_SELECT) {
     return (
       <WizardFooter
         activeStep={activeStep}
-        onNext={onNext}
-        onBack={onBack}
-        onClose={onClose}
+        onNext={goToNextStep}
+        onBack={goToPrevStep}
+        onClose={close}
         isBackHidden
         nextButtonText="Next"
         isNextDisabled={selectedCount === 0}
@@ -120,29 +282,43 @@ function MigrationWizardFooter({
       <WizardFooterWrapper>
         <ActionList>
           <ActionListGroup>
+            {!skipSelectStep ? (
+              <ActionListItem>
+                <Button variant="secondary" onClick={goToPrevStep}>
+                  Back
+                </Button>
+              </ActionListItem>
+            ) : null}
+            {!dryRunHasRun ? (
+              <ActionListItem>
+                <Button
+                  variant="primary"
+                  onClick={onRunDryRun}
+                  isDisabled={dryRunLoading || selectedOperatorCount === 0}
+                  isLoading={dryRunLoading}
+                >
+                  Run dry run
+                </Button>
+              </ActionListItem>
+            ) : (
+              <ActionListItem>
+                <Button
+                  variant="secondary"
+                  onClick={onRunDryRunAgain}
+                  isDisabled={dryRunLoading || selectedOperatorCount === 0}
+                  isLoading={dryRunLoading}
+                >
+                  Rerun
+                </Button>
+              </ActionListItem>
+            )}
             <ActionListItem>
-              <Button variant="secondary" onClick={onBack}>
-                Back
+              <Button variant="primary" onClick={goToNextStep} isDisabled={!dryRunComplete}>
+                Review and execute migration
               </Button>
             </ActionListItem>
             <ActionListItem>
-              <Button
-                variant="link"
-                onClick={onRunDryRunAgain}
-                isDisabled={dryRunLoading || selectedOperatorCount === 0}
-              >
-                Run dry run again
-              </Button>
-            </ActionListItem>
-            <ActionListItem>
-              <Button variant="primary" onClick={onNext} isDisabled={!dryRunComplete}>
-                Next
-              </Button>
-            </ActionListItem>
-          </ActionListGroup>
-          <ActionListGroup>
-            <ActionListItem>
-              <Button variant="link" onClick={onClose}>
+              <Button variant="link" onClick={close}>
                 Cancel
               </Button>
             </ActionListItem>
@@ -156,9 +332,9 @@ function MigrationWizardFooter({
     return (
       <WizardFooter
         activeStep={activeStep}
-        onNext={onNext}
-        onBack={onBack}
-        onClose={onClose}
+        onNext={goToNextStep}
+        onBack={goToPrevStep}
+        onClose={close}
         isCancelHidden
         nextButtonText={
           isSingleOperatorFlow ? "Start migration" : `Start migration (${dryRunPassCount})`
@@ -175,6 +351,27 @@ function MigrationWizardFooter({
   return null;
 }
 
+function resolvePreselectedOperatorNames(
+  classicOperators: CatalogOperator[],
+  initialSelection: string[] | null | undefined,
+  initialOperatorName: string | null | undefined,
+): string[] {
+  if (initialSelection && initialSelection.length > 0) {
+    return initialSelection.filter((name) =>
+      classicOperators.some(
+        (row) => row.name === name && row.olmMigrationEligibility === "eligible",
+      ),
+    );
+  }
+  if (initialOperatorName) {
+    const op = classicOperators.find((row) => row.name === initialOperatorName);
+    if (op?.olmMigrationEligibility === "eligible") {
+      return [op.name];
+    }
+  }
+  return [];
+}
+
 export function OlmOperatorMigrationModal({
   isOpen,
   onClose,
@@ -187,10 +384,18 @@ export function OlmOperatorMigrationModal({
   const [blockedOperator, setBlockedOperator] = useState<CatalogOperator | null>(null);
   const [wizardSessionKey, setWizardSessionKey] = useState(0);
   const [dryRunLoading, setDryRunLoading] = useState(false);
+  const [dryRunHasRun, setDryRunHasRun] = useState(false);
   const [dryRunRows, setDryRunRows] = useState<MigrationDryRunRow[]>([]);
+  const [dryRunLogLines, setDryRunLogLines] = useState<string[]>([]);
+  const [dryRunOperatorPhases, setDryRunOperatorPhases] = useState<Record<string, DryRunOperatorPhase>>(
+    {},
+  );
   const [ackReviewedDryRun, setAckReviewedDryRun] = useState(false);
   const [ackPonr, setAckPonr] = useState(false);
   const [ackBackup, setAckBackup] = useState(false);
+  /** List/bulk/single-row migrate: skip re-selecting operators in the wizard. */
+  const [skipSelectStep, setSkipSelectStep] = useState(false);
+  const [activeWizardStepId, setActiveWizardStepId] = useState<string | undefined>(undefined);
 
   const classicOperators = useMemo(
     () => operators.filter((op) => !op.isOlmV1Extension),
@@ -219,6 +424,7 @@ export function OlmOperatorMigrationModal({
   const canExecute =
     ackReviewedDryRun &&
     ackPonr &&
+    ackBackup &&
     dryRunComplete;
 
   const executeBlockers: string[] = [];
@@ -228,18 +434,53 @@ export function OlmOperatorMigrationModal({
   if (!ackPonr) {
     executeBlockers.push("Confirm you understand point-of-no-return and manual recovery risks.");
   }
+  if (!ackBackup) {
+    executeBlockers.push("Confirm you have an appropriate cluster backup or recovery plan.");
+  }
   if (!dryRunComplete) {
     executeBlockers.push("Complete a successful dry run for all selected operators.");
   }
+
+  const wizardStepCount = skipSelectStep ? 2 : 3;
+  const reviewAcknowledgmentsIncomplete = !ackReviewedDryRun || !ackPonr || !ackBackup;
+
+  const wizardHeaderTitle = useMemo(() => {
+    if (activeWizardStepId === STEP_REVIEW && isSingleOperatorFlow && selectedOperators[0]) {
+      return `Execute migration for ${selectedOperators[0].name}?`;
+    }
+    return `Migrate operators to ${OLM_MODE_LABELS.nextgen}`;
+  }, [activeWizardStepId, isSingleOperatorFlow, selectedOperators]);
+
+  const wizardHeaderDescription = useMemo(() => {
+    if (activeWizardStepId === STEP_SELECT) {
+      return `Step 1 of ${wizardStepCount} — Select operators to migrate`;
+    }
+    if (activeWizardStepId === STEP_DRY_RUN) {
+      const stepIndex = skipSelectStep ? 1 : 2;
+      return `Step ${stepIndex} of ${wizardStepCount} — Run migration dry run`;
+    }
+    if (activeWizardStepId === STEP_REVIEW) {
+      return `Step ${wizardStepCount} of ${wizardStepCount} — Review and execute`;
+    }
+    if (skipSelectStep) {
+      return "Dry run and review migration for the operators you selected on the list. Bundle versions stay the same; only the managing catalog changes.";
+    }
+    return "Move operator management to Next-Gen Operators without changing bundle versions. Dry run first, then review before execute.";
+  }, [activeWizardStepId, skipSelectStep, wizardStepCount]);
 
   const reset = () => {
     setSelected(new Set());
     setBlockedOperator(null);
     setDryRunLoading(false);
+    setDryRunHasRun(false);
     setDryRunRows([]);
+    setDryRunLogLines([]);
+    setDryRunOperatorPhases({});
     setAckReviewedDryRun(false);
     setAckPonr(false);
     setAckBackup(false);
+    setSkipSelectStep(false);
+    setActiveWizardStepId(undefined);
   };
 
   const handleClose = () => {
@@ -250,13 +491,40 @@ export function OlmOperatorMigrationModal({
   const runDryRun = useCallback(async (targets: CatalogOperator[]) => {
     setDryRunLoading(true);
     setDryRunRows([]);
+    setDryRunLogLines([]);
+    setDryRunOperatorPhases(
+      Object.fromEntries(targets.map((op) => [op.name, "pending" as DryRunOperatorPhase])),
+    );
     try {
-      const rows = await simulateMigrationDryRun(targets);
+      const rows = await simulateMigrationDryRun(targets, {
+        onLogLine: (line) => {
+          setDryRunLogLines((prev) => [...prev, line]);
+        },
+        onOperatorStart: (op) => {
+          setDryRunOperatorPhases((prev) => ({ ...prev, [op.name]: "running" }));
+        },
+        onOperatorComplete: (row) => {
+          setDryRunRows((prev) => {
+            const rest = prev.filter((item) => item.operator.name !== row.operator.name);
+            return [...rest, row];
+          });
+          setDryRunOperatorPhases((prev) => ({ ...prev, [row.operator.name]: "complete" }));
+        },
+      });
       setDryRunRows(rows);
+      setDryRunHasRun(true);
     } finally {
       setDryRunLoading(false);
     }
   }, []);
+
+  const runDryRunLaunch = useCallback(() => {
+    void runDryRun(selectedOperators);
+  }, [runDryRun, selectedOperators]);
+
+  const runDryRunAgain = useCallback(() => {
+    void runDryRun(selectedOperators);
+  }, [runDryRun, selectedOperators]);
 
   useEffect(() => {
     if (!isOpen) {
@@ -265,16 +533,22 @@ export function OlmOperatorMigrationModal({
 
     reset();
 
-    if (initialSelection && initialSelection.length > 0) {
-      const eligible = initialSelection.filter((name) =>
-        classicOperators.some(
-          (row) => row.name === name && row.olmMigrationEligibility === "eligible",
-        ),
-      );
-      setSelected(new Set(eligible));
+    const preselected = resolvePreselectedOperatorNames(
+      classicOperators,
+      initialSelection,
+      initialOperatorName,
+    );
+
+    if (preselected.length > 0) {
+      setSelected(new Set(preselected));
+      setSkipSelectStep(true);
+      setActiveWizardStepId(STEP_DRY_RUN);
       setWizardSessionKey((key) => key + 1);
       return;
     }
+
+    setSkipSelectStep(false);
+    setActiveWizardStepId(STEP_SELECT);
 
     if (!initialOperatorName) {
       setWizardSessionKey((key) => key + 1);
@@ -283,12 +557,6 @@ export function OlmOperatorMigrationModal({
 
     const op = classicOperators.find((row) => row.name === initialOperatorName);
     if (!op) {
-      setWizardSessionKey((key) => key + 1);
-      return;
-    }
-
-    if (op.olmMigrationEligibility === "eligible") {
-      setSelected(new Set([op.name]));
       setWizardSessionKey((key) => key + 1);
       return;
     }
@@ -316,17 +584,9 @@ export function OlmOperatorMigrationModal({
 
   const handleWizardStepChange = (
     _event: MouseEvent<HTMLButtonElement>,
-    currentStep: WizardStepType,
+    newStep: WizardStepType,
   ) => {
-    if (currentStep?.id === STEP_DRY_RUN) {
-      setDryRunRows([]);
-      setAckReviewedDryRun(false);
-      setAckPonr(false);
-      setAckBackup(false);
-      if (selectedOperators.length > 0) {
-        void runDryRun(selectedOperators);
-      }
-    }
+    setActiveWizardStepId(newStep?.id ? String(newStep.id) : undefined);
   };
 
   const wizardFooter = (
@@ -337,7 +597,10 @@ export function OlmOperatorMigrationModal({
       selectedOperatorCount={selectedOperators.length}
       canExecute={canExecute}
       isSingleOperatorFlow={isSingleOperatorFlow}
-      onRunDryRunAgain={() => void runDryRun(selectedOperators)}
+      onRunDryRun={runDryRunLaunch}
+      onRunDryRunAgain={runDryRunAgain}
+      dryRunHasRun={dryRunHasRun}
+      skipSelectStep={skipSelectStep}
     />
   );
 
@@ -384,11 +647,13 @@ export function OlmOperatorMigrationModal({
       variant={ModalVariant.large}
       isOpen={isOpen}
       onEscapePress={handleClose}
+      width="min(76rem, 96vw)"
+      maxWidth="96vw"
       aria-labelledby="olm-migration-title"
       aria-describedby="olm-migration-modal-desc"
     >
       <Wizard
-        key={wizardSessionKey}
+        key={`${wizardSessionKey}-${skipSelectStep ? "preselected" : "select"}`}
         className="ocs-olm-migration-wizard"
         navAriaLabel="Migration steps"
         isVisitRequired
@@ -398,162 +663,200 @@ export function OlmOperatorMigrationModal({
         onStepChange={handleWizardStepChange}
         header={
           <WizardHeader
-            title={`Migrate operators to ${OLM_MODE_LABELS.nextgen}`}
+            title={wizardHeaderTitle}
             onClose={handleClose}
             titleId="olm-migration-title"
-            description="Move operator management to Next-Gen Operators without changing bundle versions. Dry run first, then review before execute."
+            description={wizardHeaderDescription}
+            descriptionId="olm-migration-modal-desc"
+            closeButtonAriaLabel="Close migration wizard"
           />
         }
         footer={wizardFooter}
       >
-        <WizardStep name="Select operators" id={STEP_SELECT}>
-          <Stack hasGutter>
-            <StackItem>
-              <Content>
-                Migration moves operator <strong>management</strong> from {OLM_MODE_LABELS.classic} to{" "}
-                {OLM_MODE_LABELS.nextgen}. Bundle versions and operands are unchanged — only the catalog
-                that manages the operator changes.
-              </Content>
-            </StackItem>
-            <StackItem>
-              <Alert variant="info" isInline title="Three-step wizard">
-                You will run a dry run (read-only), review results, then execute. Migration runs in the
-                background after execute; track the <strong>Migration status</strong> column and toasts.
-              </Alert>
-            </StackItem>
-            <StackItem>
-              <Content component="small">
-                Out of initial scope: catalog-source migration, namespace deletion in UI, operators with
-                OLMv1 dependency constraints (filtered below).
-              </Content>
-            </StackItem>
-            <StackItem>
-              <Table aria-label="Operator migration eligibility" variant="compact">
-                <Thead>
-                  <Tr>
-                    <Th screenReaderText="Select operator" />
-                    <Th scope="col">Operator</Th>
-                    <Th scope="col">Status</Th>
-                    <Th scope="col">Reason</Th>
-                  </Tr>
-                </Thead>
-                <Tbody>
-                  {migrationCandidates.map((op) => {
-                    const eligibility = op.olmMigrationEligibility ?? "ineligible";
-                    const meta = ELIGIBILITY_LABEL[eligibility];
-                    const canSelect = eligibility === "eligible";
-                    return (
-                      <Tr key={op.name}>
-                        <Td>
-                          <Checkbox
-                            id={`migrate-${op.name}`}
-                            isChecked={selected.has(op.name)}
-                            isDisabled={!canSelect}
-                            onChange={() => toggleRow(op.name, op.olmMigrationEligibility)}
-                            aria-label={`Select ${op.name} for migration`}
-                          />
-                        </Td>
-                        <Td dataLabel="Operator">{op.name}</Td>
-                        <Td dataLabel="Status">
-                          <Label color={meta.color} isCompact>
-                            {meta.text}
-                          </Label>
-                        </Td>
-                        <Td dataLabel="Reason">
-                          {eligibility === "eligible" ? (
-                            "Ready to migrate"
-                          ) : (
-                            <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
-                              <Content component="small">{getMigrationSummaryReason(op)}</Content>
-                              <OlmMigrationEligibilityDetailsPopover operator={op} />
-                            </Flex>
-                          )}
-                        </Td>
-                      </Tr>
-                    );
-                  })}
-                </Tbody>
-              </Table>
-            </StackItem>
-          </Stack>
-        </WizardStep>
+        {!skipSelectStep ? (
+          <WizardStep name="Select operators" id={STEP_SELECT}>
+            <Stack hasGutter>
+              <StackItem>
+                <Content>
+                  Migration moves operator <strong>management</strong> from {OLM_MODE_LABELS.classic} to{" "}
+                  {OLM_MODE_LABELS.nextgen}. Bundle versions and operands are unchanged — only the catalog
+                  that manages the operator changes.
+                </Content>
+              </StackItem>
+              <StackItem>
+                <Alert variant="info" isInline title="Three-step wizard">
+                  You will run a dry run (read-only), review results, then execute. Migration runs in the
+                  background after execute; track the <strong>Migration status</strong> column and toasts.
+                </Alert>
+              </StackItem>
+              <StackItem>
+                <Content component="small">
+                  Out of initial scope: catalog-source migration, namespace deletion in UI, operators with
+                  OLMv1 dependency constraints (filtered below).
+                </Content>
+              </StackItem>
+              <StackItem>
+                <Table
+                  aria-label="Operator migration eligibility"
+                  variant="compact"
+                  className="ocs-olm-migration-eligibility-table"
+                >
+                  <Thead>
+                    <Tr>
+                      <Th screenReaderText="Select operator" />
+                      <Th scope="col">Operator</Th>
+                      <Th scope="col">Status</Th>
+                      <Th scope="col">Reason</Th>
+                    </Tr>
+                  </Thead>
+                  <Tbody>
+                    {migrationCandidates.map((op) => {
+                      const eligibility = op.olmMigrationEligibility ?? "ineligible";
+                      const meta = ELIGIBILITY_LABEL[eligibility];
+                      const canSelect = eligibility === "eligible";
+                      return (
+                        <Tr key={op.name}>
+                          <Td>
+                            <Checkbox
+                              id={`migrate-${op.name}`}
+                              isChecked={selected.has(op.name)}
+                              isDisabled={!canSelect}
+                              onChange={() => toggleRow(op.name, op.olmMigrationEligibility)}
+                              aria-label={`Select ${op.name} for migration`}
+                            />
+                          </Td>
+                          <Td dataLabel="Operator">{op.name}</Td>
+                          <Td dataLabel="Status">
+                            <Label color={meta.color} isCompact>
+                              {meta.text}
+                            </Label>
+                          </Td>
+                          <Td dataLabel="Reason">
+                            {eligibility === "eligible" ? (
+                              "Ready to migrate"
+                            ) : (
+                              <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
+                                <Content component="small">{getMigrationSummaryReason(op)}</Content>
+                                <OlmMigrationEligibilityDetailsPopover operator={op} />
+                              </Flex>
+                            )}
+                          </Td>
+                        </Tr>
+                      );
+                    })}
+                  </Tbody>
+                </Table>
+              </StackItem>
+            </Stack>
+          </WizardStep>
+        ) : null}
 
-        <WizardStep name="Dry run" id={STEP_DRY_RUN}>
+        <WizardStep name="Run migration dry run" id={STEP_DRY_RUN}>
           <Stack hasGutter>
             <StackItem>
-              <Alert variant="info" isInline title="Dry run does not change the cluster">
-                The migration library scans selected operators and returns a plan. Failures here do not
-                mutate the cluster.
-              </Alert>
+              <Title headingLevel="h3" size="md">
+                What is a dry run?
+              </Title>
+              <Content>
+                A dry run calls the migration library with <strong>--dry-run</strong> and{" "}
+                <strong>--output=jsonl</strong>. It profiles each operator, resolves the target{" "}
+                {OLM_MODE_LABELS.nextgen} catalog, and returns a read-only plan: resource counts, planned
+                cleanup actions, and catalog targets. The cluster is not modified.
+              </Content>
             </StackItem>
             <StackItem aria-live="polite" aria-busy={dryRunLoading}>
-              {dryRunLoading ? (
-                <Flex
-                  direction={{ default: "column" }}
-                  alignItems={{ default: "alignItemsCenter" }}
-                  gap={{ default: "gapMd" }}
-                >
-                  <Spinner size="lg" aria-label="Running dry run" />
-                  <Content component="small">Scanning operators and validating catalog targets…</Content>
-                </Flex>
-              ) : (
-                <Stack hasGutter>
-                  <StackItem>
-                    <Content>
-                      {dryRunPassCount} of {selectedOperators.length} operator
-                      {selectedOperators.length === 1 ? "" : "s"} passed dry run and can proceed to execute.
-                    </Content>
-                  </StackItem>
-                  <StackItem>
-                    <Table aria-label="Migration dry run results" variant="compact">
-                      <Thead>
-                        <Tr>
-                          <Th scope="col">Operator</Th>
-                          <Th scope="col">Dry run</Th>
-                          <Th scope="col">Planned action</Th>
-                          <Th scope="col">Target catalog</Th>
-                        </Tr>
-                      </Thead>
-                      <Tbody>
-                        {dryRunRows.map((row) => {
-                          const meta = DRY_RUN_LABEL[row.status];
-                          return (
-                            <Tr key={row.operator.name}>
-                              <Td dataLabel="Operator">{row.operator.name}</Td>
-                              <Td dataLabel="Dry run">
-                                <Label color={meta.color} isCompact>
-                                  {meta.text}
-                                </Label>
-                              </Td>
-                              <Td dataLabel="Planned action">
-                                <Content component="small">{row.plannedAction}</Content>
-                              </Td>
-                              <Td dataLabel="Target catalog">
-                                <Content component="small">{row.targetCatalog}</Content>
-                              </Td>
-                            </Tr>
-                          );
-                        })}
-                      </Tbody>
-                    </Table>
-                  </StackItem>
-                  {dryRunRows.map((row) => (
-                    <StackItem key={`${row.operator.name}-summary`}>
-                      <Content component="small">
-                        <strong>{row.operator.name}:</strong> {row.summary}
-                      </Content>
+              <MigrationDryRunOperatorsTable
+                operators={selectedOperators}
+                dryRunRows={dryRunRows}
+                operatorPhases={dryRunOperatorPhases}
+                showPlanColumns={dryRunLoading || dryRunHasRun}
+              />
+            </StackItem>
+            {dryRunHasRun && !dryRunLoading ? (
+              <StackItem>
+                <Content>
+                  {dryRunPassCount} of {selectedOperators.length} operator
+                  {selectedOperators.length === 1 ? "" : "s"} passed dry run and can proceed to execute.
+                </Content>
+              </StackItem>
+            ) : null}
+            {dryRunHasRun && !dryRunLoading ? (
+              <>
+                {dryRunRows
+                  .filter((row) => row.detail)
+                  .map((row) => (
+                    <StackItem key={`${row.operator.name}-detail`}>
+                      <ExpandableSection
+                        toggleText={`Dry run details for ${row.operator.name}`}
+                        isIndented
+                      >
+                        <Stack hasGutter>
+                          <StackItem>
+                            <Content component="small">
+                              ClusterObjectSet: {row.detail?.cluster_object_set}; ClusterExtension:{" "}
+                              {row.detail?.cluster_extension}; system namespace:{" "}
+                              {row.detail?.system_namespace}
+                            </Content>
+                          </StackItem>
+                          <StackItem>
+                            <MigrationDryRunResourceSummary detail={row.detail!} />
+                          </StackItem>
+                          <StackItem>
+                            <Title headingLevel="h4" size="md">
+                              Planned cleanup actions
+                            </Title>
+                            <ul className="ocs-olm-migration-modal__operator-list">
+                              {row.detail?.cleanup_actions.map((action) => (
+                                <li key={action}>{action}</li>
+                              ))}
+                            </ul>
+                          </StackItem>
+                          <StackItem>
+                            <Content component="small">{row.summary}</Content>
+                          </StackItem>
+                        </Stack>
+                      </ExpandableSection>
                     </StackItem>
                   ))}
-                </Stack>
-              )}
-            </StackItem>
+              </>
+            ) : null}
+            {(dryRunLoading || dryRunLogLines.length > 0) && (
+              <StackItem>
+                <Flex
+                  justifyContent={{ default: "justifyContentSpaceBetween" }}
+                  alignItems={{ default: "alignItemsCenter" }}
+                  className="ocs-olm-migration-dry-run-log__header"
+                >
+                  <Title headingLevel="h4" size="md">
+                    Dry run log
+                  </Title>
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<DownloadIcon aria-hidden />}
+                    isDisabled={dryRunLogLines.length === 0}
+                    onClick={() => downloadMigrationDryRunDebugLog(dryRunLogLines)}
+                  >
+                    Download debug logs
+                  </Button>
+                </Flex>
+                <Content component="small">
+                  JSONL output from <code>migrate-operators-v0-to-v1 --output=jsonl … --dry-run</code>
+                </Content>
+                <pre className="ocs-olm-migration-dry-run-log" aria-label="Migration dry run JSONL log">
+                  {dryRunLogLines.length > 0
+                    ? dryRunLogLines.join("\n")
+                    : "Waiting for library output…"}
+                </pre>
+              </StackItem>
+            )}
           </Stack>
         </WizardStep>
 
-        <WizardStep name="Review" id={STEP_REVIEW} isDisabled={!dryRunComplete}>
+        <WizardStep name="Review and execute" id={STEP_REVIEW}>
           <Stack hasGutter>
             <StackItem>
-              <Alert variant="danger" isInline title="Point of no return">
+              <Alert variant="warning" isInline title="Point of no return">
                 When you start migration, the cluster begins irreversible steps for each operator. The
                 migration library can <strong>automatically roll back</strong> only if failure occurs{" "}
                 <strong>before</strong> the point of no return. After that,{" "}
@@ -569,7 +872,7 @@ export function OlmOperatorMigrationModal({
                 <strong>Failed (manual action required)</strong>.
               </Alert>
             </StackItem>
-            {!canExecute && executeBlockers.length > 0 ? (
+            {reviewAcknowledgmentsIncomplete ? (
               <StackItem>
                 <Alert
                   variant="warning"
@@ -578,21 +881,35 @@ export function OlmOperatorMigrationModal({
                   id="olm-migration-execute-prereq"
                 >
                   <ul className="ocs-olm-migration-modal__prereq-list">
-                    {executeBlockers.map((item) => (
-                      <li key={item}>{item}</li>
-                    ))}
+                    {!ackReviewedDryRun ? (
+                      <li>Confirm you reviewed the dry run results.</li>
+                    ) : null}
+                    {!ackPonr ? (
+                      <li>
+                        Confirm you understand point-of-no-return and manual recovery risks.
+                      </li>
+                    ) : null}
+                    {!ackBackup ? (
+                      <li>Confirm you have an appropriate cluster backup or recovery plan.</li>
+                    ) : null}
                   </ul>
                 </Alert>
               </StackItem>
             ) : null}
             <StackItem>
-              <ul className="ocs-olm-migration-modal__operator-list">
-                {selectedOperators.map((op) => (
-                  <li key={op.name}>
-                    {op.name} — bundle stays at {op.version}
-                  </li>
-                ))}
-              </ul>
+              {isSingleOperatorFlow && selectedOperators[0] ? (
+                <Content>
+                  {selectedOperators[0].name} — bundle stays at {selectedOperators[0].version}
+                </Content>
+              ) : (
+                <ul className="ocs-olm-migration-modal__operator-list">
+                  {selectedOperators.map((op) => (
+                    <li key={op.name}>
+                      {op.name} — bundle stays at {op.version}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </StackItem>
             <StackItem>
               <FormGroup label="Required acknowledgments" isRequired fieldId="olm-migration-ack-group">
@@ -616,7 +933,7 @@ export function OlmOperatorMigrationModal({
                   <StackItem>
                     <Checkbox
                       id="olm-migrate-ack-backup"
-                      label="I have an appropriate cluster backup or recovery plan (recommended for production)."
+                      label="I have an appropriate cluster backup or recovery plan."
                       isChecked={ackBackup}
                       onChange={(_e, checked) => setAckBackup(checked)}
                     />

@@ -1,7 +1,84 @@
 import type { CatalogOperator } from "./installedOperatorsTypes";
 
+const MIGRATION_ELIGIBLE_SCALE_OPERATOR_NAMES = [
+  "OpenShift Virtualization",
+  "Advanced Cluster Management",
+  "OpenShift Data Foundation",
+  "OpenShift Pipelines",
+  "MetalLB Operator",
+  "External Secrets Operator",
+  "OpenShift Serverless",
+  "Quay Registry Operator",
+  "Cost Management Metrics",
+  "Node Feature Discovery Operator",
+  "OpenShift Sandboxed Containers",
+  "Loki Operator",
+  "Tempo Operator",
+  "OpenShift Logging",
+  "Red Hat OpenShift Distributed Tracing",
+  "OpenShift Service Mesh",
+  "Crunchy Postgres Operator",
+  "MongoDB Community Operator",
+  "Vault Secrets Operator",
+  "Keycloak Operator",
+  "Rook-Ceph Operator",
+  "OpenShift Dev Spaces",
+  "OpenShift GitOps Operator",
+  "Argo CD Operator",
+  "Grafana Operator",
+  "Prometheus Operator",
+  "Thanos Operator",
+  "OpenShift AI",
+  "NFD GPU Operator",
+  "SR-IOV Network Operator",
+] as const;
+
+function buildMigrationEligibleScaleOperators(): CatalogOperator[] {
+  const channels = ["stable", "stable-v1", "fast", "alpha", "release-2.12"] as const;
+  const sources = ["redhat-operators", "community-operators"] as const;
+
+  return MIGRATION_ELIGIBLE_SCALE_OPERATOR_NAMES.map((name, index) => {
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const major = 1 + (index % 4);
+    const minor = index % 10;
+    const patch = (index * 3) % 20;
+    const version = `${major}.${minor}.${patch}`;
+    const channel = channels[index % channels.length];
+    const source = sources[index % sources.length];
+    const namespace = `olm-migrate-${slug.slice(0, 28)}`;
+
+    return {
+      name,
+      namespace,
+      version,
+      channel,
+      source,
+      status: "Running" as const,
+      autoUpdate: index % 3 !== 0,
+      clusterCompatibility: "Compatible" as const,
+      supportLifecycle: {
+        fullSupportEndDate: "2027-06-01",
+        maintenanceEndDate: "2028-06-01",
+        eus1EndDate: "2029-06-01",
+        eus2EndDate: "2030-06-01",
+        eus3EndDate: "2031-06-01",
+        eolEndDate: "2031-06-01",
+      },
+      maxOcpVersion: "5.2",
+      lastUpdated: `May ${(index % 28) + 1}, 2026, ${(index % 12) + 1}:${String(
+        (index * 7) % 60,
+      ).padStart(2, "0")} AM`,
+      managedNamespaces: [namespace],
+      olmMigrationEligibility: "eligible" as const,
+    };
+  });
+}
+
 /** Additional prototype operators for lifecycle / ELC / compatibility scenarios. */
-export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
+const BASE_ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
   {
     name: "OpenShift Virtualization",
     namespace: "openshift-cnv",
@@ -22,6 +99,7 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     maxOcpVersion: "5.2",
     lastUpdated: "May 10, 2026, 11:20 AM",
     managedNamespaces: ["openshift-cnv", "kubevirt"],
+    olmMigrationEligibility: "eligible",
   },
   {
     name: "Advanced Cluster Management",
@@ -44,6 +122,7 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     maxOcpVersion: "5.2",
     lastUpdated: "Apr 2, 2026, 8:45 AM",
     managedNamespaces: ["open-cluster-management", "multicluster-engine"],
+    olmMigrationEligibility: "eligible",
   },
   {
     name: "OpenShift Data Foundation",
@@ -65,6 +144,7 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     maxOcpVersion: "5.2",
     lastUpdated: "Mar 28, 2026, 2:10 PM",
     managedNamespaces: ["openshift-storage"],
+    olmMigrationEligibility: "eligible",
   },
   {
     name: "Node Tuning Operator",
@@ -145,6 +225,7 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     },
     lastUpdated: "May 1, 2026, 10:15 AM",
     managedNamespaces: ["openshift-file-integrity"],
+    olmMigrationEligibility: "eligible",
   },
   {
     name: "OpenShift Pipelines",
@@ -166,6 +247,7 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     maxOcpVersion: "5.2",
     lastUpdated: "May 12, 2026, 1:40 PM",
     managedNamespaces: ["openshift-pipelines", "tekton-pipelines"],
+    olmMigrationEligibility: "eligible",
   },
   {
     name: "MetalLB Operator",
@@ -186,6 +268,7 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     },
     lastUpdated: "Apr 18, 2026, 4:55 PM",
     managedNamespaces: ["metallb-system"],
+    olmMigrationEligibility: "eligible",
   },
   {
     name: "External Secrets Operator",
@@ -207,6 +290,7 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     },
     lastUpdated: "May 3, 2026, 7:22 AM",
     managedNamespaces: ["external-secrets-operator"],
+    olmMigrationEligibility: "eligible",
   },
   {
     name: "Red Hat Integration (Camel K)",
@@ -269,6 +353,7 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     maxOcpVersion: "5.2",
     lastUpdated: "May 16, 2026, 2:00 PM",
     managedNamespaces: ["openshift-serverless", "knative-serving"],
+    olmMigrationEligibility: "eligible",
   },
   {
     name: "Quay Registry Operator",
@@ -290,6 +375,7 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     },
     lastUpdated: "Apr 30, 2026, 5:18 PM",
     managedNamespaces: ["quay-operator", "quay-enterprise"],
+    olmMigrationEligibility: "eligible",
   },
   {
     name: "Cost Management Metrics",
@@ -310,6 +396,7 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     },
     lastUpdated: "May 8, 2026, 12:05 PM",
     managedNamespaces: ["costmanagement-metrics-operator"],
+    olmMigrationEligibility: "eligible",
   },
   {
     name: "OpenShift API Management",
@@ -330,5 +417,18 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
     },
     lastUpdated: "May 17, 2026, 8:30 AM",
     managedNamespaces: ["3scale", "apicast-production"],
+    olmMigrationEligibility: "eligible",
   },
+];
+
+const MIGRATION_ELIGIBLE_SCALE_OPERATORS = buildMigrationEligibleScaleOperators();
+
+/** Names already defined in BASE_ADDITIONAL or INITIAL_CATALOG_OPERATORS — skip duplicates in scale set. */
+const EXISTING_OPERATOR_NAMES = new Set(
+  BASE_ADDITIONAL_CATALOG_OPERATORS.map((op) => op.name),
+);
+
+export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
+  ...BASE_ADDITIONAL_CATALOG_OPERATORS,
+  ...MIGRATION_ELIGIBLE_SCALE_OPERATORS.filter((op) => !EXISTING_OPERATOR_NAMES.has(op.name)),
 ];

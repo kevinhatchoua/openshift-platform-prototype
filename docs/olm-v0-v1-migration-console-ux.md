@@ -20,8 +20,8 @@
 ## Migration wizard (modal)
 
 1. **Select** — Eligibility table (eligible, ineligible, already migrated, conflict) with structured blockers; scope note for out-of-scope cases (catalog-source migration, namespace deletion, dependency operators).
-2. **Dry run** — Simulated library scan (prototype mock in `olmMigrationDryRun.ts`). Read-only plan per operator; **Run dry run again** optional. Advance only when all selected operators **Pass**.
-3. **Review & execute (PONR)** — Danger alert for point of no return; required acknowledgments (dry run reviewed, PONR / manual recovery); optional backup checkbox. **Start migration** (danger) disabled until required boxes checked.
+2. **Run migration dry run** — Single dynamic table (operator metadata; dry run status updates Pending → Running → Pass/Blocked; planned action and target catalog columns fill as each operator completes). Short “what is a dry run” copy. User clicks **Run dry run** (not auto-run). JSONL log streams during run; **Download debug logs** saves `.jsonl`. Expandable per-operator details (`kind_counts`, `cleanup_actions`). **Rerun** (secondary) is the only control that resets dry-run state; Back or nav does not. Advance via **Review and execute migration** when all pass.
+3. **Review and execute** — Point-of-no-return alerts; operator summary; three **required** acknowledgments (dry run reviewed, PONR / manual recovery, backup/recovery plan). **Start migration** (danger) disabled until all are checked and dry run passed.
 
 After **Start migration**, the modal closes. Long-running work continues on the list: **Migration status** column + toasts.
 
