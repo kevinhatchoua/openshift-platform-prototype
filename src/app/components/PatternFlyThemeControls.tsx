@@ -4,7 +4,6 @@ import {
   THEME_PREFERENCES_EVENT,
   readThemePreferences,
   setThemePreferences,
-  type BrandTheme,
   type ColorScheme,
   type ContrastMode,
   type ThemePreferences,
@@ -38,27 +37,6 @@ export default function PatternFlyThemeControls({ idPrefix = "theme" }: { idPref
 
   return (
     <div className="ocs-pf-theme-controls">
-      <div className="ocs-pf-theme-controls__section">
-        <Content component="p" className="ocs-pf-theme-controls__label" id={`${idPrefix}-brand`}>
-          Theme
-        </Content>
-        <ToggleGroup aria-labelledby={`${idPrefix}-brand`} isCompact>
-          {(
-            [
-              ["default", "Default"],
-              ["felt", "Project Felt"],
-            ] as [BrandTheme, string][]
-          ).map(([id, label]) => (
-            <ToggleGroupItem
-              key={id}
-              text={label}
-              isSelected={prefs.brandTheme === id}
-              onChange={() => update({ brandTheme: id })}
-            />
-          ))}
-        </ToggleGroup>
-      </div>
-
       <div className="ocs-pf-theme-controls__section">
         <Content component="p" className="ocs-pf-theme-controls__label" id={`${idPrefix}-color`}>
           Color scheme

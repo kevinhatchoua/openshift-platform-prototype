@@ -589,6 +589,20 @@ html:not(.dark) .ocs-update-details-panel .ocs-update-details-panel__toolbar-lab
   --sidebar-ring: var(--pf-color-blue-20);
 }
 
+/**
+ * Project Felt: nav/tab accents use brand accent (red). Tailwind sidebar utilities must not
+ * pin blue when PF maps accent separately from interactive brand (primary buttons stay blue).
+ */
+html.pf-v6-theme-felt {
+  --sidebar-primary: var(--pf-t--global--color--brand--accent--default);
+  --sidebar-ring: var(--pf-t--global--color--brand--accent--default);
+}
+
+html.pf-v6-theme-felt.dark {
+  --sidebar-primary: var(--pf-t--global--color--brand--accent--default);
+  --sidebar-ring: var(--pf-t--global--color--brand--accent--default);
+}
+
 /* High Contrast Light Theme */
 .high-contrast {
   --background: #ffffff;

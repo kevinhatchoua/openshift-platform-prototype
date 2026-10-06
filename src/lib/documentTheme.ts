@@ -106,7 +106,8 @@ export function isGlassEffectEnabled(prefs: ThemePreferences): boolean {
 }
 
 function normalizePreferences(raw: Partial<ThemePreferences> & { colorTheme?: string; glass?: boolean }): ThemePreferences {
-  const brandTheme: BrandTheme = raw.brandTheme === "default" ? "default" : "felt";
+  /** OpenShift console prototype is Project Felt only (RH accent in nav/tabs; PF Default theme is not supported). */
+  const brandTheme: BrandTheme = "felt";
 
   const colorScheme: ColorScheme =
     raw.colorScheme === "light" || raw.colorScheme === "dark" || raw.colorScheme === "system"
@@ -186,11 +187,7 @@ export function applyThemeToDocument(prefs: ThemePreferences): void {
   const normalized = normalizePreferences(prefs);
   root.classList.remove("pf-v6-theme-redhat");
 
-  if (normalized.brandTheme === "felt") {
-    root.classList.add(PF_THEME_FELT_CLASS);
-  } else {
-    root.classList.remove(PF_THEME_FELT_CLASS);
-  }
+  root.classList.add(PF_THEME_FELT_CLASS);
 
   if (normalized.dark) {
     root.classList.add("dark", PF_THEME_DARK_CLASS);
