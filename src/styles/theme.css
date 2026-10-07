@@ -1617,7 +1617,8 @@ html .ocs-console-page.pf-v6-c-page {
 }
 
 .ocs-user-preferences__nav-button.is-active {
-  border-inline-start-color: var(--pf-t--global--border--color--brand--default);
+  /* Project Felt / console nav accent (red), not primary blue brand--default */
+  border-inline-start-color: var(--pf-t--global--color--brand--accent--default, var(--pf-color-red-50));
   color: var(--pf-t--global--text--color--regular);
   font-weight: var(--pf-t--global--font--weight--body--bold, 600);
 }
@@ -1715,7 +1716,7 @@ html .ocs-console-page.pf-v6-c-page {
   }
 
   .ocs-user-preferences__nav-button.is-active {
-    border-block-end-color: var(--pf-t--global--border--color--brand--default);
+    border-block-end-color: var(--pf-t--global--color--brand--accent--default, var(--pf-color-red-50));
   }
 }
 
