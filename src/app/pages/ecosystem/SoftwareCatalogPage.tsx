@@ -264,12 +264,17 @@ export default function SoftwareCatalogPage() {
   }, [searchParams, operatorCatalogFilter]);
 
   useEffect(() => {
+    const onOperatorType =
+      selectedTypeFacet === "nextgen-operators" || selectedTypeFacet === "classic-operators";
+    if (!onOperatorType) {
+      return;
+    }
     if (operatorCatalogFilter === "nextgen") {
       setMode("nextgen");
     } else if (operatorCatalogFilter === "classic") {
       setMode("classic");
     }
-  }, [operatorCatalogFilter, setMode]);
+  }, [operatorCatalogFilter, setMode, selectedTypeFacet]);
 
   const RAW_OPERATORS: Array<Omit<CatalogItem, "catalogType">> = [
     // OLMv0 Operators (default set - large catalog)
@@ -1039,9 +1044,11 @@ export default function SoftwareCatalogPage() {
           </p>
         </Content>
 
-        {operatorCatalogFilter !== "nextgen" ? <OlmClassicExperienceBanner /> : null}
+        {isOperatorTypeFacet && selectedTypeFacet === "classic-operators" ? (
+          <OlmClassicExperienceBanner />
+        ) : null}
 
-        {availableUpdates > 0 && !dismissedAlerts.includes("updates") && (
+        {isOperatorTypeFacet && availableUpdates > 0 && !dismissedAlerts.includes("updates") && (
           <AlertGroup className="mb-4">
             <Alert
               variant="info"
