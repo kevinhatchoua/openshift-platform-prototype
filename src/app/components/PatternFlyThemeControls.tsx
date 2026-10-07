@@ -9,11 +9,14 @@ import {
   type ThemePreferences,
 } from "@/lib/documentTheme";
 
+type PatternFlyThemeControlsProps = {
+  idPrefix?: string;
+};
+
 /**
- * PatternFly 6 theme switcher — Theme / Color scheme / Contrast mode.
- * Shared by Prototype controls and User Preferences.
+ * Prototype demo menu: inline color scheme + contrast toggles.
  */
-export default function PatternFlyThemeControls({ idPrefix = "theme" }: { idPrefix?: string }) {
+export default function PatternFlyThemeControls({ idPrefix = "theme" }: PatternFlyThemeControlsProps) {
   const [prefs, setPrefs] = useState<ThemePreferences>(() => readThemePreferences());
 
   useEffect(() => {

@@ -1573,6 +1573,152 @@ html .ocs-console-page.pf-v6-c-page {
   padding-block-end: 3rem;
 }
 
+/* User preferences: single surface — avoid PF Sidebar panel boxes in glass mode */
+.ocs-user-preferences__layout {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--pf-t--global--spacer--2xl, 2rem);
+  max-width: 52rem;
+}
+
+.ocs-user-preferences__nav {
+  flex: 0 0 10rem;
+}
+
+.ocs-user-preferences__nav-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--xs, 4px);
+}
+
+.ocs-user-preferences__nav-button {
+  display: block;
+  width: 100%;
+  margin: 0;
+  padding: var(--pf-t--global--spacer--sm, 8px) var(--pf-t--global--spacer--md, 12px);
+  border: 0;
+  border-inline-start: 3px solid transparent;
+  border-radius: 0;
+  background: transparent;
+  color: var(--pf-t--global--text--color--subtle);
+  font: inherit;
+  font-size: var(--pf-t--global--font--size--body--default);
+  text-align: start;
+  cursor: pointer;
+}
+
+.ocs-user-preferences__nav-button:hover,
+.ocs-user-preferences__nav-button:focus-visible {
+  color: var(--pf-t--global--text--color--regular);
+  background: transparent;
+}
+
+.ocs-user-preferences__nav-button.is-active {
+  border-inline-start-color: var(--pf-t--global--border--color--brand--default);
+  color: var(--pf-t--global--text--color--regular);
+  font-weight: var(--pf-t--global--font--weight--body--bold, 600);
+}
+
+.ocs-user-preferences__content {
+  flex: 1;
+  min-width: 0;
+}
+
+.ocs-user-preferences {
+  --ocs-user-pref-field-width: 28rem;
+  --ocs-user-pref-field-radius: var(--pf-t--global--border--radius--control--form-element, 6px);
+}
+
+.ocs-user-preferences__form.pf-v6-c-form.pf-m-width-limited {
+  --pf-v6-c-form--m-width-limited--MaxWidth: var(--ocs-user-pref-field-width);
+  max-width: var(--ocs-user-pref-field-width);
+}
+
+.ocs-user-preferences .ocs-user-preferences__field {
+  width: 100%;
+  max-width: var(--ocs-user-pref-field-width);
+  border-radius: var(--ocs-user-pref-field-radius);
+}
+
+.ocs-user-preferences select.ocs-user-preferences__field {
+  border-radius: var(--ocs-user-pref-field-radius);
+}
+
+/* Theme field: same chrome as FormSelect (border/background on pf-v6-c-form-control shell). */
+.ocs-user-preferences__theme-shell.pf-v6-c-form-control {
+  grid-template-columns: 1fr;
+  align-items: center;
+  width: 100%;
+  max-width: var(--ocs-user-pref-field-width);
+  padding: 0;
+}
+
+.ocs-user-preferences__theme-shell .ocs-theme-preferences-dropdown {
+  display: block;
+  width: 100%;
+  max-width: none;
+}
+
+.ocs-user-preferences__theme-shell .ocs-user-preferences__theme-toggle.pf-v6-c-menu-toggle {
+  justify-content: space-between;
+  width: 100%;
+  min-height: calc(
+    var(--pf-v6-c-form-control--PaddingBlockStart) + var(--pf-v6-c-form-control--PaddingBlockEnd) +
+      var(--pf-v6-c-form-control--FontSize) * var(--pf-v6-c-form-control--LineHeight)
+  );
+  padding-block-start: var(--pf-v6-c-form-control--PaddingBlockStart);
+  padding-block-end: var(--pf-v6-c-form-control--PaddingBlockEnd);
+  padding-inline-start: var(--pf-v6-c-form-control--PaddingInlineStart);
+  padding-inline-end: var(--pf-v6-c-form-control--PaddingInlineEnd);
+  color: var(--pf-v6-c-form-control--Color);
+  font-size: var(--pf-v6-c-form-control--FontSize);
+  line-height: var(--pf-v6-c-form-control--LineHeight);
+  background-color: transparent;
+  --pf-v6-c-menu-toggle--BackgroundColor: transparent;
+  --pf-v6-c-menu-toggle--hover--BackgroundColor: transparent;
+  --pf-v6-c-menu-toggle--expanded--BackgroundColor: transparent;
+  --pf-v6-c-menu-toggle--BorderWidth: 0;
+  --pf-v6-c-menu-toggle--m-plain--BorderWidth: 0;
+  --pf-v6-c-menu-toggle__toggle-icon--Color: var(--pf-v6-c-form-control__toggle-icon--Color);
+}
+
+.ocs-user-preferences__theme-shell .ocs-user-preferences__theme-toggle.pf-v6-c-menu-toggle::before {
+  content: none;
+}
+
+.ocs-theme-preferences-dropdown .pf-v6-c-menu {
+  min-width: 16rem;
+}
+
+@media (max-width: 48rem) {
+  .ocs-user-preferences__layout {
+    flex-direction: column;
+    max-width: none;
+  }
+
+  .ocs-user-preferences__nav {
+    flex: none;
+    width: 100%;
+  }
+
+  .ocs-user-preferences__nav-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .ocs-user-preferences__nav-button {
+    border-inline-start: 0;
+    border-block-end: 2px solid transparent;
+  }
+
+  .ocs-user-preferences__nav-button.is-active {
+    border-block-end-color: var(--pf-t--global--border--color--brand--default);
+  }
+}
+
 /**
  * Compute → Node details (console-style two-column description lists).
  */
@@ -4304,6 +4450,47 @@ html.dark .ocs-net-topo-panel__canvas {
   margin: 0;
   font-size: 12px;
   font-weight: 600;
+}
+
+.ocs-pf-theme-controls--popover {
+  min-width: 16rem;
+  padding: 0;
+  gap: 0;
+}
+
+.ocs-pf-theme-controls--popover .ocs-pf-theme-controls__section {
+  gap: var(--pf-t--global--spacer--xs, 4px);
+}
+
+.ocs-pf-theme-controls--popover .ocs-pf-theme-controls__label {
+  font-size: var(--pf-t--global--font--size--body--sm, 12px);
+  line-height: 1.2;
+}
+
+.ocs-pf-theme-controls--popover .ocs-pf-theme-controls__divider {
+  margin-block: var(--pf-t--global--spacer--sm, 8px);
+}
+
+.ocs-pf-theme-controls--popover .ocs-pf-theme-controls__toggle-row {
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.ocs-theme-preferences-dropdown__panel.pf-v6-c-menu__item,
+.ocs-theme-preferences-dropdown__panel.pf-v6-c-dropdown__menu-item {
+  padding: 0;
+  margin: 0;
+  background: transparent;
+  cursor: default;
+}
+
+.ocs-theme-preferences-dropdown__panel .pf-v6-c-menu__item-text {
+  padding: var(--pf-t--global--spacer--sm, 8px) var(--pf-t--global--spacer--md, 12px);
+}
+
+.ocs-theme-preferences-dropdown__panel:hover,
+.ocs-theme-preferences-dropdown__panel:focus {
+  background: transparent;
 }
 
 .ocs-prototype-demo-menu__toggle {

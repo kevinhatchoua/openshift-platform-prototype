@@ -5,12 +5,9 @@ import {
   FormGroup,
   FormSelect,
   FormSelectOption,
-  Sidebar,
-  SidebarContent,
-  SidebarPanel,
   Title,
 } from "@patternfly/react-core";
-import PatternFlyThemeControls from "../components/PatternFlyThemeControls";
+import ThemePreferencesDropdown from "../components/ThemePreferencesDropdown";
 
 type PrefTab = "general" | "language";
 
@@ -29,7 +26,7 @@ export default function UserPreferencesPage() {
   const [language, setLanguage] = useState("browser-default");
 
   return (
-    <div className="ocs-app-page-outer">
+    <div className="ocs-app-page-outer ocs-user-preferences">
       <Title headingLevel="h1" className="pf-v6-u-mb-sm">
         User Preferences
       </Title>
@@ -37,55 +34,42 @@ export default function UserPreferencesPage() {
         Set your individual preferences for the console experience. Any changes will be autosaved.
       </Content>
 
-      <Sidebar hasGutter hasBorder>
-        <SidebarPanel width={{ default: "width_25" }}>
-          <nav aria-label="User preference categories">
-            <ul className="pf-v6-c-jump-links pf-m-vertical" style={{ listStyle: "none", margin: 0, padding: 0 }}>
-              {(
-                [
-                  ["general", "General"],
-                  ["language", "Language"],
-                ] as const
-              ).map(([id, label]) => (
-                <li key={id} style={{ marginBottom: "0.25rem" }}>
-                  <button
-                    type="button"
-                    className="pf-v6-c-button pf-m-link"
-                    aria-current={activeTab === id ? "page" : undefined}
-                    onClick={() => setActiveTab(id)}
-                    style={{
-                      justifyContent: "flex-start",
-                      width: "100%",
-                      borderInlineStart:
-                        activeTab === id
-                          ? "3px solid var(--pf-t--global--border--color--brand--default)"
-                          : "3px solid transparent",
-                      borderRadius: 0,
-                      paddingInlineStart: "0.75rem",
-                      fontWeight: activeTab === id ? 600 : 400,
-                    }}
-                  >
-                    {label}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          </nav>
-        </SidebarPanel>
-        <SidebarContent>
+      <div className="ocs-user-preferences__layout">
+        <nav className="ocs-user-preferences__nav" aria-label="User preference categories">
+          <ul className="ocs-user-preferences__nav-list">
+            {(
+              [
+                ["general", "General"],
+                ["language", "Language"],
+              ] as const
+            ).map(([id, label]) => (
+              <li key={id}>
+                <button
+                  type="button"
+                  className={`ocs-user-preferences__nav-button${activeTab === id ? " is-active" : ""}`}
+                  aria-current={activeTab === id ? "page" : undefined}
+                  onClick={() => setActiveTab(id)}
+                >
+                  {label}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </nav>
+        <div className="ocs-user-preferences__content">
           {activeTab === "general" ? (
-            <Form isWidthLimited>
-              <FormGroup label="Appearance" fieldId="user-pref-appearance">
-                <PatternFlyThemeControls idPrefix="user-pref-theme" />
+            <Form isWidthLimited className="ocs-user-preferences__form">
+              <FormGroup label="Theme" fieldId="user-pref-theme">
+                <ThemePreferencesDropdown idPrefix="user-pref-theme" />
                 <Content component="small" className="pf-v6-u-mt-sm">
-                  Theme, color scheme, and contrast mode apply immediately and persist for this prototype.
-                  High contrast and glass are mutually exclusive.
+                  Open the menu to set contrast mode and color scheme. Changes apply immediately.
                 </Content>
               </FormGroup>
 
               <FormGroup label="Perspective" fieldId="user-pref-perspective">
                 <FormSelect
                   id="user-pref-perspective"
+                  className="ocs-user-preferences__field"
                   value={perspective}
                   onChange={(_e, value) => setPerspective(value)}
                   aria-label="Perspective"
@@ -102,6 +86,7 @@ export default function UserPreferencesPage() {
               <FormGroup label="Project" fieldId="user-pref-project">
                 <FormSelect
                   id="user-pref-project"
+                  className="ocs-user-preferences__field"
                   value={project}
                   onChange={(_e, value) => setProject(value)}
                   aria-label="Project"
@@ -119,6 +104,7 @@ export default function UserPreferencesPage() {
               <FormGroup label="Topology" fieldId="user-pref-topology">
                 <FormSelect
                   id="user-pref-topology"
+                  className="ocs-user-preferences__field"
                   value={topology}
                   onChange={(_e, value) => setTopology(value)}
                   aria-label="Topology"
@@ -135,6 +121,7 @@ export default function UserPreferencesPage() {
               <FormGroup label="Create/Edit resource method" fieldId="user-pref-edit-method">
                 <FormSelect
                   id="user-pref-edit-method"
+                  className="ocs-user-preferences__field"
                   value={editMethod}
                   onChange={(_e, value) => setEditMethod(value)}
                   aria-label="Create/Edit resource method"
@@ -146,10 +133,11 @@ export default function UserPreferencesPage() {
               </FormGroup>
             </Form>
           ) : (
-            <Form isWidthLimited>
+            <Form isWidthLimited className="ocs-user-preferences__form">
               <FormGroup label="Language" fieldId="user-pref-language">
                 <FormSelect
                   id="user-pref-language"
+                  className="ocs-user-preferences__field"
                   value={language}
                   onChange={(_e, value) => setLanguage(value)}
                   aria-label="Language"
@@ -163,8 +151,8 @@ export default function UserPreferencesPage() {
               </FormGroup>
             </Form>
           )}
-        </SidebarContent>
-      </Sidebar>
+        </div>
+      </div>
     </div>
   );
 }
