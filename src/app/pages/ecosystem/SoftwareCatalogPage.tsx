@@ -22,6 +22,7 @@ import { OlmClassicExperienceBanner } from "../../components/ecosystem/OlmClassi
 import CatalogOperatorDetailPanel from "../../components/CatalogOperatorDetailPanel";
 import {
   OLM_CATALOG_FACET_LABELS,
+  OLM_OPERATOR_PILL_LABELS,
   useOlmOperatingMode,
 } from "../../contexts/OlmOperatingModeContext";
 import {
@@ -1321,6 +1322,16 @@ export default function SoftwareCatalogPage() {
                       logoClassName="h-[28px] w-[28px] max-h-[28px] max-w-[28px]"
                     />
                     <div className="flex flex-col items-end gap-[6px] shrink-0 max-w-[min(148px,48%)]">
+                      {item.catalogType === "operators" && item.olmVersion ? (
+                        <span
+                          className={[
+                            "rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight text-white text-right",
+                            item.olmVersion === "v1" ? "bg-[#0066cc]" : "bg-[#5c5f62]",
+                          ].join(" ")}
+                        >
+                          {OLM_OPERATOR_PILL_LABELS[item.olmVersion]}
+                        </span>
+                      ) : null}
                       {item.catalogType === "operators" && item.olmVersion === "v0" ? (
                         <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#f0ab00] text-[#151515] text-right">
                           Deprecated
