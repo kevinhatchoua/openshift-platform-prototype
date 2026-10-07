@@ -19,6 +19,7 @@ import {
   OlmV1ExtensionUpdateAlert,
   useOlmV1ExtensionLifecycleActions,
 } from "../../components/ecosystem/OlmV1ExtensionLifecycleActions";
+import { OlmMigrationStatusPanel } from "../../components/ecosystem/OlmMigrationStatusPanel";
 import { getPrototypeInstalledOperator } from "./installedOperatorsLookup";
 
 type OlmV1ExtensionDetailViewProps = {
@@ -102,6 +103,8 @@ export default function OlmV1ExtensionDetailView({ operatorName }: OlmV1Extensio
               </Flex>
 
               <OlmV1ExtensionUpdateAlert operator={operator} onUpdate={openUpdate} />
+
+              <OlmMigrationStatusPanel operator={operator} variant="cluster-extension" />
 
               <Card isPlain>
                 <CardBody>

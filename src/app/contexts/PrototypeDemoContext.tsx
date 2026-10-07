@@ -14,6 +14,8 @@ export type GitOpsScenario = "paused" | "healthy" | "scaling-down";
 /** Installed Operators OLMv0→v1 migration demo (OCPSTRAT-2692 prototype). */
 export type OlmMigrationScenario =
   | "interactive"
+  | "preview-dry-run-all-pass"
+  | "preview-dry-run-bulk-blocked"
   | "preview-success"
   | "preview-failed-rollback"
   | "preview-errors";

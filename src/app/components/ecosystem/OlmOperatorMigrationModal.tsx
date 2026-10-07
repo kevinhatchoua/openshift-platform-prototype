@@ -31,6 +31,7 @@ import type { WizardStepType } from "@patternfly/react-core";
 import { Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import DownloadIcon from "@patternfly/react-icons/dist/esm/icons/download-icon";
 import { OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
+import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import type { CatalogOperator, OlmMigrationEligibility } from "../../pages/ecosystem/installedOperatorsTypes";
 import {
   OlmMigrationBlockersPanel,
@@ -42,6 +43,10 @@ import {
   type MigrationDryRunRow,
   simulateMigrationDryRun,
 } from "./olmMigrationDryRun";
+import {
+  isDryRunPreviewScenario,
+  simulateDryRunScenario,
+} from "./olmMigrationDryRunScenario";
 
 export type MigrationRunResult = import("../../pages/ecosystem/installedOperatorsTypes").OlmMigrationRunResult;
 
@@ -395,6 +400,7 @@ export function OlmOperatorMigrationModal({
   const [ackBackup, setAckBackup] = useState(false);
   /** List/bulk/single-row migrate: skip re-selecting operators in the wizard. */
   const [skipSelectStep, setSkipSelectStep] = useState(false);
+  const { olmMigrationScenario } = usePrototypeDemo();
   const [activeWizardStepId, setActiveWizardStepId] = useState<string | undefined>(undefined);
 
   const classicOperators = useMemo(
@@ -419,6 +425,9 @@ export function OlmOperatorMigrationModal({
 
   const isSingleOperatorFlow = selectedOperators.length === 1;
   const dryRunPassCount = dryRunRows.filter((row) => row.status === "pass").length;
+  const dryRunBlockedCount = dryRunRows.filter((row) => row.status === "blocked").length;
+  const isBulkSelection = selectedOperators.length > 1;
+  const dryRunScenarioPreview = isDryRunPreviewScenario(olmMigrationScenario);
   const dryRunComplete =
     dryRunPassCount > 0 && dryRunPassCount === selectedOperators.length && !dryRunLoading;
   const canExecute =
@@ -488,35 +497,59 @@ export function OlmOperatorMigrationModal({
     onClose();
   };
 
-  const runDryRun = useCallback(async (targets: CatalogOperator[]) => {
-    setDryRunLoading(true);
-    setDryRunRows([]);
-    setDryRunLogLines([]);
-    setDryRunOperatorPhases(
-      Object.fromEntries(targets.map((op) => [op.name, "pending" as DryRunOperatorPhase])),
-    );
-    try {
-      const rows = await simulateMigrationDryRun(targets, {
-        onLogLine: (line) => {
+  const runDryRun = useCallback(
+    async (targets: CatalogOperator[]) => {
+      setDryRunLoading(true);
+      setDryRunRows([]);
+      setDryRunLogLines([]);
+      setDryRunOperatorPhases(
+        Object.fromEntries(targets.map((op) => [op.name, "pending" as DryRunOperatorPhase])),
+      );
+      const callbacks = {
+        onLogLine: (line: string) => {
           setDryRunLogLines((prev) => [...prev, line]);
         },
-        onOperatorStart: (op) => {
+        onOperatorStart: (op: CatalogOperator) => {
           setDryRunOperatorPhases((prev) => ({ ...prev, [op.name]: "running" }));
         },
-        onOperatorComplete: (row) => {
+        onOperatorComplete: (row: MigrationDryRunRow) => {
           setDryRunRows((prev) => {
             const rest = prev.filter((item) => item.operator.name !== row.operator.name);
             return [...rest, row];
           });
           setDryRunOperatorPhases((prev) => ({ ...prev, [row.operator.name]: "complete" }));
         },
-      });
-      setDryRunRows(rows);
-      setDryRunHasRun(true);
-    } finally {
-      setDryRunLoading(false);
+      };
+      try {
+        const rows = dryRunScenarioPreview
+          ? await simulateDryRunScenario(olmMigrationScenario, targets, callbacks)
+          : await simulateMigrationDryRun(targets, callbacks);
+        setDryRunRows(rows);
+        setDryRunHasRun(true);
+      } finally {
+        setDryRunLoading(false);
+      }
+    },
+    [dryRunScenarioPreview, olmMigrationScenario],
+  );
+
+  const removeBlockedOperatorsFromSelection = useCallback(() => {
+    const blockedNames = new Set(
+      dryRunRows.filter((row) => row.status === "blocked").map((row) => row.operator.name),
+    );
+    if (blockedNames.size === 0) {
+      return;
     }
-  }, []);
+    setSelected((prev) => {
+      const next = new Set(prev);
+      blockedNames.forEach((name) => next.delete(name));
+      return next;
+    });
+    setDryRunHasRun(false);
+    setDryRunRows([]);
+    setDryRunLogLines([]);
+    setDryRunOperatorPhases({});
+  }, [dryRunRows]);
 
   const runDryRunLaunch = useCallback(() => {
     void runDryRun(selectedOperators);
@@ -764,6 +797,22 @@ export function OlmOperatorMigrationModal({
                 cleanup actions, and catalog targets. The cluster is not modified.
               </Content>
             </StackItem>
+            {dryRunScenarioPreview ? (
+              <StackItem>
+                <Alert variant="info" isInline title="Prototype scenario mock">
+                  Dry run results are driven by the <strong>Migration scenario</strong> toggle on this page
+                  ({olmMigrationScenario}). Use <strong>Interactive</strong> for simulated library output.
+                </Alert>
+              </StackItem>
+            ) : null}
+            {isBulkSelection ? (
+              <StackItem>
+                <Alert variant="info" isInline title="Bulk migration policy">
+                  All selected operators must pass dry run before you can review and execute. Fix or remove
+                  blocked operators, then choose <strong>Rerun</strong>.
+                </Alert>
+              </StackItem>
+            ) : null}
             <StackItem aria-live="polite" aria-busy={dryRunLoading}>
               <MigrationDryRunOperatorsTable
                 operators={selectedOperators}
@@ -775,13 +824,49 @@ export function OlmOperatorMigrationModal({
             {dryRunHasRun && !dryRunLoading ? (
               <StackItem>
                 <Content>
-                  {dryRunPassCount} of {selectedOperators.length} operator
-                  {selectedOperators.length === 1 ? "" : "s"} passed dry run and can proceed to execute.
+                  <strong>
+                    {selectedOperators.length} selected · {dryRunPassCount} passed
+                    {dryRunBlockedCount > 0 ? ` · ${dryRunBlockedCount} blocked` : ""}
+                  </strong>
+                  {dryRunBlockedCount === 0
+                    ? ". You can continue to review and execute."
+                    : ". Remove or fix blocked operators, then rerun dry run."}
                 </Content>
+              </StackItem>
+            ) : null}
+            {dryRunHasRun && !dryRunLoading && dryRunBlockedCount > 0 ? (
+              <StackItem>
+                <Alert variant="danger" isInline title="Dry run blocked for one or more operators">
+                  <Stack hasGutter>
+                    <StackItem>
+                      <ul className="ocs-olm-migration-modal__operator-list">
+                        {dryRunRows
+                          .filter((row) => row.status === "blocked")
+                          .map((row) => (
+                            <li key={row.operator.name}>
+                              <strong>{row.operator.name}:</strong> {row.summary}
+                            </li>
+                          ))}
+                      </ul>
+                    </StackItem>
+                    <StackItem>
+                      <Button variant="secondary" onClick={removeBlockedOperatorsFromSelection}>
+                        Remove blocked operators from selection
+                      </Button>
+                    </StackItem>
+                  </Stack>
+                </Alert>
               </StackItem>
             ) : null}
             {dryRunHasRun && !dryRunLoading ? (
               <>
+                {dryRunRows
+                  .filter((row) => row.status === "blocked")
+                  .map((row) => (
+                    <StackItem key={`${row.operator.name}-blocked`}>
+                      <OlmMigrationBlockersPanel operator={row.operator} />
+                    </StackItem>
+                  ))}
                 {dryRunRows
                   .filter((row) => row.detail)
                   .map((row) => (

@@ -64,4 +64,14 @@ export type CatalogOperator = InstalledOperator & {
   /** In-table migration progress (background run). */
   olmMigrationActivity?: OlmMigrationActivityStatus;
   olmMigrationActivityDetail?: string;
+  /** Prototype: ClusterExtension migration state (persisted on CR). */
+  olmClusterExtensionMigration?: OlmClusterExtensionMigrationState;
+};
+
+export type OlmClusterExtensionMigrationState = {
+  installedCondition: string;
+  migrationPhase: string;
+  rollbackState: string;
+  lastTransitionTime: string;
+  message?: string;
 };

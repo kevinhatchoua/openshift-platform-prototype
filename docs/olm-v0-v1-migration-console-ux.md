@@ -25,7 +25,18 @@
 
 After **Start migration**, the modal closes. Long-running work continues on the list: **Migration status** column + toasts.
 
-**Prototype migration scenario** (banner control) only changes simulated outcomes when the user confirms migration—it does not auto-run migrations or toasts on page load.
+**Prototype migration scenario** (banner control on Installed Operators):
+
+| Scenario | Behavior |
+|----------|----------|
+| Interactive | Fixture eligibility + simulated library dry run and background migration |
+| Dry run: all pass (bulk) | Wizard dry run mock: all selected operators pass (bulk policy UI) |
+| Dry run: blocked (bulk) | Wizard dry run mock: Cert Manager + Kiali Operator blocked; remove-from-selection CTA |
+| Migration successful / failed / errors | Background migration outcomes (existing preview scenarios) |
+
+Scenario-driven dry run does not auto-run on page load. Choose **Run dry run** in the wizard.
+
+**Migration details:** List **Migration status** popover links to operator detail; Classic operators show a **Migration** card; Next-Gen cluster extensions show **ClusterExtension** migration state (CR-backed, prototype mock).
 
 ## Outcome behavior (UX contract)
 

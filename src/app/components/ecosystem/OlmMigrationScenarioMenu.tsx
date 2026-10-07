@@ -13,6 +13,8 @@ import {
 
 const SCENARIO_LABELS: Record<OlmMigrationScenario, string> = {
   interactive: "Interactive (fixture data)",
+  "preview-dry-run-all-pass": "Dry run: all pass (bulk)",
+  "preview-dry-run-bulk-blocked": "Dry run: blocked (bulk)",
   "preview-success": "Migration successful",
   "preview-failed-rollback": "Migration failed (auto-rollback)",
   "preview-errors": "Migration errors & incomplete",
@@ -20,6 +22,8 @@ const SCENARIO_LABELS: Record<OlmMigrationScenario, string> = {
 
 const SCENARIO_SHORT_LABELS: Record<OlmMigrationScenario, string> = {
   interactive: "Interactive",
+  "preview-dry-run-all-pass": "Dry run pass",
+  "preview-dry-run-bulk-blocked": "Dry run blocked",
   "preview-success": "Successful",
   "preview-failed-rollback": "Failed (auto-rollback)",
   "preview-errors": "Errors & incomplete",

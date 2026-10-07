@@ -13,7 +13,6 @@ import {
   Spinner,
   Stack,
   StackItem,
-  Tooltip,
 } from "@patternfly/react-core";
 import { AlertCircle, CheckCircle, Clock, ExternalLink } from "@/lib/pfIcons";
 import { OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
@@ -381,6 +380,10 @@ function presentationForEligibility(op: CatalogOperator): MigrationStatusPresent
   }
 }
 
+function migrationDetailHref(operator: CatalogOperator): string {
+  return `/ecosystem/installed-operators/${encodeURIComponent(operator.name)}`;
+}
+
 /** Installed Operators list — migration column (parity with cluster compatibility icon + text). */
 export function InstalledOperatorMigrationStatusCell({ operator }: { operator: CatalogOperator }) {
   const presentation = operator.olmMigrationActivity
@@ -403,21 +406,48 @@ export function InstalledOperatorMigrationStatusCell({ operator }: { operator: C
   );
 
   const tooltipSummary = `${presentation.tooltipTitle}. ${presentation.tooltipBody}`;
+  const showMigrationDetails =
+    operator.olmMigrationActivity != null || operator.olmMigrationEligibility === "migrated";
+
+  const popoverBody = (
+    <Stack hasGutter>
+      <StackItem>{migrationTooltipBody(presentation.tooltipTitle, presentation.tooltipBody)}</StackItem>
+      {operator.olmMigrationActivityDetail ? (
+        <StackItem>
+          <Content component="small">
+            <strong>Last update:</strong> {operator.olmMigrationActivityDetail}
+          </Content>
+        </StackItem>
+      ) : null}
+      {showMigrationDetails ? (
+        <StackItem>
+          <Button
+            component={(props) => <Link {...props} to={migrationDetailHref(operator)} />}
+            variant="link"
+            isInline
+          >
+            View migration details
+          </Button>
+        </StackItem>
+      ) : null}
+    </Stack>
+  );
 
   return (
-    <Tooltip
-      content={migrationTooltipBody(presentation.tooltipTitle, presentation.tooltipBody)}
+    <Popover
+      aria-label={`Migration status for ${operator.name}`}
+      headerContent={presentation.tooltipTitle}
+      bodyContent={popoverBody}
       maxWidth="24rem"
-      trigger="mouseenter focus"
-      enableFlip
+      trigger="click"
     >
-      <span
-        className="ocs-io-migration-status-tooltip-target"
-        tabIndex={0}
+      <button
+        type="button"
+        className="ocs-io-migration-status-tooltip-target pf-v6-c-button pf-m-plain"
         aria-label={`Migration status: ${presentation.label}. ${tooltipSummary}`}
       >
         {row}
-      </span>
-    </Tooltip>
+      </button>
+    </Popover>
   );
 }

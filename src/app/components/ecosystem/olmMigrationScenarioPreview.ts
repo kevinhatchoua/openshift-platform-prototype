@@ -7,7 +7,7 @@ export function resolveMigrationDemoResult(
   op: CatalogOperator,
   scenario: OlmMigrationScenario,
 ): OlmMigrationRunResult {
-  if (scenario === "interactive") {
+  if (scenario === "interactive" || scenario.startsWith("preview-dry-run-")) {
     if (op.olmMigrationEligibility === "ineligible") return "skipped";
     if (op.olmMigrationEligibility === "conflict") return "error";
     if (op.olmMigrationEligibility === "migrated") return "skipped";
