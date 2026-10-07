@@ -4543,7 +4543,13 @@ html.dark .ocs-net-topo-panel__canvas {
   bottom: 4px;
   width: 3px;
   border-radius: 2px;
-  background-color: var(--pf-t--global--color--brand--default, #ee0000);
+  /* Match console nav / Project Felt accent (not primary blue brand--default). */
+  background-color: var(--pf-t--global--color--brand--accent--default);
+}
+
+.ocs-software-catalog-type-facet:focus-visible {
+  outline: 2px solid var(--pf-t--global--color--brand--accent--default);
+  outline-offset: 2px;
 }
 
 .ocs-olm-migration-dry-run-log {
