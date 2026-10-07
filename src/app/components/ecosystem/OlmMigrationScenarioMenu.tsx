@@ -41,8 +41,8 @@ export default function OlmMigrationScenarioMenu() {
   }
 
   return (
-    <div className="ocs-olm-migration-scenario-menu">
-      <span id="ocs-olm-migration-scenario-label" className="ocs-olm-migration-scenario-menu__label">
+    <div className="ocs-prototype-banner-scenario-menu">
+      <span id="ocs-olm-migration-scenario-label" className="ocs-prototype-banner-scenario-menu__label">
         Migration scenario
       </span>
       <Select
@@ -59,7 +59,7 @@ export default function OlmMigrationScenarioMenu() {
         toggle={(toggleRef) => (
           <MenuToggle
             ref={toggleRef}
-            className="ocs-olm-migration-scenario-menu__toggle"
+            className="ocs-prototype-banner-scenario-menu__toggle"
             variant="secondary"
             aria-labelledby="ocs-olm-migration-scenario-label"
             onClick={() => setIsOpen((open) => !open)}

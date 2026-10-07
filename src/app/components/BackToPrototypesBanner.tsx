@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { useLocation } from "react-router";
-import PrototypeDemoMenu from "./PrototypeDemoMenu";
+import GitOpsScenarioMenu from "./gitops/GitOpsScenarioMenu";
 import OlmMigrationScenarioMenu from "./ecosystem/OlmMigrationScenarioMenu";
 
 const HUB_PROTOTYPES_URL =
@@ -26,7 +26,7 @@ function contextLabelForPath(pathname: string): string {
 
 /**
  * White Hub return bar — same chrome as console HTML captures.
- * Prototype demo controls sit here (right), including PatternFly theme switching.
+ * Route-specific scenario switchers sit here (right) when relevant.
  */
 export default function BackToPrototypesBanner() {
   const { pathname } = useLocation();
@@ -45,7 +45,7 @@ export default function BackToPrototypesBanner() {
         <span className="ocs-back-to-prototypes-banner__note">· Links and data are not live</span>
         <span className="ocs-back-to-prototypes-banner__controls">
           <OlmMigrationScenarioMenu />
-          <PrototypeDemoMenu />
+          <GitOpsScenarioMenu />
         </span>
       </div>
     </div>
