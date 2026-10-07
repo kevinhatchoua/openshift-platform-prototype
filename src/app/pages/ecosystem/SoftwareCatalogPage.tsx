@@ -22,7 +22,6 @@ import { OlmClassicExperienceBanner } from "../../components/ecosystem/OlmClassi
 import CatalogOperatorDetailPanel from "../../components/CatalogOperatorDetailPanel";
 import {
   OLM_CATALOG_FACET_LABELS,
-  OLM_OPERATOR_PILL_LABELS,
   useOlmOperatingMode,
 } from "../../contexts/OlmOperatingModeContext";
 import {
@@ -159,12 +158,10 @@ function TypeFacetOption({
       type="button"
       onClick={onClick}
       aria-pressed={selected}
+      aria-current={selected ? "true" : undefined}
       className={[
-        "w-full text-left rounded-[4px] px-[8px] py-[6px] text-[14px] text-[#151515] dark:text-white",
-        "hover:bg-[#f0f0f0] dark:hover:bg-[#3d3d3d]",
-        selected
-          ? "bg-[#e8f4ff] font-semibold text-[#0066cc] dark:bg-[#1a3a52] dark:text-[#92c5f6]"
-          : "",
+        "ocs-software-catalog-type-facet",
+        selected ? "ocs-software-catalog-type-facet--selected" : "",
       ].join(" ")}
     >
       {label}
@@ -805,6 +802,11 @@ export default function SoftwareCatalogPage() {
   const selectTypeFacet = useCallback(
     (id: TypeFacetId) => {
       setSelectedTypeFacet(id);
+      const isOperatorFacet = id === "nextgen-operators" || id === "classic-operators";
+      if (!isOperatorFacet) {
+        setFilters((prev) => ({ ...prev, source: [], provider: [] }));
+        setSubscriptionFacet({});
+      }
       if (id === "nextgen-operators") {
         setCatalogFilter("nextgen");
       } else if (id === "classic-operators") {
@@ -896,13 +898,13 @@ export default function SoftwareCatalogPage() {
     (i) =>
       i.catalogType === "operators" &&
       i.olmVersion === "v0" &&
-      matchesCatalogItem(i, { skipOlmMode: true }),
+      matchesCatalogItem(i, { skipType: true, skipOlmMode: true }),
   ).length;
   const nextGenOperatorCount = catalogItems.filter(
     (i) =>
       i.catalogType === "operators" &&
       i.olmVersion === "v1" &&
-      matchesCatalogItem(i, { skipOlmMode: true }),
+      matchesCatalogItem(i, { skipType: true, skipOlmMode: true }),
   ).length;
 
   const facetCounts = {
@@ -1129,21 +1131,6 @@ export default function SoftwareCatalogPage() {
               )}
             </div>
 
-            {/* Capabilities Filter */}
-            <div className="mb-[16px]">
-              <button 
-                onClick={() => toggleCategory("Capabilities")}
-                className="w-full flex items-center justify-between mb-[8px] text-[14px] font-semibold text-[#151515] dark:text-white"
-              >
-                <span>Capabilities</span>
-                {expandedCategories.includes("Capabilities") ? (
-                  <ChevronUp className="size-[14px]" />
-                ) : (
-                  <ChevronDown className="size-[14px]" />
-                )}
-              </button>
-            </div>
-
             {isOperatorTypeFacet ? (
               <>
             {/* Source Filter */}
@@ -1334,16 +1321,6 @@ export default function SoftwareCatalogPage() {
                       logoClassName="h-[28px] w-[28px] max-h-[28px] max-w-[28px]"
                     />
                     <div className="flex flex-col items-end gap-[6px] shrink-0 max-w-[min(148px,48%)]">
-                      {item.catalogType === "operators" && item.olmVersion ? (
-                        <span
-                          className={[
-                            "rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight text-white text-right",
-                            item.olmVersion === "v1" ? "bg-[#0066cc]" : "bg-[#5c5f62]",
-                          ].join(" ")}
-                        >
-                          {OLM_OPERATOR_PILL_LABELS[item.olmVersion]}
-                        </span>
-                      ) : null}
                       {item.catalogType === "operators" && item.olmVersion === "v0" ? (
                         <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#f0ab00] text-[#151515] text-right">
                           Deprecated

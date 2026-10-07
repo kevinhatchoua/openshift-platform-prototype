@@ -4512,6 +4512,40 @@ html.dark .ocs-net-topo-panel__canvas {
   margin-block-end: var(--pf-t--global--spacer--xs);
 }
 
+/* Software Catalog — Type sidebar (console-like selection indicator) */
+.ocs-software-catalog-type-facet {
+  position: relative;
+  width: 100%;
+  padding: 6px 8px 6px 12px;
+  border: 0;
+  border-radius: 4px;
+  background: transparent;
+  text-align: left;
+  font-size: 14px;
+  line-height: 1.4;
+  color: var(--pf-t--global--text--color--regular);
+  cursor: pointer;
+}
+
+.ocs-software-catalog-type-facet:hover {
+  background: var(--pf-t--global--background--color--secondary--default);
+}
+
+.ocs-software-catalog-type-facet--selected {
+  font-weight: var(--pf-t--global--font--weight--body--bold, 600);
+}
+
+.ocs-software-catalog-type-facet--selected::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 2px;
+  background-color: var(--pf-t--global--color--brand--default, #ee0000);
+}
+
 .ocs-olm-migration-dry-run-log {
   margin-block: var(--pf-t--global--spacer--sm);
   max-height: 14rem;
