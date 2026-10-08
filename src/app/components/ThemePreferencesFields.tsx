@@ -1,6 +1,6 @@
 import { Content, Divider, ToggleGroup, ToggleGroupItem } from "@patternfly/react-core";
 import {
-  resolveDark,
+  type ColorScheme,
   type ContrastMode,
   type ThemePreferences,
 } from "@/lib/documentTheme";
@@ -28,15 +28,17 @@ export function contrastModeToChoice(mode: ContrastMode): ContrastChoice {
   return "traditional";
 }
 
-export function colorSchemeForToggle(prefs: ThemePreferences): "light" | "dark" {
-  if (prefs.colorScheme === "light") return "light";
-  if (prefs.colorScheme === "dark") return "dark";
-  return resolveDark(prefs) ? "dark" : "light";
-}
+const COLOR_SCHEME_LABELS: Record<ColorScheme, string> = {
+  light: "Light",
+  dark: "Dark",
+  system: "System default",
+};
+
+const COLOR_SCHEME_ORDER: ColorScheme[] = ["light", "dark", "system"];
 
 export function themePreferencesSummary(prefs: ThemePreferences): string {
   const contrast = CONTRAST_LABELS[contrastModeToChoice(prefs.contrastMode)];
-  const color = colorSchemeForToggle(prefs) === "dark" ? "Dark" : "Light";
+  const color = COLOR_SCHEME_LABELS[prefs.colorScheme] ?? COLOR_SCHEME_LABELS.dark;
   return `${contrast} · ${color}`;
 }
 
@@ -49,7 +51,6 @@ type ThemePreferencesFieldsProps = {
 /** Segmented contrast + color controls (PatternFly theme popover layout). */
 export default function ThemePreferencesFields({ idPrefix, prefs, onUpdate }: ThemePreferencesFieldsProps) {
   const contrastChoice = contrastModeToChoice(prefs.contrastMode);
-  const colorToggle = colorSchemeForToggle(prefs);
 
   return (
     <div className="ocs-pf-theme-controls ocs-pf-theme-controls--popover">
@@ -76,16 +77,11 @@ export default function ThemePreferencesFields({ idPrefix, prefs, onUpdate }: Th
           Color scheme
         </Content>
         <ToggleGroup aria-labelledby={`${idPrefix}-color`} isCompact className="ocs-pf-theme-controls__toggle-row">
-          {(
-            [
-              ["light", "Light"],
-              ["dark", "Dark"],
-            ] as const
-          ).map(([id, label]) => (
+          {COLOR_SCHEME_ORDER.map((id) => (
             <ToggleGroupItem
               key={id}
-              text={label}
-              isSelected={colorToggle === id}
+              text={COLOR_SCHEME_LABELS[id]}
+              isSelected={prefs.colorScheme === id}
               onChange={() => onUpdate({ colorScheme: id })}
             />
           ))}
