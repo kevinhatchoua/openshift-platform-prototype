@@ -19,6 +19,7 @@ import {
 } from "@patternfly/react-core";
 import ExternalLinkAltIcon from "@patternfly/react-icons/dist/esm/icons/external-link-alt-icon";
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
+import { OlmClassicExperienceBanner } from "./ecosystem/OlmClassicExperienceBanner";
 import { CatalogBrandLogo } from "../pages/ecosystem/CatalogBrandLogo";
 import type { LogoCatalogType } from "../pages/ecosystem/catalogLogos";
 
@@ -42,6 +43,8 @@ export type CatalogDetailItem = {
 
 type CatalogOperatorDetailPanelProps = {
   item: CatalogDetailItem;
+  /** Classic (OLMv0) catalog shows channel/version selectors; Next-Gen uses ClusterExtension create flow. */
+  olmVersion?: "v0" | "v1";
   onClose: () => void;
   onInstall?: () => void;
   onCreate?: () => void;
@@ -51,6 +54,7 @@ type CatalogOperatorDetailPanelProps = {
 
 export default function CatalogOperatorDetailPanel({
   item,
+  olmVersion = "v0",
   onClose,
   onInstall,
   onCreate,
@@ -58,6 +62,7 @@ export default function CatalogOperatorDetailPanel({
   onViewDetails,
 }: CatalogOperatorDetailPanelProps) {
   const isOperator = item.catalogType === "operators";
+  const isOlmV1Operator = isOperator && olmVersion === "v1";
   const showPrimaryAction = !item.installed && (isOperator ? onInstall : onCreate);
 
   return (
@@ -87,7 +92,7 @@ export default function CatalogOperatorDetailPanel({
             <div className="ocs-catalog-detail__head-actions">
               {isOperator ? (
                 <Button variant="primary" onClick={onInstall}>
-                  Install
+                  {isOlmV1Operator ? "Install" : "Install"}
                 </Button>
               ) : (
                 <Button variant="primary" onClick={onCreate}>
@@ -104,6 +109,7 @@ export default function CatalogOperatorDetailPanel({
       <Divider />
 
       <DrawerPanelBody>
+        {isOperator ? <OlmClassicExperienceBanner /> : null}
         {isOperator && item.hasUpdate ? (
           <Alert
             variant="warning"
@@ -128,33 +134,44 @@ export default function CatalogOperatorDetailPanel({
             <DescriptionList isCompact>
               {isOperator ? (
                 <>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Channel</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      <FormSelect aria-label="Channel" defaultValue="stable">
-                        <FormSelectOption value="stable" label="stable" />
-                        <FormSelectOption value="release-2-16" label="release-2.16" />
-                        <FormSelectOption value="fast" label="fast" />
-                      </FormSelect>
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Version</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      <FormSelect
-                        aria-label="Version"
-                        defaultValue={item.currentVersion ?? item.newVersion ?? "2.16.0"}
-                      >
-                        <FormSelectOption
-                          value={item.currentVersion ?? "2.16.0"}
-                          label={item.currentVersion ?? "2.16.0"}
-                        />
-                        {item.newVersion ? (
-                          <FormSelectOption value={item.newVersion} label={item.newVersion} />
-                        ) : null}
-                      </FormSelect>
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
+                  {isOlmV1Operator ? (
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Install method</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        ClusterExtension create form. Channel and version are entered as text during install (OCP 5.1).
+                      </DescriptionListDescription>
+                    </DescriptionListGroup>
+                  ) : (
+                    <>
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>Channel</DescriptionListTerm>
+                        <DescriptionListDescription>
+                          <FormSelect aria-label="Channel" defaultValue="stable">
+                            <FormSelectOption value="stable" label="stable" />
+                            <FormSelectOption value="release-2-16" label="release-2.16" />
+                            <FormSelectOption value="fast" label="fast" />
+                          </FormSelect>
+                        </DescriptionListDescription>
+                      </DescriptionListGroup>
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>Version</DescriptionListTerm>
+                        <DescriptionListDescription>
+                          <FormSelect
+                            aria-label="Version"
+                            defaultValue={item.currentVersion ?? item.newVersion ?? "2.16.0"}
+                          >
+                            <FormSelectOption
+                              value={item.currentVersion ?? "2.16.0"}
+                              label={item.currentVersion ?? "2.16.0"}
+                            />
+                            {item.newVersion ? (
+                              <FormSelectOption value={item.newVersion} label={item.newVersion} />
+                            ) : null}
+                          </FormSelect>
+                        </DescriptionListDescription>
+                      </DescriptionListGroup>
+                    </>
+                  )}
                   <DescriptionListGroup>
                     <DescriptionListTerm>Capability level</DescriptionListTerm>
                     <DescriptionListDescription>

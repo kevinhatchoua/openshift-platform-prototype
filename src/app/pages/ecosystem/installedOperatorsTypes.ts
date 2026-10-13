@@ -46,6 +46,10 @@ type InstalledOperator = {
   isPlatformAligned?: boolean;
   isUnsupported?: boolean;
   updateAvailable?: string;
+  /** OLMv1 ClusterExtension package name (install / detail). */
+  packageName?: string;
+  /** OLMv1 semver range on the ClusterExtension spec. */
+  versionRange?: string;
   maxOcpVersion?: string;
   lastUpdated?: string;
   managedNamespaces?: string[];

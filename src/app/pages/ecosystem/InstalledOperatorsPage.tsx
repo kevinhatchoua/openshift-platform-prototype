@@ -139,6 +139,14 @@ const PROTOTYPE_CLUSTER_OCP_LIFECYCLE: ClusterOcpLifecycleDates = {
 const CLUSTER_TARGET_VERSION = "5.1.10";
 const CLUSTER_CHANNEL = "fast-5.1";
 
+/** Row kebab menus sit on the table's right edge; portal + bottom-end keeps the menu on screen. */
+const IO_TABLE_MENU_POPPER_PROPS = {
+  placement: "bottom-end" as const,
+  appendTo: () => document.body,
+  enableFlip: true,
+  minWidth: "16rem",
+};
+
 /** Red Hat docs — ClusterServiceVersion (Installed Operators). */
 const IO_CSV_DOC_URL =
   "https://docs.redhat.com/en/documentation/openshift_container_platform/latest/html/operators/operator-lifecycle-manager/olm-understanding-cluster-service-version-csv";
@@ -897,7 +905,8 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     lastUpdated: "Jun 12, 2025, 4:02 PM",
     managedNamespaces: ["openshift-gitops"],
     isOlmV1Extension: true,
-    updateAvailable: "1.13.0",
+    versionRange: ">=1.12.0 <1.14.0",
+    packageName: "openshift-gitops-operator",
   },
   {
     name: "Sample observability bundle",
@@ -2239,7 +2248,7 @@ export default function InstalledOperatorsPage() {
                     <Dropdown
                       isOpen={bulkActionsOpen}
                       onOpenChange={setBulkActionsOpen}
-                      popperProps={{ position: "right-end" }}
+                      popperProps={IO_TABLE_MENU_POPPER_PROPS}
                       toggle={(toggleRef) => (
                         <MenuToggle
                           ref={toggleRef}
@@ -2446,24 +2455,24 @@ export default function InstalledOperatorsPage() {
                                 <Content component="small">
                                   <code>{op.version}</code>
                                 </Content>
-                                {op.updateAvailable ? (
+                                {isNextGen && op.isOlmV1Extension ? (
+                                  <Content component="small">
+                                    <Button variant="link" isInline onClick={() => openOlmV1Update(op)}>
+                                      Edit channel and version
+                                    </Button>
+                                  </Content>
+                                ) : op.updateAvailable ? (
                                   <Content component="small">
                                     <Button
                                       variant="link"
                                       isInline
-                                      {...(isNextGen && op.isOlmV1Extension
-                                        ? {
-                                            onClick: () => openOlmV1Update(op),
-                                          }
-                                        : {
-                                            component: Link,
-                                            to: `/ecosystem/installed-operators/${encodeURIComponent(op.name)}/update`,
-                                            state: {
-                                              returnTo: "/ecosystem/installed-operators",
-                                              operatorName: op.name,
-                                              operatorData: op,
-                                            },
-                                          })}
+                                      component={Link}
+                                      to={`/ecosystem/installed-operators/${encodeURIComponent(op.name)}/update`}
+                                      state={{
+                                        returnTo: "/ecosystem/installed-operators",
+                                        operatorName: op.name,
+                                        operatorData: op,
+                                      }}
                                     >
                                       Update available: {op.updateAvailable}
                                     </Button>
@@ -2560,7 +2569,7 @@ export default function InstalledOperatorsPage() {
                               <Dropdown
                                 isOpen={openKebabIndex === i}
                                 onOpenChange={(open) => setOpenKebabIndex(open ? i : null)}
-                                popperProps={{ position: "right-end" }}
+                                popperProps={IO_TABLE_MENU_POPPER_PROPS}
                                 toggle={(toggleRef) => (
                                   <MenuToggle
                                     ref={toggleRef}
@@ -2652,17 +2661,15 @@ export default function InstalledOperatorsPage() {
                                     >
                                       Roll back to {OLM_MODE_LABELS.classic}
                                     </DropdownItem>
-                                    {op.updateAvailable ? (
-                                      <DropdownItem
-                                        itemId="update"
-                                        onClick={() => {
-                                          openOlmV1Update(op);
-                                          setOpenKebabIndex(null);
-                                        }}
-                                      >
-                                        Update to {op.updateAvailable}
-                                      </DropdownItem>
-                                    ) : null}
+                                    <DropdownItem
+                                      itemId="edit-targeting"
+                                      onClick={() => {
+                                        openOlmV1Update(op);
+                                        setOpenKebabIndex(null);
+                                      }}
+                                    >
+                                      Edit channel and version
+                                    </DropdownItem>
                                     <DropdownItem
                                       itemId="unsubscribe"
                                       onClick={() => {
@@ -2742,6 +2749,15 @@ export default function InstalledOperatorsPage() {
         onClose={() => {
           setUpdateModalOpen(false);
           setUpdateTarget(null);
+        }}
+        onComplete={(op, spec) => {
+          setOperators((prev) =>
+            prev.map((row) =>
+              row.name === op.name
+                ? { ...row, channel: spec.channel, version: spec.version, versionRange: spec.versionRange }
+                : row,
+            ),
+          );
         }}
       />
 

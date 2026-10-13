@@ -4,6 +4,16 @@ export type OperatorCatalogInstallState = {
   provider: string;
   channel?: string;
   version?: string;
+  installKind?: "subscription" | "cluster-extension";
+  extensionName?: string;
+  packageName?: string;
+  namespace?: string;
+  serviceAccountName?: string;
+  versionRange?: string;
+};
+
+export type ClusterExtensionCreateState = OperatorCatalogInstallState & {
+  installKind: "cluster-extension";
 };
 
 export function readOperatorCatalogInstallState(
@@ -37,5 +47,17 @@ export function readOperatorCatalogInstallState(
     provider: fallback?.provider ?? "Red Hat",
     channel: "stable",
     version: "2.16.0",
+    installKind: "subscription",
+  };
+}
+
+export function readClusterExtensionCreateState(
+  operatorId: string | undefined,
+  locationState: unknown,
+): ClusterExtensionCreateState {
+  const base = readOperatorCatalogInstallState(operatorId, locationState);
+  return {
+    ...base,
+    installKind: "cluster-extension",
   };
 }

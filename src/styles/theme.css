@@ -1648,50 +1648,20 @@ html .ocs-console-page.pf-v6-c-page {
   border-radius: var(--ocs-user-pref-field-radius);
 }
 
-/* Theme field: same chrome as FormSelect (border/background on pf-v6-c-form-control shell). */
-.ocs-user-preferences__theme-shell.pf-v6-c-form-control {
-  grid-template-columns: 1fr;
-  align-items: center;
-  width: 100%;
-  max-width: var(--ocs-user-pref-field-width);
+.ocs-user-preferences__theme-section {
+  margin: 0;
+  padding: var(--pf-t--global--spacer--md, 1rem);
+  border: 1px solid var(--pf-t--global--border--color--default, #d2d2d2);
+  border-radius: var(--pf-t--global--border--radius--medium, 6px);
+}
+
+html.dark .ocs-user-preferences__theme-section {
+  border-color: var(--pf-t--global--border--color--default, #474747);
+}
+
+.ocs-user-preferences__theme-section-title {
+  margin-block-end: var(--pf-t--global--spacer--md, 1rem);
   padding: 0;
-}
-
-.ocs-user-preferences__theme-shell .ocs-theme-preferences-dropdown {
-  display: block;
-  width: 100%;
-  max-width: none;
-}
-
-.ocs-user-preferences__theme-shell .ocs-user-preferences__theme-toggle.pf-v6-c-menu-toggle {
-  justify-content: space-between;
-  width: 100%;
-  min-height: calc(
-    var(--pf-v6-c-form-control--PaddingBlockStart) + var(--pf-v6-c-form-control--PaddingBlockEnd) +
-      var(--pf-v6-c-form-control--FontSize) * var(--pf-v6-c-form-control--LineHeight)
-  );
-  padding-block-start: var(--pf-v6-c-form-control--PaddingBlockStart);
-  padding-block-end: var(--pf-v6-c-form-control--PaddingBlockEnd);
-  padding-inline-start: var(--pf-v6-c-form-control--PaddingInlineStart);
-  padding-inline-end: var(--pf-v6-c-form-control--PaddingInlineEnd);
-  color: var(--pf-v6-c-form-control--Color);
-  font-size: var(--pf-v6-c-form-control--FontSize);
-  line-height: var(--pf-v6-c-form-control--LineHeight);
-  background-color: transparent;
-  --pf-v6-c-menu-toggle--BackgroundColor: transparent;
-  --pf-v6-c-menu-toggle--hover--BackgroundColor: transparent;
-  --pf-v6-c-menu-toggle--expanded--BackgroundColor: transparent;
-  --pf-v6-c-menu-toggle--BorderWidth: 0;
-  --pf-v6-c-menu-toggle--m-plain--BorderWidth: 0;
-  --pf-v6-c-menu-toggle__toggle-icon--Color: var(--pf-v6-c-form-control__toggle-icon--Color);
-}
-
-.ocs-user-preferences__theme-shell .ocs-user-preferences__theme-toggle.pf-v6-c-menu-toggle::before {
-  content: none;
-}
-
-.ocs-theme-preferences-dropdown .pf-v6-c-menu {
-  min-width: 16rem;
 }
 
 @media (max-width: 48rem) {
@@ -4651,6 +4621,10 @@ html.dark .ocs-net-topo-panel__canvas {
 /* Software Catalog — Type sidebar (console-like selection indicator) */
 .ocs-software-catalog-type-facet {
   position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
   width: 100%;
   padding: 6px 8px 6px 12px;
   border: 0;
@@ -4661,6 +4635,21 @@ html.dark .ocs-net-topo-panel__canvas {
   line-height: 1.4;
   color: var(--pf-t--global--text--color--regular);
   cursor: pointer;
+}
+
+.ocs-software-catalog-type-facet__label {
+  min-width: 0;
+}
+
+.ocs-software-catalog-type-facet__badge {
+  flex-shrink: 0;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  line-height: 1.25;
+  color: #151515;
+  background-color: #f0ab00;
 }
 
 .ocs-software-catalog-type-facet:hover {

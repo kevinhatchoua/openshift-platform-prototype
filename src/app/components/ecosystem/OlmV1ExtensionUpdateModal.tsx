@@ -2,9 +2,8 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
-  Checkbox,
-  Content,
   Flex,
+  Form,
   Modal,
   ModalBody,
   ModalFooter,
@@ -15,20 +14,24 @@ import {
   StackItem,
 } from "@patternfly/react-core";
 import type { CatalogOperator } from "../../pages/ecosystem/installedOperatorsTypes";
+import { OlmV1ClusterExtensionSpecFields } from "./OlmV1ClusterExtensionSpecFields";
+import {
+  defaultClusterExtensionSpec,
+  type OlmV1ClusterExtensionSpec,
+} from "./olmV1ClusterExtensionSpec";
 
 type OlmV1ExtensionUpdateModalProps = {
   operator: CatalogOperator | null;
   isOpen: boolean;
   onClose: () => void;
-  onComplete?: (operator: CatalogOperator, newVersion: string) => void;
+  onComplete?: (operator: CatalogOperator, spec: OlmV1ClusterExtensionSpec) => void;
 };
 
-type ModalPhase = "confirm" | "progress" | "complete";
+type ModalPhase = "edit" | "progress" | "complete";
 
-const UPDATE_PROGRESS_STEPS = [
-  "Applying cluster extension update…",
-  "Updating controller workloads…",
-  "Reconciling managed resources…",
+const APPLY_PROGRESS_STEPS = [
+  "Patching ClusterExtension spec…",
+  "Reconciling controller workloads…",
   "Verifying extension health…",
 ];
 
@@ -38,25 +41,31 @@ export function OlmV1ExtensionUpdateModal({
   onClose,
   onComplete,
 }: OlmV1ExtensionUpdateModalProps) {
-  const [phase, setPhase] = useState<ModalPhase>("confirm");
-  const [acknowledged, setAcknowledged] = useState(false);
+  const [phase, setPhase] = useState<ModalPhase>("edit");
+  const [spec, setSpec] = useState<OlmV1ClusterExtensionSpec>(() => defaultClusterExtensionSpec());
   const [progressStep, setProgressStep] = useState(0);
 
-  const targetVersion = operator?.updateAvailable ?? "";
-
   useEffect(() => {
-    if (!isOpen) {
-      setPhase("confirm");
-      setAcknowledged(false);
-      setProgressStep(0);
-    }
-  }, [isOpen, operator?.name]);
+    if (!isOpen || !operator) return;
+    setPhase("edit");
+    setProgressStep(0);
+    setSpec(
+      defaultClusterExtensionSpec({
+        channel: operator.channel,
+        version: operator.version,
+        versionRange: operator.versionRange,
+      }),
+    );
+  }, [isOpen, operator?.name, operator?.channel, operator?.version, operator?.versionRange]);
 
-  if (!operator || !targetVersion) {
+  if (!operator) {
     return null;
   }
 
-  const canSubmit = acknowledged && phase === "confirm";
+  const canSubmit =
+    phase === "edit" &&
+    spec.channel.trim().length > 0 &&
+    spec.version.trim().length > 0;
 
   const handleSubmit = () => {
     if (!canSubmit) return;
@@ -65,15 +74,15 @@ export function OlmV1ExtensionUpdateModal({
 
     const interval = window.setInterval(() => {
       setProgressStep((prev) => {
-        if (prev >= UPDATE_PROGRESS_STEPS.length - 1) {
+        if (prev >= APPLY_PROGRESS_STEPS.length - 1) {
           window.clearInterval(interval);
           setPhase("complete");
-          onComplete?.(operator, targetVersion);
+          onComplete?.(operator, spec);
           return prev;
         }
         return prev + 1;
       });
-    }, 1100);
+    }, 900);
   };
 
   return (
@@ -81,44 +90,33 @@ export function OlmV1ExtensionUpdateModal({
       variant="medium"
       isOpen={isOpen}
       onClose={phase === "progress" ? () => undefined : onClose}
-      aria-labelledby="olm-v1-update-title"
-      aria-describedby="olm-v1-update-body"
+      aria-labelledby="olm-v1-edit-title"
+      aria-describedby="olm-v1-edit-body"
     >
       <ModalHeader
         title={
-          <span id="olm-v1-update-title">
-            {phase === "complete" ? "Update complete" : "Update cluster extension"}
+          <span id="olm-v1-edit-title">
+            {phase === "complete" ? "Changes applied" : "Edit cluster extension targeting"}
           </span>
         }
       />
-      <ModalBody id="olm-v1-update-body">
-        {phase === "confirm" ? (
+      <ModalBody id="olm-v1-edit-body">
+        {phase === "edit" ? (
           <Stack hasGutter>
             <StackItem>
-              <Alert variant="info" title="Single-target update" isInline>
-                This prototype models a basic OLMv1 update (OCPSTRAT-2620 Goal 2). Update
-                availability paths and release notes are out of scope (OCPSTRAT-3761 / 3762).
+              <Alert variant="info" title="Manual edit (OCP 5.1)" isInline>
+                Console applies channel and version from your input. Update availability from catalogd is stubbed
+                until OCPSTRAT-3760 lands in 5.2.
               </Alert>
             </StackItem>
             <StackItem>
-              <Content component="dl" className="pf-v6-c-description-list pf-m-horizontal">
-                <Content component="dt">Extension</Content>
-                <Content component="dd">{operator.name}</Content>
-                <Content component="dt">Current version</Content>
-                <Content component="dd">{operator.version}</Content>
-                <Content component="dt">Target version</Content>
-                <Content component="dd">{targetVersion}</Content>
-                <Content component="dt">Channel</Content>
-                <Content component="dd">{operator.channel}</Content>
-              </Content>
-            </StackItem>
-            <StackItem>
-              <Checkbox
-                id="olm-v1-update-ack"
-                label="I understand this update may restart controller pods and reconcile managed resources."
-                isChecked={acknowledged}
-                onChange={(_event, checked) => setAcknowledged(checked)}
-              />
+              <Form>
+                <OlmV1ClusterExtensionSpecFields
+                  idPrefix="olm-v1-edit"
+                  value={spec}
+                  onChange={setSpec}
+                />
+              </Form>
             </StackItem>
           </Stack>
         ) : null}
@@ -127,16 +125,16 @@ export function OlmV1ExtensionUpdateModal({
           <Stack hasGutter>
             <StackItem>
               <Progress
-                value={(progressStep / (UPDATE_PROGRESS_STEPS.length - 1)) * 100}
+                value={(progressStep / (APPLY_PROGRESS_STEPS.length - 1)) * 100}
                 size={ProgressSize.sm}
               />
             </StackItem>
             <StackItem>
-              {UPDATE_PROGRESS_STEPS.map((step, index) => (
+              {APPLY_PROGRESS_STEPS.map((step, index) => (
                 <Flex key={step} gap={{ default: "gapSm" }} className="pf-v6-u-mb-xs">
-                  <Content component="small" className={index <= progressStep ? undefined : "pf-v6-u-color-200"}>
+                  <span className={index <= progressStep ? undefined : "pf-v6-u-color-200"}>
                     {index <= progressStep ? "✓" : "○"} {step}
-                  </Content>
+                  </span>
                 </Flex>
               ))}
             </StackItem>
@@ -146,19 +144,27 @@ export function OlmV1ExtensionUpdateModal({
         {phase === "complete" ? (
           <Alert
             variant="success"
-            title={`${operator.name} updated to ${targetVersion}.`}
+            title={`${operator.name} targeting updated.`}
             isInline
-          />
+          >
+            Channel <strong>{spec.channel}</strong>, version <strong>{spec.version}</strong>
+            {spec.versionRange ? (
+              <>
+                , range <strong>{spec.versionRange}</strong>
+              </>
+            ) : null}
+            .
+          </Alert>
         ) : null}
       </ModalBody>
       <ModalFooter>
-        {phase === "confirm" ? (
+        {phase === "edit" ? (
           <>
             <Button key="cancel" variant="link" onClick={onClose}>
               Cancel
             </Button>
             <Button key="submit" variant="primary" isDisabled={!canSubmit} onClick={handleSubmit}>
-              Approve update
+              Apply changes
             </Button>
           </>
         ) : null}

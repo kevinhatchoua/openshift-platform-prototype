@@ -14,6 +14,10 @@ export default function OperatorInstallingPage() {
   const [timeLeft, setTimeLeft] = useState("About 23 min left");
 
   const operator = readOperatorCatalogInstallState(operatorId, location.state);
+  const installLabel =
+    operator.installKind === "cluster-extension"
+      ? operator.extensionName ?? operator.name
+      : operator.name;
 
   const resources = [
     {
@@ -97,7 +101,7 @@ export default function OperatorInstallingPage() {
               </div>
               <div className="flex-1">
                 <h2 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[20px] text-[#151515] dark:text-white mb-[4px]">
-                  Installing {operator.name}
+                  Installing {installLabel}
                 </h2>
                 <p className="text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0]">
                   Provided by {operator.provider}

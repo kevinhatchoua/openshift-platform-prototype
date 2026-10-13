@@ -7,7 +7,7 @@ import {
   FormSelectOption,
   Title,
 } from "@patternfly/react-core";
-import ThemePreferencesDropdown from "../components/ThemePreferencesDropdown";
+import ThemePreferencesSection from "../components/ThemePreferencesSection";
 
 type PrefTab = "general" | "language";
 
@@ -15,7 +15,7 @@ const LAST_VIEWED = "last-viewed";
 
 /**
  * OpenShift-aligned User Preferences (General + Language).
- * Theme uses PatternFly 6 tiers: Theme, Color scheme, Contrast mode.
+ * Theme section: contrast mode + color scheme (PatternFly 6 tiers).
  */
 export default function UserPreferencesPage() {
   const [activeTab, setActiveTab] = useState<PrefTab>("general");
@@ -59,12 +59,7 @@ export default function UserPreferencesPage() {
         <div className="ocs-user-preferences__content">
           {activeTab === "general" ? (
             <Form isWidthLimited className="ocs-user-preferences__form">
-              <FormGroup label="Theme" fieldId="user-pref-theme">
-                <ThemePreferencesDropdown idPrefix="user-pref-theme" />
-                <Content component="small" className="pf-v6-u-mt-sm">
-                  Open the menu to set contrast mode and color scheme. Changes apply immediately.
-                </Content>
-              </FormGroup>
+              <ThemePreferencesSection idPrefix="user-pref-theme" />
 
               <FormGroup label="Perspective" fieldId="user-pref-perspective">
                 <FormSelect

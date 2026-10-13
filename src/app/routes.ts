@@ -76,6 +76,7 @@ import HelmPage from "./pages/ecosystem/HelmPage";
 import OperatorDetailPage from "./pages/ecosystem/OperatorDetailPage";
 import OperatorUpdatePage from "./pages/ecosystem/OperatorUpdatePage";
 import OperatorInstallPage from "./pages/ecosystem/OperatorInstallPage";
+import ClusterExtensionCreatePage from "./pages/ecosystem/ClusterExtensionCreatePage";
 import OperatorInstallingPage from "./pages/ecosystem/OperatorInstallingPage";
 import OperatorInstalledPage from "./pages/ecosystem/OperatorInstalledPage";
 import NodeDetailPage from "./pages/compute/NodeDetailPage";
@@ -118,6 +119,10 @@ export const router = createBrowserRouter([
           { path: "ecosystem", loader: () => redirect("/ecosystem/software-catalog") },
           { path: "ecosystem/software-catalog", Component: SoftwareCatalogPage },
           /** Install form before `:operatorId` detail so `/install` never resolves to the wrong screen. */
+          {
+            path: "ecosystem/software-catalog/:operatorId/create-cluster-extension",
+            Component: ClusterExtensionCreatePage,
+          },
           { path: "ecosystem/software-catalog/:operatorId/install", Component: OperatorInstallPage },
           { path: "ecosystem/software-catalog/:operatorId/installing", Component: OperatorInstallingPage },
           { path: "ecosystem/software-catalog/:operatorId/installed", Component: OperatorInstalledPage },

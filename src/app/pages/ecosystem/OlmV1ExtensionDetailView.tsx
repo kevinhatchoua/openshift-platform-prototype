@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   Alert,
+  Button,
   Card,
   CardBody,
   DescriptionList,
@@ -8,6 +9,7 @@ import {
   DescriptionListGroup,
   DescriptionListTerm,
   Flex,
+  Form,
   Grid,
   GridItem,
   Label,
@@ -15,10 +17,15 @@ import {
 } from "@patternfly/react-core";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { OlmV1ClusterExtensionSpecFields } from "../../components/ecosystem/OlmV1ClusterExtensionSpecFields";
 import {
-  OlmV1ExtensionUpdateAlert,
+  OlmV1ExtensionEditHintAlert,
   useOlmV1ExtensionLifecycleActions,
 } from "../../components/ecosystem/OlmV1ExtensionLifecycleActions";
+import {
+  defaultClusterExtensionSpec,
+  type OlmV1ClusterExtensionSpec,
+} from "../../components/ecosystem/olmV1ClusterExtensionSpec";
 import { OlmMigrationStatusPanel } from "../../components/ecosystem/OlmMigrationStatusPanel";
 import { getPrototypeInstalledOperator } from "./installedOperatorsLookup";
 
@@ -26,45 +33,47 @@ type OlmV1ExtensionDetailViewProps = {
   operatorName: string;
 };
 
-export default function OlmV1ExtensionDetailView({ operatorName }: OlmV1ExtensionDetailViewProps) {
-  const initialOperator = useMemo(
-    () => getPrototypeInstalledOperator(operatorName),
-    [operatorName],
+function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnType<typeof getPrototypeInstalledOperator>> }) {
+  const [operator, setOperator] = useState(initial);
+  const [specDraft, setSpecDraft] = useState<OlmV1ClusterExtensionSpec>(() =>
+    defaultClusterExtensionSpec({
+      channel: initial.channel,
+      version: initial.version,
+      versionRange: initial.versionRange,
+    }),
   );
-  const [operator, setOperator] = useState(initialOperator);
-
-  if (!operator) {
-    return (
-      <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
-        <Breadcrumbs
-          items={[
-            { label: "Installed Operators", path: "/ecosystem/installed-operators" },
-            { label: operatorName },
-          ]}
-        >
-          <Alert variant="warning" title="Operator not found" isInline>
-            No prototype data is available for this cluster extension.
-          </Alert>
-        </Breadcrumbs>
-      </div>
-    );
-  }
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const operatorPath = `/ecosystem/installed-operators/${encodeURIComponent(operator.name)}`;
-  const { actionsDropdown, lifecycleModals, openUpdate } = useOlmV1ExtensionLifecycleActions({
+
+  const applySpec = (spec: OlmV1ClusterExtensionSpec) => {
+    setOperator((prev) =>
+      prev
+        ? {
+            ...prev,
+            channel: spec.channel,
+            version: spec.version,
+            versionRange: spec.versionRange,
+          }
+        : prev,
+    );
+    setSpecDraft(spec);
+    setSaveMessage("Cluster extension targeting saved (prototype stub).");
+  };
+
+  const { actionsDropdown, lifecycleModals, openEdit } = useOlmV1ExtensionLifecycleActions({
     operator,
-    onVersionUpdated: (newVersion) => {
-      setOperator((prev) =>
-        prev
-          ? {
-              ...prev,
-              version: newVersion,
-              updateAvailable: undefined,
-            }
-          : prev,
-      );
-    },
+    onSpecUpdated: applySpec,
   });
+
+  const handleInlineSave = () => {
+    applySpec(specDraft);
+  };
+
+  const specDirty =
+    specDraft.channel !== operator.channel ||
+    specDraft.version !== operator.version ||
+    specDraft.versionRange !== (operator.versionRange ?? "");
 
   return (
     <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
@@ -102,9 +111,48 @@ export default function OlmV1ExtensionDetailView({ operatorName }: OlmV1Extensio
                 </Flex>
               </Flex>
 
-              <OlmV1ExtensionUpdateAlert operator={operator} onUpdate={openUpdate} />
+              <OlmV1ExtensionEditHintAlert onEdit={openEdit} />
+
+              {saveMessage ? (
+                <Alert variant="success" title={saveMessage} isInline onTimeout={() => setSaveMessage(null)} timeout={8000} />
+              ) : null}
 
               <OlmMigrationStatusPanel operator={operator} variant="cluster-extension" />
+
+              <Card isPlain>
+                <CardBody>
+                  <Title headingLevel="h2" size="lg" className="pf-v6-u-mb-md">
+                    Extension targeting
+                  </Title>
+                  <Form className="pf-v6-u-max-width-md">
+                    <OlmV1ClusterExtensionSpecFields
+                      idPrefix="ce-detail"
+                      value={specDraft}
+                      onChange={setSpecDraft}
+                    />
+                    <Flex gap={{ default: "gapSm" }} className="pf-v6-u-mt-md">
+                      <Button variant="primary" isDisabled={!specDirty} onClick={handleInlineSave}>
+                        Save
+                      </Button>
+                      <Button
+                        variant="link"
+                        isDisabled={!specDirty}
+                        onClick={() =>
+                          setSpecDraft(
+                            defaultClusterExtensionSpec({
+                              channel: operator.channel,
+                              version: operator.version,
+                              versionRange: operator.versionRange,
+                            }),
+                          )
+                        }
+                      >
+                        Reset
+                      </Button>
+                    </Flex>
+                  </Form>
+                </CardBody>
+              </Card>
 
               <Card isPlain>
                 <CardBody>
@@ -112,6 +160,10 @@ export default function OlmV1ExtensionDetailView({ operatorName }: OlmV1Extensio
                     Cluster extension details
                   </Title>
                   <DescriptionList isHorizontal isCompact>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Package name</DescriptionListTerm>
+                      <DescriptionListDescription>{operator.packageName ?? "—"}</DescriptionListDescription>
+                    </DescriptionListGroup>
                     <DescriptionListGroup>
                       <DescriptionListTerm>Namespace</DescriptionListTerm>
                       <DescriptionListDescription>{operator.namespace}</DescriptionListDescription>
@@ -152,4 +204,30 @@ export default function OlmV1ExtensionDetailView({ operatorName }: OlmV1Extensio
       {lifecycleModals}
     </div>
   );
+}
+
+export default function OlmV1ExtensionDetailView({ operatorName }: OlmV1ExtensionDetailViewProps) {
+  const initialOperator = useMemo(
+    () => getPrototypeInstalledOperator(operatorName),
+    [operatorName],
+  );
+
+  if (!initialOperator) {
+    return (
+      <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
+        <Breadcrumbs
+          items={[
+            { label: "Installed Operators", path: "/ecosystem/installed-operators" },
+            { label: operatorName },
+          ]}
+        >
+          <Alert variant="warning" title="Operator not found" isInline>
+            No prototype data is available for this cluster extension.
+          </Alert>
+        </Breadcrumbs>
+      </div>
+    );
+  }
+
+  return <OlmV1ExtensionDetailContent initial={initialOperator} />;
 }

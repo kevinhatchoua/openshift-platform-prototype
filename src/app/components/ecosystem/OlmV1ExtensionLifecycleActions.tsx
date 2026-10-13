@@ -9,21 +9,22 @@ import {
 } from "@patternfly/react-core";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import type { CatalogOperator } from "../../pages/ecosystem/installedOperatorsTypes";
+import type { OlmV1ClusterExtensionSpec } from "./olmV1ClusterExtensionSpec";
 import { OlmV1ExtensionUninstallModals } from "./OlmV1ExtensionUninstallModals";
 import { OlmV1ExtensionUpdateModal } from "./OlmV1ExtensionUpdateModal";
 
 type UseOlmV1ExtensionLifecycleActionsOptions = {
   operator: CatalogOperator;
-  onVersionUpdated?: (newVersion: string) => void;
+  onSpecUpdated?: (spec: OlmV1ClusterExtensionSpec) => void;
 };
 
 export function useOlmV1ExtensionLifecycleActions({
   operator,
-  onVersionUpdated,
+  onSpecUpdated,
 }: UseOlmV1ExtensionLifecycleActionsOptions) {
   const [actionsOpen, setActionsOpen] = useState(false);
   const [uninstallKind, setUninstallKind] = useState<"unsubscribe" | "delete" | null>(null);
-  const [updateOpen, setUpdateOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const openUnsubscribe = useCallback(() => {
     setUninstallKind("unsubscribe");
@@ -35,13 +36,13 @@ export function useOlmV1ExtensionLifecycleActions({
     setActionsOpen(false);
   }, []);
 
-  const openUpdate = useCallback(() => {
-    setUpdateOpen(true);
+  const openEdit = useCallback(() => {
+    setEditOpen(true);
     setActionsOpen(false);
   }, []);
 
   const closeUninstall = useCallback(() => setUninstallKind(null), []);
-  const closeUpdate = useCallback(() => setUpdateOpen(false), []);
+  const closeEdit = useCallback(() => setEditOpen(false), []);
 
   const actionsDropdown = (
     <Dropdown
@@ -55,11 +56,9 @@ export function useOlmV1ExtensionLifecycleActions({
       )}
     >
       <DropdownList>
-        {operator.updateAvailable ? (
-          <DropdownItem itemId="update" onClick={openUpdate}>
-            Update to {operator.updateAvailable}
-          </DropdownItem>
-        ) : null}
+        <DropdownItem itemId="edit-targeting" onClick={openEdit}>
+          Edit channel and version
+        </DropdownItem>
         <DropdownItem itemId="unsubscribe" onClick={openUnsubscribe}>
           Unsubscribe from updates
         </DropdownItem>
@@ -79,9 +78,9 @@ export function useOlmV1ExtensionLifecycleActions({
       />
       <OlmV1ExtensionUpdateModal
         operator={operator}
-        isOpen={updateOpen}
-        onClose={closeUpdate}
-        onComplete={(_op, newVersion) => onVersionUpdated?.(newVersion)}
+        isOpen={editOpen}
+        onClose={closeEdit}
+        onComplete={(_op, spec) => onSpecUpdated?.(spec)}
       />
     </>
   );
@@ -89,30 +88,22 @@ export function useOlmV1ExtensionLifecycleActions({
   return {
     actionsDropdown,
     lifecycleModals,
-    openUpdate,
+    openEdit,
   };
 }
 
-type OlmV1ExtensionUpdateAlertProps = {
-  operator: CatalogOperator;
-  onUpdate: () => void;
+type OlmV1ExtensionEditHintAlertProps = {
+  onEdit: () => void;
 };
 
-export function OlmV1ExtensionUpdateAlert({ operator, onUpdate }: OlmV1ExtensionUpdateAlertProps): ReactNode {
-  if (!operator.updateAvailable) return null;
-
+/** Replaces catalogd-driven “update available” banner for 5.1. */
+export function OlmV1ExtensionEditHintAlert({ onEdit }: OlmV1ExtensionEditHintAlertProps): ReactNode {
   return (
-    <Alert
-      variant="warning"
-      title="Update available"
-      isInline
-      actionLinks={
-        <Button variant="link" isInline onClick={onUpdate}>
-          Review and approve update
-        </Button>
-      }
-    >
-      Version {operator.updateAvailable} is available for this cluster extension.
+    <Alert variant="info" title="Change extension targeting" isInline>
+      <Button variant="link" isInline onClick={onEdit}>
+        Edit channel and version
+      </Button>{" "}
+      to move this cluster extension to a different release. Automatic update discovery is not available in OCP 5.1.
     </Alert>
   );
 }

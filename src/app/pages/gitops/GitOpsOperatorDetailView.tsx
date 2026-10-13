@@ -24,7 +24,7 @@ import PencilAltIcon from "@patternfly/react-icons/dist/esm/icons/pencil-alt-ico
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import {
-  OlmV1ExtensionUpdateAlert,
+  OlmV1ExtensionEditHintAlert,
   useOlmV1ExtensionLifecycleActions,
 } from "../../components/ecosystem/OlmV1ExtensionLifecycleActions";
 import { getPrototypeInstalledOperator } from "../ecosystem/installedOperatorsLookup";
@@ -171,7 +171,8 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
         autoUpdate: true,
         clusterCompatibility: "Compatible" as const,
         isOlmV1Extension: true,
-        updateAvailable: "1.13.0",
+        versionRange: ">=1.12.0 <1.14.0",
+        packageName: "openshift-gitops-operator",
         managedNamespaces: ["openshift-gitops"],
       },
   );
@@ -179,13 +180,14 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
   const displayName = "Red Hat OpenShift GitOps";
   const version = operator.version;
 
-  const { actionsDropdown, lifecycleModals, openUpdate } = useOlmV1ExtensionLifecycleActions({
+  const { actionsDropdown, lifecycleModals, openEdit } = useOlmV1ExtensionLifecycleActions({
     operator,
-    onVersionUpdated: (newVersion) => {
+    onSpecUpdated: (spec) => {
       setOperator((prev) => ({
         ...prev,
-        version: newVersion,
-        updateAvailable: undefined,
+        channel: spec.channel,
+        version: spec.version,
+        versionRange: spec.versionRange,
       }));
     },
   });
@@ -221,7 +223,7 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
                 </Flex>
               </Flex>
 
-              <OlmV1ExtensionUpdateAlert operator={operator} onUpdate={openUpdate} />
+              <OlmV1ExtensionEditHintAlert onEdit={openEdit} />
 
               <div className="ocs-gitops-operator-tabs">
                 <Tabs

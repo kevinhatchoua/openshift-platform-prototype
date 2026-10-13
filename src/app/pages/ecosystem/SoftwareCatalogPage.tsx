@@ -135,24 +135,25 @@ const SUBSCRIPTION_FACETS: { id: string; label: string; count: number }[] = [
 
 const PROVIDER_FACET_PAGE_SIZE = 4;
 
-/** Sidebar Type facet: one active choice at a time (includes OLM catalog mode for operators). */
+/** Sidebar Type facet: one active choice at a time. Operator type uses the Catalog facet for OLM mode. */
 type TypeFacetId =
+  | "operators"
   | "builderImages"
   | "devfiles"
   | "helmCharts"
   | "templates"
-  | "nextgen-operators"
-  | "classic-operators"
   | string;
 
 function TypeFacetOption({
   label,
   selected,
   onClick,
+  badge,
 }: {
   label: string;
   selected: boolean;
   onClick: () => void;
+  badge?: string;
 }) {
   return (
     <button
@@ -165,7 +166,8 @@ function TypeFacetOption({
         selected ? "ocs-software-catalog-type-facet--selected" : "",
       ].join(" ")}
     >
-      {label}
+      <span className="ocs-software-catalog-type-facet__label">{label}</span>
+      {badge ? <span className="ocs-software-catalog-type-facet__badge">{badge}</span> : null}
     </button>
   );
 }
@@ -235,6 +237,7 @@ export default function SoftwareCatalogPage() {
   const [showSidePanel, setShowSidePanel] = useState(false);
   const [selectedCatalogItem, setSelectedCatalogItem] = useState<CatalogItem | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([
+    "Catalog",
     "Type",
     "Capabilities",
     "Source",
@@ -242,10 +245,7 @@ export default function SoftwareCatalogPage() {
     "Valid subscription",
   ]);
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
-  const [selectedTypeFacet, setSelectedTypeFacet] = useState<TypeFacetId>(() => {
-    const catalog = parseOperatorCatalogFilter(searchParams.get("catalog")) ?? "nextgen";
-    return catalog === "classic" ? "classic-operators" : "nextgen-operators";
-  });
+  const [selectedTypeFacet, setSelectedTypeFacet] = useState<TypeFacetId>("operators");
   const [showAllTypes, setShowAllTypes] = useState(false);
   const [showAllProviders, setShowAllProviders] = useState(false);
   const [subscriptionFacet, setSubscriptionFacet] = useState<Record<string, boolean>>({});
@@ -259,14 +259,12 @@ export default function SoftwareCatalogPage() {
     const fromUrl = parseOperatorCatalogFilter(searchParams.get("catalog"));
     if (fromUrl && fromUrl !== operatorCatalogFilter) {
       setOperatorCatalogFilter(fromUrl);
-      setSelectedTypeFacet(fromUrl === "classic" ? "classic-operators" : "nextgen-operators");
+      setSelectedTypeFacet("operators");
     }
   }, [searchParams, operatorCatalogFilter]);
 
   useEffect(() => {
-    const onOperatorType =
-      selectedTypeFacet === "nextgen-operators" || selectedTypeFacet === "classic-operators";
-    if (!onOperatorType) {
+    if (selectedTypeFacet !== "operators") {
       return;
     }
     if (operatorCatalogFilter === "nextgen") {
@@ -805,22 +803,19 @@ export default function SoftwareCatalogPage() {
     }));
   };
 
-  const selectTypeFacet = useCallback(
-    (id: TypeFacetId) => {
-      setSelectedTypeFacet(id);
-      const isOperatorFacet = id === "nextgen-operators" || id === "classic-operators";
-      if (!isOperatorFacet) {
-        setFilters((prev) => ({ ...prev, source: [], provider: [] }));
-        setSubscriptionFacet({});
-      }
-      if (id === "nextgen-operators") {
-        setCatalogFilter("nextgen");
-      } else if (id === "classic-operators") {
-        setCatalogFilter("classic");
-      }
+  const selectCatalogFacet = useCallback(
+    (filter: OperatorCatalogFilter) => {
+      setCatalogFilter(filter);
+      setSelectedTypeFacet("operators");
     },
     [setCatalogFilter],
   );
+
+  const selectTypeFacet = useCallback((id: TypeFacetId) => {
+    setSelectedTypeFacet(id);
+    setFilters((prev) => ({ ...prev, source: [], provider: [] }));
+    setSubscriptionFacet({});
+  }, []);
 
   const toggleSubscriptionFacet = (id: string) => {
     setSubscriptionFacet((prev) => ({ ...prev, [id]: !prev[id] }));
@@ -828,8 +823,7 @@ export default function SoftwareCatalogPage() {
 
   function getSelectedCatalogTypes(): CatalogItemKind[] {
     switch (selectedTypeFacet) {
-      case "nextgen-operators":
-      case "classic-operators":
+      case "operators":
         return ["operators"];
       case "builderImages":
       case "devfiles":
@@ -844,8 +838,7 @@ export default function SoftwareCatalogPage() {
     }
   }
 
-  const isOperatorTypeFacet =
-    selectedTypeFacet === "nextgen-operators" || selectedTypeFacet === "classic-operators";
+  const isOperatorTypeFacet = selectedTypeFacet === "operators";
 
   /** Facet counts exclude the facet group being counted so tallies stay meaningful with multi-select. */
   function matchesCatalogItem(
@@ -967,6 +960,7 @@ export default function SoftwareCatalogPage() {
         className="ocs-software-catalog-drawer__panel"
       >
         <CatalogOperatorDetailPanel
+          olmVersion={selectedCatalogItem.olmVersion === "v1" ? "v1" : "v0"}
           item={{
             id: selectedCatalogItem.id,
             name: selectedCatalogItem.name,
@@ -986,15 +980,20 @@ export default function SoftwareCatalogPage() {
           }}
           onInstall={() => {
             if (!selectedCatalogItem) return;
-            navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/install`, {
-              state: {
-                id: selectedCatalogItem.id,
-                name: selectedCatalogItem.name,
-                provider: selectedCatalogItem.provider,
-                version: selectedCatalogItem.currentVersion ?? "0.16.0",
-                channel: "stable",
-              },
-            });
+            const state = {
+              id: selectedCatalogItem.id,
+              name: selectedCatalogItem.name,
+              provider: selectedCatalogItem.provider,
+              version: selectedCatalogItem.currentVersion ?? "0.16.0",
+              channel: "stable",
+            };
+            if (selectedCatalogItem.olmVersion === "v1") {
+              navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/create-cluster-extension`, {
+                state,
+              });
+            } else {
+              navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/install`, { state });
+            }
             setShowSidePanel(false);
           }}
           onCreate={() => {
@@ -1039,12 +1038,12 @@ export default function SoftwareCatalogPage() {
           <h1 id="main-title">Software Catalog</h1>
           <p>
             Add shared applications, services, event sources, or source-to-image builders to your Project from the
-            software catalog. Choose a single <strong>Type</strong> in the sidebar;{" "}
-            {OLM_CATALOG_FACET_LABELS.nextgen} is the default operator view.
+            software catalog. Choose a <strong>Type</strong> in the sidebar; for operators, pick a{" "}
+            <strong>Catalog</strong> ({OLM_CATALOG_FACET_LABELS.nextgen} is the default).
           </p>
         </Content>
 
-        {isOperatorTypeFacet && selectedTypeFacet === "classic-operators" ? (
+        {isOperatorTypeFacet && operatorCatalogFilter === "classic" ? (
           <OlmClassicExperienceBanner />
         ) : null}
 
@@ -1090,6 +1089,11 @@ export default function SoftwareCatalogPage() {
               {expandedCategories.includes("Type") && (
                 <div className="space-y-[2px] pl-[4px]">
                   <TypeFacetOption
+                    label={`Operators (${countItemsOfType("operators")})`}
+                    selected={selectedTypeFacet === "operators"}
+                    onClick={() => selectTypeFacet("operators")}
+                  />
+                  <TypeFacetOption
                     label={`Builder Images (${countItemsOfType("builderImages")})`}
                     selected={selectedTypeFacet === "builderImages"}
                     onClick={() => selectTypeFacet("builderImages")}
@@ -1103,16 +1107,6 @@ export default function SoftwareCatalogPage() {
                     label={`Helm Charts (${countItemsOfType("helmCharts")})`}
                     selected={selectedTypeFacet === "helmCharts"}
                     onClick={() => selectTypeFacet("helmCharts")}
-                  />
-                  <TypeFacetOption
-                    label={`${OLM_CATALOG_FACET_LABELS.nextgen} (${nextGenOperatorCount})`}
-                    selected={selectedTypeFacet === "nextgen-operators"}
-                    onClick={() => selectTypeFacet("nextgen-operators")}
-                  />
-                  <TypeFacetOption
-                    label={`${OLM_CATALOG_FACET_LABELS.classic} (${classicOperatorCount})`}
-                    selected={selectedTypeFacet === "classic-operators"}
-                    onClick={() => selectTypeFacet("classic-operators")}
                   />
                   <TypeFacetOption
                     label={`Templates (${countItemsOfType("templates")})`}
@@ -1141,6 +1135,54 @@ export default function SoftwareCatalogPage() {
 
             {isOperatorTypeFacet ? (
               <>
+            {/* Catalog (OLM operator packages) */}
+            <div className="mb-[16px]">
+              <button
+                onClick={() => toggleCategory("Catalog")}
+                className="w-full flex items-center justify-between mb-[8px] text-[14px] font-semibold text-[#151515] dark:text-white"
+              >
+                <span>Catalog</span>
+                {expandedCategories.includes("Catalog") ? (
+                  <ChevronUp className="size-[14px]" />
+                ) : (
+                  <ChevronDown className="size-[14px]" />
+                )}
+              </button>
+              {expandedCategories.includes("Catalog") && (
+                <div className="space-y-[8px] pl-[4px]">
+                  <label className="flex items-center gap-[8px] cursor-pointer text-[14px] text-[#151515] dark:text-white">
+                    <input
+                      type="checkbox"
+                      className="size-[14px]"
+                      checked={operatorCatalogFilter === "nextgen"}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          selectCatalogFacet("nextgen");
+                        }
+                      }}
+                    />
+                    <span>{OLM_CATALOG_FACET_LABELS.nextgen} ({nextGenOperatorCount})</span>
+                  </label>
+                  <label className="flex items-center gap-[8px] cursor-pointer text-[14px] text-[#151515] dark:text-white">
+                    <input
+                      type="checkbox"
+                      className="size-[14px]"
+                      checked={operatorCatalogFilter === "classic"}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          selectCatalogFacet("classic");
+                        }
+                      }}
+                    />
+                    <span className="flex items-center gap-[6px] flex-wrap">
+                      {OLM_CATALOG_FACET_LABELS.classic} ({classicOperatorCount})
+                      <span className="ocs-software-catalog-type-facet__badge">Deprecated</span>
+                    </span>
+                  </label>
+                </div>
+              )}
+            </div>
+
             {/* Source Filter */}
             <div className="mb-[16px]">
               <button
@@ -1337,11 +1379,6 @@ export default function SoftwareCatalogPage() {
                           ].join(" ")}
                         >
                           {OLM_OPERATOR_PILL_LABELS[item.olmVersion]}
-                        </span>
-                      ) : null}
-                      {item.catalogType === "operators" && item.olmVersion === "v0" ? (
-                        <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#f0ab00] text-[#151515] text-right">
-                          Deprecated
                         </span>
                       ) : null}
                       <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#5c5f62] text-white text-right">

@@ -7,6 +7,8 @@ const PROTOTYPE_INSTALLED_OPERATORS: CatalogOperator[] = [
     namespace: "openshift-gitops-operator",
     version: "1.12.0",
     channel: "gitops-1.12",
+    versionRange: ">=1.12.0 <1.14.0",
+    packageName: "openshift-gitops-operator",
     source: "redhat-operators",
     status: "Running",
     autoUpdate: true,
@@ -23,7 +25,6 @@ const PROTOTYPE_INSTALLED_OPERATORS: CatalogOperator[] = [
     lastUpdated: "Jun 12, 2025, 4:02 PM",
     managedNamespaces: ["openshift-gitops"],
     isOlmV1Extension: true,
-    updateAvailable: "1.13.0",
     olmMigrationEligibility: "migrated",
     olmClusterExtensionMigration: {
       installedCondition: "True",
