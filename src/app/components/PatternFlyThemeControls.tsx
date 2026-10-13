@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Content, ToggleGroup, ToggleGroupItem } from "@patternfly/react-core";
 import {
   THEME_PREFERENCES_EVENT,
+  isColorSchemeFollowsSystem,
   readThemePreferences,
   setThemePreferences,
   type ColorScheme,
@@ -38,6 +39,8 @@ export default function PatternFlyThemeControls({ idPrefix = "theme" }: PatternF
     setPrefs(setThemePreferences(partial));
   };
 
+  const colorSchemeDisabled = isColorSchemeFollowsSystem(prefs);
+
   return (
     <div className="ocs-pf-theme-controls">
       <div className="ocs-pf-theme-controls__section">
@@ -54,7 +57,8 @@ export default function PatternFlyThemeControls({ idPrefix = "theme" }: PatternF
             <ToggleGroupItem
               key={id}
               text={label}
-              isSelected={prefs.colorScheme === id}
+              isDisabled={colorSchemeDisabled}
+              isSelected={!colorSchemeDisabled && prefs.colorScheme === id}
               onChange={() => update({ colorScheme: id })}
             />
           ))}

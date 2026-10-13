@@ -73,7 +73,15 @@ function systemPrefersMoreContrast(): boolean {
   );
 }
 
-export function resolveDark(prefs: Pick<ThemePreferences, "colorScheme" | "colorTheme" | "dark">): boolean {
+/** When contrast follows the OS, color scheme is not user-selectable and follows `prefers-color-scheme`. */
+export function isColorSchemeFollowsSystem(prefs: Pick<ThemePreferences, "contrastMode">): boolean {
+  return prefs.contrastMode === "system";
+}
+
+export function resolveDark(
+  prefs: Pick<ThemePreferences, "colorScheme" | "colorTheme" | "dark" | "contrastMode">,
+): boolean {
+  if (isColorSchemeFollowsSystem(prefs)) return systemPrefersDark();
   const scheme = prefs.colorScheme ?? prefs.colorTheme;
   if (scheme === "system") return systemPrefersDark();
   if (scheme === "light") return false;

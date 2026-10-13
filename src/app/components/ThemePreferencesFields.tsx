@@ -1,5 +1,6 @@
 import { Content, Divider, ToggleGroup, ToggleGroupItem } from "@patternfly/react-core";
 import {
+  isColorSchemeFollowsSystem,
   type ColorScheme,
   type ContrastMode,
   type ThemePreferences,
@@ -39,8 +40,9 @@ const COLOR_SCHEME_ORDER: ColorSchemeChoice[] = ["light", "dark"];
 
 export function themePreferencesSummary(prefs: ThemePreferences): string {
   const contrast = CONTRAST_LABELS[contrastModeToChoice(prefs.contrastMode)];
-  const color =
-    prefs.colorScheme === "light" || prefs.colorScheme === "dark"
+  const color = isColorSchemeFollowsSystem(prefs)
+    ? CONTRAST_LABELS.system
+    : prefs.colorScheme === "light" || prefs.colorScheme === "dark"
       ? COLOR_SCHEME_LABELS[prefs.colorScheme]
       : COLOR_SCHEME_LABELS.dark;
   return `${contrast} · ${color}`;
@@ -55,6 +57,7 @@ type ThemePreferencesFieldsProps = {
 /** Segmented contrast + color controls (PatternFly theme popover layout). */
 export default function ThemePreferencesFields({ idPrefix, prefs, onUpdate }: ThemePreferencesFieldsProps) {
   const contrastChoice = contrastModeToChoice(prefs.contrastMode);
+  const colorSchemeDisabled = isColorSchemeFollowsSystem(prefs);
 
   return (
     <div className="ocs-pf-theme-controls ocs-pf-theme-controls--popover">
@@ -80,16 +83,31 @@ export default function ThemePreferencesFields({ idPrefix, prefs, onUpdate }: Th
         <Content component="p" className="ocs-pf-theme-controls__label" id={`${idPrefix}-color`}>
           Color scheme
         </Content>
-        <ToggleGroup aria-labelledby={`${idPrefix}-color`} isCompact className="ocs-pf-theme-controls__toggle-row">
+        <ToggleGroup
+          aria-labelledby={`${idPrefix}-color`}
+          aria-describedby={colorSchemeDisabled ? `${idPrefix}-color-hint` : undefined}
+          isCompact
+          className="ocs-pf-theme-controls__toggle-row"
+        >
           {COLOR_SCHEME_ORDER.map((id) => (
             <ToggleGroupItem
               key={id}
               text={COLOR_SCHEME_LABELS[id]}
-              isSelected={prefs.colorScheme === id}
+              isDisabled={colorSchemeDisabled}
+              isSelected={!colorSchemeDisabled && prefs.colorScheme === id}
               onChange={() => onUpdate({ colorScheme: id })}
             />
           ))}
         </ToggleGroup>
+        {colorSchemeDisabled ? (
+          <Content
+            component="small"
+            className="ocs-pf-theme-controls__hint pf-v6-u-mt-sm"
+            id={`${idPrefix}-color-hint`}
+          >
+            Color scheme follows your system setting while contrast mode is System default.
+          </Content>
+        ) : null}
       </div>
     </div>
   );
