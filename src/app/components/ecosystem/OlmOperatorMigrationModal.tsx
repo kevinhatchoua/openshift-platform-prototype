@@ -113,6 +113,7 @@ type MigrationWizardFooterProps = {
   onRunDryRun: () => void;
   onRunDryRunAgain: () => void;
   dryRunHasRun: boolean;
+  ackReviewedDryRun: boolean;
   /** Selection came from the list; dry run is the first wizard step (no Back). */
   skipSelectStep: boolean;
 };
@@ -260,6 +261,7 @@ function MigrationWizardFooter({
   onRunDryRun,
   onRunDryRunAgain,
   dryRunHasRun,
+  ackReviewedDryRun,
   skipSelectStep,
 }: MigrationWizardFooterProps) {
   const { activeStep, goToNextStep, goToPrevStep, close } = useWizardContext();
@@ -318,7 +320,14 @@ function MigrationWizardFooter({
               </ActionListItem>
             )}
             <ActionListItem>
-              <Button variant="primary" onClick={goToNextStep} isDisabled={!dryRunComplete}>
+              <Button
+                variant="primary"
+                onClick={goToNextStep}
+                isDisabled={!dryRunComplete || !ackReviewedDryRun}
+                {...(!dryRunComplete || ackReviewedDryRun
+                  ? {}
+                  : { "aria-describedby": "olm-migration-dry-run-ack-hint" })}
+              >
                 Review and execute migration
               </Button>
             </ActionListItem>
@@ -451,7 +460,7 @@ export function OlmOperatorMigrationModal({
   }
 
   const wizardStepCount = skipSelectStep ? 2 : 3;
-  const reviewAcknowledgmentsIncomplete = !ackReviewedDryRun || !ackPonr || !ackBackup;
+  const reviewAcknowledgmentsIncomplete = !ackPonr || !ackBackup;
 
   const wizardHeaderTitle = useMemo(() => {
     if (activeWizardStepId === STEP_REVIEW && isSingleOperatorFlow && selectedOperators[0]) {
@@ -499,6 +508,7 @@ export function OlmOperatorMigrationModal({
 
   const runDryRun = useCallback(
     async (targets: CatalogOperator[]) => {
+      setAckReviewedDryRun(false);
       setDryRunLoading(true);
       setDryRunRows([]);
       setDryRunLogLines([]);
@@ -549,6 +559,7 @@ export function OlmOperatorMigrationModal({
     setDryRunRows([]);
     setDryRunLogLines([]);
     setDryRunOperatorPhases({});
+    setAckReviewedDryRun(false);
   }, [dryRunRows]);
 
   const runDryRunLaunch = useCallback(() => {
@@ -633,6 +644,7 @@ export function OlmOperatorMigrationModal({
       onRunDryRun={runDryRunLaunch}
       onRunDryRunAgain={runDryRunAgain}
       dryRunHasRun={dryRunHasRun}
+      ackReviewedDryRun={ackReviewedDryRun}
       skipSelectStep={skipSelectStep}
     />
   );
@@ -935,6 +947,31 @@ export function OlmOperatorMigrationModal({
                 </pre>
               </StackItem>
             )}
+            {dryRunComplete ? (
+              <StackItem>
+                <FormGroup
+                  label="Confirm dry run review"
+                  isRequired
+                  fieldId="olm-migration-dry-run-ack-group"
+                >
+                  <Checkbox
+                    id="olm-migrate-ack-dry-run"
+                    label="I reviewed the dry run results for the selected operators."
+                    isChecked={ackReviewedDryRun}
+                    onChange={(_e, checked) => setAckReviewedDryRun(checked)}
+                  />
+                  {!ackReviewedDryRun ? (
+                    <Content
+                      component="small"
+                      className="pf-v6-u-mt-sm"
+                      id="olm-migration-dry-run-ack-hint"
+                    >
+                      Required to continue. Acknowledge after you review the table, details, and log above.
+                    </Content>
+                  ) : null}
+                </FormGroup>
+              </StackItem>
+            ) : null}
           </Stack>
         </WizardStep>
 
@@ -966,9 +1003,6 @@ export function OlmOperatorMigrationModal({
                   id="olm-migration-execute-prereq"
                 >
                   <ul className="ocs-olm-migration-modal__prereq-list">
-                    {!ackReviewedDryRun ? (
-                      <li>Confirm you reviewed the dry run results.</li>
-                    ) : null}
                     {!ackPonr ? (
                       <li>
                         Confirm you understand point-of-no-return and manual recovery risks.
@@ -999,14 +1033,6 @@ export function OlmOperatorMigrationModal({
             <StackItem>
               <FormGroup label="Required acknowledgments" isRequired fieldId="olm-migration-ack-group">
                 <Stack hasGutter>
-                  <StackItem>
-                    <Checkbox
-                      id="olm-migrate-ack-dry-run"
-                      label="I reviewed the dry run results for the selected operators."
-                      isChecked={ackReviewedDryRun}
-                      onChange={(_e, checked) => setAckReviewedDryRun(checked)}
-                    />
-                  </StackItem>
                   <StackItem>
                     <Checkbox
                       id="olm-migrate-ack-ponr"
