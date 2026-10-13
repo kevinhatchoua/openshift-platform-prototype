@@ -24,7 +24,7 @@ type ThemePreferencesSectionProps = {
 };
 
 /**
- * User Preferences: Theme fieldset with contrast + color scheme FormSelects.
+ * User Preferences: Theme section with contrast + color scheme FormSelects.
  */
 export default function ThemePreferencesSection({ idPrefix = "user-pref-theme" }: ThemePreferencesSectionProps) {
   const [prefs, setPrefs] = useState<ThemePreferences>(() => readThemePreferences());
@@ -53,10 +53,27 @@ export default function ThemePreferencesSection({ idPrefix = "user-pref-theme" }
   };
 
   return (
-    <fieldset className="ocs-user-preferences__theme-section" aria-labelledby={`${idPrefix}-legend`}>
+    <section className="ocs-user-preferences__theme-section" aria-labelledby={`${idPrefix}-legend`}>
       <Title headingLevel="h2" size="md" id={`${idPrefix}-legend`} className="ocs-user-preferences__theme-section-title">
         Theme
       </Title>
+
+      <FormGroup label="Color scheme" fieldId={`${idPrefix}-color-scheme`}>
+        <FormSelect
+          id={`${idPrefix}-color-scheme`}
+          className="ocs-user-preferences__field"
+          value={prefs.colorScheme}
+          onChange={updateColorScheme}
+          aria-label="Color scheme"
+        >
+          {COLOR_SCHEME_SELECT_OPTIONS.map(({ value, label }) => (
+            <FormSelectOption key={value} value={value} label={label} />
+          ))}
+        </FormSelect>
+        <Content component="small" className="pf-v6-u-mt-sm">
+          Console will appear as per the selected color scheme.
+        </Content>
+      </FormGroup>
 
       <FormGroup label="Contrast mode" fieldId={`${idPrefix}-contrast`}>
         <FormSelect
@@ -76,23 +93,6 @@ export default function ThemePreferencesSection({ idPrefix = "user-pref-theme" }
           </Content>
         ) : null}
       </FormGroup>
-
-      <FormGroup label="Color scheme" fieldId={`${idPrefix}-color-scheme`}>
-        <FormSelect
-          id={`${idPrefix}-color-scheme`}
-          className="ocs-user-preferences__field"
-          value={prefs.colorScheme}
-          onChange={updateColorScheme}
-          aria-label="Color scheme"
-        >
-          {COLOR_SCHEME_SELECT_OPTIONS.map(({ value, label }) => (
-            <FormSelectOption key={value} value={value} label={label} />
-          ))}
-        </FormSelect>
-        <Content component="small" className="pf-v6-u-mt-sm">
-          Console will appear as per the selected color scheme.
-        </Content>
-      </FormGroup>
-    </fieldset>
+    </section>
   );
 }

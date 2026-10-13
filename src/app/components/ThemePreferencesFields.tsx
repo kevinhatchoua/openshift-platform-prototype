@@ -13,6 +13,24 @@ export default function ThemePreferencesFields({ idPrefix, prefs, onUpdate }: Th
   return (
     <div className="ocs-pf-theme-controls ocs-pf-theme-controls--popover">
       <div className="ocs-pf-theme-controls__section">
+        <Content component="p" className="ocs-pf-theme-controls__label" id={`${idPrefix}-color`}>
+          Color scheme
+        </Content>
+        <ToggleGroup aria-labelledby={`${idPrefix}-color`} isCompact className="ocs-pf-theme-controls__toggle-row">
+          {COLOR_SCHEME_SELECT_OPTIONS.map(({ value, label }) => (
+            <ToggleGroupItem
+              key={value}
+              text={label}
+              isSelected={prefs.colorScheme === value}
+              onChange={() => onUpdate({ colorScheme: value as ColorScheme })}
+            />
+          ))}
+        </ToggleGroup>
+      </div>
+
+      <Divider className="ocs-pf-theme-controls__divider" />
+
+      <div className="ocs-pf-theme-controls__section">
         <Content component="p" className="ocs-pf-theme-controls__label" id={`${idPrefix}-contrast`}>
           Contrast mode
         </Content>
@@ -31,24 +49,6 @@ export default function ThemePreferencesFields({ idPrefix, prefs, onUpdate }: Th
             Matches your operating system&apos;s contrast setting.
           </Content>
         ) : null}
-      </div>
-
-      <Divider className="ocs-pf-theme-controls__divider" />
-
-      <div className="ocs-pf-theme-controls__section">
-        <Content component="p" className="ocs-pf-theme-controls__label" id={`${idPrefix}-color`}>
-          Color scheme
-        </Content>
-        <ToggleGroup aria-labelledby={`${idPrefix}-color`} isCompact className="ocs-pf-theme-controls__toggle-row">
-          {COLOR_SCHEME_SELECT_OPTIONS.map(({ value, label }) => (
-            <ToggleGroupItem
-              key={value}
-              text={label}
-              isSelected={prefs.colorScheme === value}
-              onChange={() => onUpdate({ colorScheme: value as ColorScheme })}
-            />
-          ))}
-        </ToggleGroup>
       </div>
     </div>
   );

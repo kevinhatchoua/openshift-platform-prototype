@@ -1648,20 +1648,8 @@ html .ocs-console-page.pf-v6-c-page {
   border-radius: var(--ocs-user-pref-field-radius);
 }
 
-.ocs-user-preferences__theme-section {
-  margin: 0;
-  padding: var(--pf-t--global--spacer--md, 1rem);
-  border: 1px solid var(--pf-t--global--border--color--default, #d2d2d2);
-  border-radius: var(--pf-t--global--border--radius--medium, 6px);
-}
-
-html.dark .ocs-user-preferences__theme-section {
-  border-color: var(--pf-t--global--border--color--default, #474747);
-}
-
 .ocs-user-preferences__theme-section-title {
   margin-block-end: var(--pf-t--global--spacer--md, 1rem);
-  padding: 0;
 }
 
 @media (max-width: 48rem) {
