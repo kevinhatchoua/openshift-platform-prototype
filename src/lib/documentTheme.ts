@@ -3,7 +3,7 @@
  *
  * Tiered architecture (PatternFly theming docs):
  * - Theme: Default | Project Felt (`pf-v6-theme-felt`)
- * - Color scheme: System | Light | Dark (`pf-v6-theme-dark`)
+ * - Color scheme: Light | Dark (`pf-v6-theme-dark`)
  * - Contrast mode: System | Default | High contrast | Glass
  *   (`pf-v6-theme-high-contrast` | `pf-v6-theme-glass`)
  *
@@ -109,7 +109,7 @@ function normalizePreferences(raw: Partial<ThemePreferences> & { colorTheme?: st
   /** OpenShift console prototype is Project Felt only (RH accent in nav/tabs; PF Default theme is not supported). */
   const brandTheme: BrandTheme = "felt";
 
-  const colorScheme: ColorScheme =
+  let colorScheme: ColorScheme =
     raw.colorScheme === "light" || raw.colorScheme === "dark" || raw.colorScheme === "system"
       ? raw.colorScheme
       : raw.colorTheme === "light" || raw.colorTheme === "dark" || raw.colorTheme === "system"
@@ -119,6 +119,10 @@ function normalizePreferences(raw: Partial<ThemePreferences> & { colorTheme?: st
             ? "dark"
             : "light"
           : DEFAULT_PREFERENCES.colorScheme;
+
+  if (colorScheme === "system") {
+    colorScheme = systemPrefersDark() ? "dark" : "light";
+  }
 
   let contrastMode: ContrastMode =
     raw.contrastMode === "system" ||

@@ -47,10 +47,9 @@ export default function PatternFlyThemeControls({ idPrefix = "theme" }: PatternF
         <ToggleGroup aria-labelledby={`${idPrefix}-color`} isCompact>
           {(
             [
-              ["system", "System"],
               ["light", "Light"],
               ["dark", "Dark"],
-            ] as [ColorScheme, string][]
+            ] as [Exclude<ColorScheme, "system">, string][]
           ).map(([id, label]) => (
             <ToggleGroupItem
               key={id}

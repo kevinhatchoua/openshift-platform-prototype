@@ -28,17 +28,21 @@ export function contrastModeToChoice(mode: ContrastMode): ContrastChoice {
   return "traditional";
 }
 
-const COLOR_SCHEME_LABELS: Record<ColorScheme, string> = {
+type ColorSchemeChoice = Exclude<ColorScheme, "system">;
+
+const COLOR_SCHEME_LABELS: Record<ColorSchemeChoice, string> = {
   light: "Light",
   dark: "Dark",
-  system: "System default",
 };
 
-const COLOR_SCHEME_ORDER: ColorScheme[] = ["light", "dark", "system"];
+const COLOR_SCHEME_ORDER: ColorSchemeChoice[] = ["light", "dark"];
 
 export function themePreferencesSummary(prefs: ThemePreferences): string {
   const contrast = CONTRAST_LABELS[contrastModeToChoice(prefs.contrastMode)];
-  const color = COLOR_SCHEME_LABELS[prefs.colorScheme] ?? COLOR_SCHEME_LABELS.dark;
+  const color =
+    prefs.colorScheme === "light" || prefs.colorScheme === "dark"
+      ? COLOR_SCHEME_LABELS[prefs.colorScheme]
+      : COLOR_SCHEME_LABELS.dark;
   return `${contrast} · ${color}`;
 }
 
