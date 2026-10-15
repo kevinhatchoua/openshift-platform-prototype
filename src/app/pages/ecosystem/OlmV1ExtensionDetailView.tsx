@@ -61,10 +61,11 @@ function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnT
     setSaveMessage("Cluster extension targeting saved (prototype stub).");
   };
 
-  const { actionsDropdown, lifecycleModals, openEdit } = useOlmV1ExtensionLifecycleActions({
-    operator,
-    onSpecUpdated: applySpec,
-  });
+  const { actionsDropdown, lifecycleModals, openEdit, canManageClusterExtension } =
+    useOlmV1ExtensionLifecycleActions({
+      operator,
+      onSpecUpdated: applySpec,
+    });
 
   const handleInlineSave = () => {
     applySpec(specDraft);
@@ -111,7 +112,7 @@ function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnT
                 </Flex>
               </Flex>
 
-              <OlmV1ExtensionEditHintAlert onEdit={openEdit} />
+              <OlmV1ExtensionEditHintAlert onEdit={openEdit} canEdit={canManageClusterExtension} />
 
               {saveMessage ? (
                 <Alert variant="success" title={saveMessage} isInline onTimeout={() => setSaveMessage(null)} timeout={8000} />
@@ -129,14 +130,19 @@ function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnT
                       idPrefix="ce-detail"
                       value={specDraft}
                       onChange={setSpecDraft}
+                      isReadOnly={!canManageClusterExtension}
                     />
                     <Flex gap={{ default: "gapSm" }} className="pf-v6-u-mt-md">
-                      <Button variant="primary" isDisabled={!specDirty} onClick={handleInlineSave}>
+                      <Button
+                        variant="primary"
+                        isDisabled={!canManageClusterExtension || !specDirty}
+                        onClick={handleInlineSave}
+                      >
                         Save
                       </Button>
                       <Button
                         variant="link"
-                        isDisabled={!specDirty}
+                        isDisabled={!canManageClusterExtension || !specDirty}
                         onClick={() =>
                           setSpecDraft(
                             defaultClusterExtensionSpec({

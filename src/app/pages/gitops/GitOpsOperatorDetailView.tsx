@@ -180,17 +180,18 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
   const displayName = "Red Hat OpenShift GitOps";
   const version = operator.version;
 
-  const { actionsDropdown, lifecycleModals, openEdit } = useOlmV1ExtensionLifecycleActions({
-    operator,
-    onSpecUpdated: (spec) => {
-      setOperator((prev) => ({
-        ...prev,
-        channel: spec.channel,
-        version: spec.version,
-        versionRange: spec.versionRange,
-      }));
-    },
-  });
+  const { actionsDropdown, lifecycleModals, openEdit, canManageClusterExtension } =
+    useOlmV1ExtensionLifecycleActions({
+      operator,
+      onSpecUpdated: (spec) => {
+        setOperator((prev) => ({
+          ...prev,
+          channel: spec.channel,
+          version: spec.version,
+          versionRange: spec.versionRange,
+        }));
+      },
+    });
 
   return (
     <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
@@ -223,7 +224,7 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
                 </Flex>
               </Flex>
 
-              <OlmV1ExtensionEditHintAlert onEdit={openEdit} />
+              <OlmV1ExtensionEditHintAlert onEdit={openEdit} canEdit={canManageClusterExtension} />
 
               <div className="ocs-gitops-operator-tabs">
                 <Tabs

@@ -8,7 +8,9 @@ import {
   MenuToggle,
 } from "@patternfly/react-core";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
+import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import type { CatalogOperator } from "../../pages/ecosystem/installedOperatorsTypes";
+import { canManageOlmV1ClusterExtension } from "./olmV1ClusterExtensionAccess";
 import type { OlmV1ClusterExtensionSpec } from "./olmV1ClusterExtensionSpec";
 import { OlmV1ExtensionUninstallModals } from "./OlmV1ExtensionUninstallModals";
 import { OlmV1ExtensionUpdateModal } from "./OlmV1ExtensionUpdateModal";
@@ -22,6 +24,8 @@ export function useOlmV1ExtensionLifecycleActions({
   operator,
   onSpecUpdated,
 }: UseOlmV1ExtensionLifecycleActionsOptions) {
+  const { permission } = usePrototypeDemo();
+  const canManage = canManageOlmV1ClusterExtension(permission);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [uninstallKind, setUninstallKind] = useState<"unsubscribe" | "delete" | null>(null);
   const [editOpen, setEditOpen] = useState(false);
@@ -44,7 +48,7 @@ export function useOlmV1ExtensionLifecycleActions({
   const closeUninstall = useCallback(() => setUninstallKind(null), []);
   const closeEdit = useCallback(() => setEditOpen(false), []);
 
-  const actionsDropdown = (
+  const actionsDropdown = canManage ? (
     <Dropdown
       isOpen={actionsOpen}
       onOpenChange={setActionsOpen}
@@ -67,7 +71,7 @@ export function useOlmV1ExtensionLifecycleActions({
         </DropdownItem>
       </DropdownList>
     </Dropdown>
-  );
+  ) : null;
 
   const lifecycleModals = (
     <>
@@ -88,16 +92,30 @@ export function useOlmV1ExtensionLifecycleActions({
   return {
     actionsDropdown,
     lifecycleModals,
-    openEdit,
+    openEdit: canManage ? openEdit : () => undefined,
+    canManageClusterExtension: canManage,
   };
 }
 
 type OlmV1ExtensionEditHintAlertProps = {
   onEdit: () => void;
+  canEdit?: boolean;
 };
 
 /** Replaces catalogd-driven “update available” banner for 5.1. */
-export function OlmV1ExtensionEditHintAlert({ onEdit }: OlmV1ExtensionEditHintAlertProps): ReactNode {
+export function OlmV1ExtensionEditHintAlert({
+  onEdit,
+  canEdit = true,
+}: OlmV1ExtensionEditHintAlertProps): ReactNode {
+  if (!canEdit) {
+    return (
+      <Alert variant="info" title="Extension targeting" isInline>
+        Automatic update discovery is not available in OCP 5.1. A cluster administrator can change channel and version
+        when they have permission to update this cluster extension.
+      </Alert>
+    );
+  }
+
   return (
     <Alert variant="info" title="Change extension targeting" isInline>
       <Button variant="link" isInline onClick={onEdit}>

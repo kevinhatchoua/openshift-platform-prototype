@@ -86,6 +86,7 @@ import {
 } from "../../components/ecosystem/olmMigrationBackgroundRun";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import { useToast } from "../../contexts/ToastContext";
+import { canManageOlmV1ClusterExtension } from "../../components/ecosystem/olmV1ClusterExtensionAccess";
 import { OlmV1ExtensionUninstallModals } from "../../components/ecosystem/OlmV1ExtensionUninstallModals";
 import { OlmV1ExtensionUpdateModal } from "../../components/ecosystem/OlmV1ExtensionUpdateModal";
 import { getMigrationSummaryReason, InstalledOperatorMigrationStatusCell } from "../../components/ecosystem/olmMigrationEligibility";
@@ -1568,7 +1569,8 @@ export default function InstalledOperatorsPage() {
   const [migrationInitialOperator, setMigrationInitialOperator] = useState<string | null>(null);
   const [migrationInitialSelection, setMigrationInitialSelection] = useState<string[] | null>(null);
   const [rollbackTarget, setRollbackTarget] = useState<CatalogOperator | null>(null);
-  const { olmMigrationScenario } = usePrototypeDemo();
+  const { olmMigrationScenario, permission } = usePrototypeDemo();
+  const canManageOlmV1 = canManageOlmV1ClusterExtension(permission);
   const { pushToast } = useToast();
   const [uninstallTarget, setUninstallTarget] = useState<CatalogOperator | null>(null);
   const [uninstallModalKind, setUninstallModalKind] = useState<"unsubscribe" | "delete" | null>(null);
@@ -2597,12 +2599,15 @@ export default function InstalledOperatorsPage() {
                                 <DropdownItem
                                   itemId="update"
                                   isDisabled={
-                                    typeof op.updateAvailable !== "string" || op.updateAvailable.length === 0
+                                    (isNextGen && op.isOlmV1Extension && !canManageOlmV1) ||
+                                    (typeof op.updateAvailable !== "string" || op.updateAvailable.length === 0)
                                   }
                                   tooltip={
-                                    typeof op.updateAvailable !== "string" || op.updateAvailable.length === 0
-                                      ? "No update is available for this operator"
-                                      : undefined
+                                    isNextGen && op.isOlmV1Extension && !canManageOlmV1
+                                      ? "You do not have permission to change this cluster extension"
+                                      : typeof op.updateAvailable !== "string" || op.updateAvailable.length === 0
+                                        ? "No update is available for this operator"
+                                        : undefined
                                   }
                                   onClick={() => navigateToUpdate(op)}
                                 >
@@ -2610,6 +2615,12 @@ export default function InstalledOperatorsPage() {
                                 </DropdownItem>
                                 <DropdownItem
                                   itemId="subscription"
+                                  isDisabled={isNextGen && op.isOlmV1Extension}
+                                  tooltip={
+                                    isNextGen && op.isOlmV1Extension
+                                      ? "Cluster extensions use extension targeting instead of a subscription"
+                                      : undefined
+                                  }
                                   onClick={() =>
                                     navigate(
                                       `/ecosystem/installed-operators/${encodeURIComponent(op.name)}/subscription`
@@ -2651,47 +2662,49 @@ export default function InstalledOperatorsPage() {
                                   </>
                                 ) : null}
                                 {isNextGen && op.isOlmV1Extension ? (
-                                  <>
-                                    <DropdownItem
-                                      itemId="rollback-legacy"
-                                      onClick={() => {
-                                        setRollbackTarget(op);
-                                        setOpenKebabIndex(null);
-                                      }}
-                                    >
-                                      Roll back to {OLM_MODE_LABELS.classic}
-                                    </DropdownItem>
-                                    <DropdownItem
-                                      itemId="edit-targeting"
-                                      onClick={() => {
-                                        openOlmV1Update(op);
-                                        setOpenKebabIndex(null);
-                                      }}
-                                    >
-                                      Edit channel and version
-                                    </DropdownItem>
-                                    <DropdownItem
-                                      itemId="unsubscribe"
-                                      onClick={() => {
-                                        setUninstallTarget(op);
-                                        setUninstallModalKind("unsubscribe");
-                                        setOpenKebabIndex(null);
-                                      }}
-                                    >
-                                      Unsubscribe from updates
-                                    </DropdownItem>
-                                    <DropdownItem
-                                      itemId="delete-extension"
-                                      className="pf-m-danger"
-                                      onClick={() => {
-                                        setUninstallTarget(op);
-                                        setUninstallModalKind("delete");
-                                        setOpenKebabIndex(null);
-                                      }}
-                                    >
-                                      Delete extension and managed resources
-                                    </DropdownItem>
-                                  </>
+                                  canManageOlmV1 ? (
+                                    <>
+                                      <DropdownItem
+                                        itemId="rollback-legacy"
+                                        onClick={() => {
+                                          setRollbackTarget(op);
+                                          setOpenKebabIndex(null);
+                                        }}
+                                      >
+                                        Roll back to {OLM_MODE_LABELS.classic}
+                                      </DropdownItem>
+                                      <DropdownItem
+                                        itemId="edit-targeting"
+                                        onClick={() => {
+                                          openOlmV1Update(op);
+                                          setOpenKebabIndex(null);
+                                        }}
+                                      >
+                                        Edit channel and version
+                                      </DropdownItem>
+                                      <DropdownItem
+                                        itemId="unsubscribe"
+                                        onClick={() => {
+                                          setUninstallTarget(op);
+                                          setUninstallModalKind("unsubscribe");
+                                          setOpenKebabIndex(null);
+                                        }}
+                                      >
+                                        Unsubscribe from updates
+                                      </DropdownItem>
+                                      <DropdownItem
+                                        itemId="delete-extension"
+                                        className="pf-m-danger"
+                                        onClick={() => {
+                                          setUninstallTarget(op);
+                                          setUninstallModalKind("delete");
+                                          setOpenKebabIndex(null);
+                                        }}
+                                      >
+                                        Delete extension and managed resources
+                                      </DropdownItem>
+                                    </>
+                                  ) : null
                                 ) : (
                                   <DropdownItem itemId="uninstall" isDisabled>
                                     Uninstall operator

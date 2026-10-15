@@ -12,6 +12,7 @@ type OlmV1ClusterExtensionSpecFieldsProps = {
   value: OlmV1ClusterExtensionSpec;
   onChange: (next: OlmV1ClusterExtensionSpec) => void;
   showVersionRange?: boolean;
+  isReadOnly?: boolean;
 };
 
 /**
@@ -23,6 +24,7 @@ export function OlmV1ClusterExtensionSpecFields({
   value,
   onChange,
   showVersionRange = true,
+  isReadOnly = false,
 }: OlmV1ClusterExtensionSpecFieldsProps) {
   const patch = (partial: Partial<OlmV1ClusterExtensionSpec>) => onChange({ ...value, ...partial });
 
@@ -34,6 +36,7 @@ export function OlmV1ClusterExtensionSpecFields({
           value={value.channel}
           onChange={(_e, v) => patch({ channel: v })}
           aria-label="Channel"
+          isDisabled={isReadOnly}
         />
         <FormHelperText>
           <HelperText>
@@ -48,6 +51,7 @@ export function OlmV1ClusterExtensionSpecFields({
           value={value.version}
           onChange={(_e, v) => patch({ version: v })}
           aria-label="Version"
+          isDisabled={isReadOnly}
         />
       </FormGroup>
 
@@ -58,6 +62,7 @@ export function OlmV1ClusterExtensionSpecFields({
             value={value.versionRange}
             onChange={(_e, v) => patch({ versionRange: v })}
             aria-label="Version range"
+            isDisabled={isReadOnly}
           />
           <FormHelperText>
             <HelperText>
