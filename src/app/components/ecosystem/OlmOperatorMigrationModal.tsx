@@ -982,7 +982,7 @@ export function OlmOperatorMigrationModal({
                 When you start migration, the cluster begins irreversible steps for each operator. The
                 migration library can <strong>automatically roll back</strong> only if failure occurs{" "}
                 <strong>before</strong> the point of no return. After that,{" "}
-                <strong>manual recovery</strong> may be required; custom resources tied to removed CRDs can
+                <strong>manual recovery</strong> might be required; custom resources tied to removed CRDs can
                 be lost without a backup.
               </Alert>
             </StackItem>
@@ -1036,7 +1036,7 @@ export function OlmOperatorMigrationModal({
                   <StackItem>
                     <Checkbox
                       id="olm-migrate-ack-ponr"
-                      label="I understand that failures after the point of no return require manual intervention and that automatic rollback may not apply."
+                      label="I understand that failures after the point of no return require manual intervention and that automatic rollback might not apply."
                       isChecked={ackPonr}
                       onChange={(_e, checked) => setAckPonr(checked)}
                     />

@@ -101,7 +101,7 @@ export function OlmOperatorRollbackModal({
             <StackItem>
               <Checkbox
                 id="olm-rollback-ack"
-                label={`I understand management will return to ${OLM_MODE_LABELS.classic} and I may need to migrate again later.`}
+                label={`I understand management will return to ${OLM_MODE_LABELS.classic} and I might need to migrate again later.`}
                 isChecked={acknowledged}
                 onChange={(_e, checked) => setAcknowledged(checked)}
               />

@@ -74,6 +74,7 @@ import {
   type ListAdvancedAttributeSpec,
 } from "../../components/dataView/ListAdvancedFilterModal";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
+import { OlmOperatingModeIntroAlert } from "../../components/ecosystem/OlmOperatingModeIntroAlert";
 import { OlmOperatingModeTabs } from "../../components/ecosystem/OlmOperatingModeTabs";
 import { OlmClassicExperienceBanner } from "../../components/ecosystem/OlmClassicExperienceBanner";
 import { OlmMigrationStrategyNotice } from "../../components/ecosystem/OlmMigrationStrategyNotice";
@@ -644,7 +645,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     autoUpdate: true,
     isPlatformAligned: true,
     clusterCompatibility: "Compatible",
-    compatibilityMessage: "IAM configuration may need updating before cluster upgrade.",
+    compatibilityMessage: "IAM configuration might need updating before cluster upgrade.",
     supportLifecycle: {
       fullSupportEndDate: "2026-05-03",
       maintenanceEndDate: "2027-04-21",
@@ -834,7 +835,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
         code: "version_incompatible",
         title: "Recommended update available",
         description:
-          "Version 2.6.0 is available and may include fixes required before OLMv1 migration.",
+          "Version 2.6.0 is available and might include fixes required before OLMv1 migration.",
         resolution: "Update to 2.6.0, confirm the operator is healthy, then retry migration.",
         actionLabel: "Update operator",
         actionHref: "/ecosystem/installed-operators/Service%20Mesh/update",
@@ -2118,6 +2119,7 @@ export default function InstalledOperatorsPage() {
 
             <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
               <OlmOperatingModeTabs id="installed-operators-olm-tabs" />
+              <OlmOperatingModeIntroAlert />
               <OlmClassicExperienceBanner />
               <OlmMigrationStrategyNotice />
 

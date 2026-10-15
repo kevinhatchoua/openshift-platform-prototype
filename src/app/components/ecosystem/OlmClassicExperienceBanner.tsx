@@ -21,19 +21,18 @@ export function OlmClassicExperienceBanner() {
     <Alert
       variant="warning"
       isInline
-      title="Classic operator experience"
+      title="Viewing legacy operators"
       className="ocs-olm-classic-experience-banner pf-v6-u-mb-md"
     >
       <Content component="p" className="pf-v6-u-mb-sm">
-        You are viewing operators and catalog entries managed with the classic Operator Lifecycle
-        Manager model. New cluster extensions install from the {OLM_MODE_LABELS.nextgen} catalog.
+        New cluster extensions must be installed from the Operators catalog.
       </Content>
       <AlertActionLink
         component={Link}
         to={NEXT_GEN_CATALOG_PATH}
         onClick={() => setMode("nextgen")}
       >
-        Open {OLM_MODE_LABELS.nextgen} in Software Catalog
+        Go to Operators catalog
       </AlertActionLink>
     </Alert>
   );

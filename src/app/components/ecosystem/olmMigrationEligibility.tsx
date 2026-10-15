@@ -55,7 +55,7 @@ function defaultBlockersForEligibility(
           op.olmMigrationReason ??
           "This operator cannot be migrated in the current cluster state because of a platform-level conflict.",
         resolution:
-          "Follow platform guidance for this operator. Migration may be handled automatically during a cluster upgrade or require a documented runbook.",
+          "Follow platform guidance for this operator. Migration might be handled automatically during a cluster upgrade or require a documented runbook.",
         actionLabel: "View operator details",
         actionHref: detailsHref,
       },

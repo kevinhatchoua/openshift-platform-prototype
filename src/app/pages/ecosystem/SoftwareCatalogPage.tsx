@@ -19,6 +19,7 @@ import {
 } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import { OlmClassicExperienceBanner } from "../../components/ecosystem/OlmClassicExperienceBanner";
+import { OlmOperatingModeIntroAlert } from "../../components/ecosystem/OlmOperatingModeIntroAlert";
 import CatalogOperatorDetailPanel from "../../components/CatalogOperatorDetailPanel";
 import {
   OLM_CATALOG_FACET_LABELS,
@@ -237,7 +238,7 @@ export default function SoftwareCatalogPage() {
   const [showSidePanel, setShowSidePanel] = useState(false);
   const [selectedCatalogItem, setSelectedCatalogItem] = useState<CatalogItem | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([
-    "Catalog",
+    "Version",
     "Type",
     "Capabilities",
     "Source",
@@ -1039,9 +1040,11 @@ export default function SoftwareCatalogPage() {
           <p>
             Add shared applications, services, event sources, or source-to-image builders to your Project from the
             software catalog. Choose a <strong>Type</strong> in the sidebar; for operators, pick a{" "}
-            <strong>Catalog</strong> ({OLM_CATALOG_FACET_LABELS.nextgen} is the default).
+            <strong>Version</strong> ({OLM_CATALOG_FACET_LABELS.nextgen} is the default).
           </p>
         </Content>
+
+        {isOperatorTypeFacet ? <OlmOperatingModeIntroAlert /> : null}
 
         {isOperatorTypeFacet && operatorCatalogFilter === "classic" ? (
           <OlmClassicExperienceBanner />
@@ -1052,7 +1055,7 @@ export default function SoftwareCatalogPage() {
             <Alert
               variant="info"
               isInline
-              title={`${availableUpdates} Software versions available`}
+              title={`${availableUpdates} updates available`}
               actionClose={
                 <AlertActionCloseButton onClose={() => setDismissedAlerts((prev) => [...prev, "updates"])} />
               }
@@ -1062,7 +1065,7 @@ export default function SoftwareCatalogPage() {
                 </AlertActionLink>
               }
             >
-              Review and approve pending software updates to keep your cluster secure and up-to-date.
+              Keep your cluster secure by updating your software.
             </Alert>
           </AlertGroup>
         )}
@@ -1135,20 +1138,20 @@ export default function SoftwareCatalogPage() {
 
             {isOperatorTypeFacet ? (
               <>
-            {/* Catalog (OLM operator packages) */}
+            {/* Version (OLM v0 vs v1 operator packages) */}
             <div className="mb-[16px]">
               <button
-                onClick={() => toggleCategory("Catalog")}
+                onClick={() => toggleCategory("Version")}
                 className="w-full flex items-center justify-between mb-[8px] text-[14px] font-semibold text-[#151515] dark:text-white"
               >
-                <span>Catalog</span>
-                {expandedCategories.includes("Catalog") ? (
+                <span>Version</span>
+                {expandedCategories.includes("Version") ? (
                   <ChevronUp className="size-[14px]" />
                 ) : (
                   <ChevronDown className="size-[14px]" />
                 )}
               </button>
-              {expandedCategories.includes("Catalog") && (
+              {expandedCategories.includes("Version") && (
                 <div className="space-y-[8px] pl-[4px]">
                   <label className="flex items-center gap-[8px] cursor-pointer text-[14px] text-[#151515] dark:text-white">
                     <input

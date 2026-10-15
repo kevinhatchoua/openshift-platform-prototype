@@ -468,7 +468,7 @@ To use the guided installer to provision an environment, open the Installer link
                       : "bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white"
                   }`}
                 >
-                  Approve update
+                  Update
                 </button>
                 <button className="px-[20px] py-[10px] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] font-semibold text-[14px] text-[#151515] dark:text-white hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] transition-colors">
                   Preview update

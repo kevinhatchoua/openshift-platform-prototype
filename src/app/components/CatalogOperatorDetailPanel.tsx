@@ -114,19 +114,16 @@ export default function CatalogOperatorDetailPanel({
           <Alert
             variant="warning"
             isInline
-            title={`New version ${item.newVersion} available`}
+            title="Update available"
             className="pf-v6-u-mb-md"
             customActions={
-              <Flex gap={{ default: "gapSm" }}>
-                <Button variant="link" isInline onClick={onUpdate}>
-                  Update
-                </Button>
-                <Button variant="link" isInline onClick={onViewDetails}>
-                  View details
-                </Button>
-              </Flex>
+              <Button variant="link" isInline onClick={onUpdate}>
+                Review update
+              </Button>
             }
-          />
+          >
+            Version {item.newVersion} is ready to be installed.
+          </Alert>
         ) : null}
 
         <div className="ocs-catalog-detail__grid">
@@ -247,24 +244,18 @@ export default function CatalogOperatorDetailPanel({
           <div className="ocs-catalog-detail__body">
             <Content component="p">{item.description}</Content>
             {isOperator ? (
-              <>
-                <Title headingLevel="h3" size="md" className="pf-v6-u-mt-lg pf-v6-u-mb-sm">
-                  How to install
-                </Title>
-                <Content component="p">
-                  From the <InlineCode>OperatorHub</InlineCode> catalog, choose this operator and create a{" "}
-                  <InlineCode>Subscription</InlineCode> in your target namespace. The Operator Lifecycle Manager (OLM)
-                  will reconcile the required CSV and related objects.
-                </Content>
-                <Title headingLevel="h3" size="md" className="pf-v6-u-mt-lg pf-v6-u-mb-sm">
-                  Special considerations for disconnected environments
-                </Title>
-                <Content component="p">
-                  Mirror the operator bundle and related images into your registry, then reference that mirror in your{" "}
-                  <InlineCode>ImageContentSourcePolicy</InlineCode> or <InlineCode>CatalogSource</InlineCode>{" "}
-                  configuration.
-                </Content>
-              </>
+              item.installed ? (
+                <>
+                  <Title headingLevel="h3" size="md" className="pf-v6-u-mt-lg pf-v6-u-mb-sm">
+                    Special considerations for disconnected environments
+                  </Title>
+                  <Content component="p">
+                    Mirror the operator bundle and related images into your registry, then reference that mirror in your{" "}
+                    <InlineCode>ImageContentSourcePolicy</InlineCode> or <InlineCode>CatalogSource</InlineCode>{" "}
+                    configuration.
+                  </Content>
+                </>
+              ) : null
             ) : (
               <Content component="p" className="pf-v6-u-mt-md">
                 Add this {item.typeLabel.toLowerCase()} to your project from the catalog.

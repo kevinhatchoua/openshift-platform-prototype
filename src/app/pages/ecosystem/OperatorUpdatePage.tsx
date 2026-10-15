@@ -403,7 +403,7 @@ export default function OperatorUpdatePage() {
             onClick={handleApproveUpdate}
             className="px-[24px] py-[12px] bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white rounded-[8px] font-semibold text-[14px] transition-colors"
           >
-            Approve update
+            Update
           </button>
           <button
             onClick={handlePreviewUpdate}

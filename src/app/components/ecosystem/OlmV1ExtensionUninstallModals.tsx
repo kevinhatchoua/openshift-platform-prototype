@@ -113,20 +113,27 @@ export function OlmV1ExtensionUninstallModals({
           <Stack hasGutter>
             {kind === "unsubscribe" ? (
               <StackItem>
-                <Alert variant="warning" title="Updates will stop" isInline>
-                  Unsubscribing stops future catalog updates for{" "}
-                  <strong>{operator.name}</strong>. The cluster extension and its managed
-                  resources remain installed until you delete them separately.
+                <Alert variant="warning" title="Updates will be paused" isInline>
+                  You won&apos;t receive catalog updates for <strong>{operator.name}</strong>. Existing
+                  installations will not be affected.
                 </Alert>
               </StackItem>
             ) : (
-              <StackItem>
-                <Alert variant="danger" title="This action cannot be undone" isInline>
-                  Deleting this cluster extension uses standard Kubernetes owner-reference
-                  semantics. Child objects created by the extension are removed through{" "}
-                  <strong>cascading deletion</strong>, which can disrupt running workloads.
-                </Alert>
-              </StackItem>
+              <>
+                <StackItem>
+                  <Alert variant="danger" title="This action cannot be undone" isInline>
+                    Deleting this cluster extension uses standard Kubernetes owner-reference semantics.
+                    Child objects created by the extension are removed through{" "}
+                    <strong>cascading deletion</strong>.
+                  </Alert>
+                </StackItem>
+                <StackItem>
+                  <Alert variant="warning" title="Potential workload disruption" isInline>
+                    Permanently deleting <strong>{operator.name}</strong> automatically deletes all managed
+                    resources, which could interrupt running services.
+                  </Alert>
+                </StackItem>
+              </>
             )}
 
             <StackItem>
@@ -151,13 +158,7 @@ export function OlmV1ExtensionUninstallModals({
                   <Content component="li">Operator controller workloads and related RBAC</Content>
                 </Content>
               </StackItem>
-            ) : (
-              <StackItem>
-                <Content component="p">
-                  You can resubscribe later from OperatorHub when a compatible update is available.
-                </Content>
-              </StackItem>
-            )}
+            ) : null}
 
             <StackItem>
               <Checkbox
