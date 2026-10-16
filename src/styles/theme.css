@@ -603,6 +603,125 @@ html.pf-v6-theme-felt.dark {
   --sidebar-ring: var(--pf-t--global--color--brand--accent--default);
 }
 
+/**
+ * Project Felt: page tabs use brand accent (red) for the active indicator, not primary blue.
+ */
+html.pf-v6-theme-felt .pf-v6-c-tabs__item.pf-m-current:not(.pf-m-action) > .pf-v6-c-tabs__link::after,
+html.pf-v6-theme-felt .pf-v6-c-tabs__item.pf-m-current:not(.pf-m-action) > .pf-v6-c-tabs__link::before {
+  border-color: var(--pf-t--global--color--brand--accent--default, var(--pf-color-red-50));
+}
+
+html.pf-v6-theme-felt .pf-v6-c-tabs__link.pf-m-current {
+  --pf-v6-c-tabs__link--m-current--Color: var(--pf-t--global--text--color--regular);
+}
+
+html.pf-v6-theme-felt .ocs-olm-mode-tabs.pf-v6-c-tabs .pf-v6-c-tabs__link.pf-m-current::after {
+  border-color: var(--pf-t--global--color--brand--accent--default, var(--pf-color-red-50));
+}
+
+/**
+ * Project Felt: standard control corner radius (medium), including toolbar menu toggles.
+ */
+html.pf-v6-theme-felt .pf-v6-c-button:not(.pf-m-link):not(.pf-m-plain):not(.pf-m-unstyled):not(.pf-m-control) {
+  --pf-v6-c-button--BorderRadius: var(--pf-t--global--border--radius--medium);
+}
+
+html.pf-v6-theme-felt .pf-v6-c-menu-toggle:not(.pf-m-plain):not(.pf-m-text) {
+  --pf-v6-c-menu-toggle--BorderRadius: var(--pf-t--global--border--radius--medium);
+}
+
+.ocs-operator-update-plan-target__label {
+  display: block;
+  margin-bottom: var(--pf-t--global--spacer--xs);
+  font-size: var(--pf-t--global--font--size--body--sm);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-operator-update-plan-target__value {
+  margin: 0;
+  font-size: var(--pf-t--global--font--size--body--default);
+  font-weight: var(--pf-t--global--font--weight--body--bold);
+}
+
+.ocs-operator-update-plan-target__rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--pf-t--global--spacer--md);
+}
+
+.ocs-operator-update-plan-target__row {
+  display: grid;
+  grid-template-columns: minmax(10rem, 1fr) minmax(12rem, 20rem);
+  gap: var(--pf-t--global--spacer--xl);
+  align-items: start;
+}
+
+.ocs-operator-update-plan-target__current {
+  min-width: 0;
+}
+
+.ocs-operator-update-plan-target__field {
+  width: 100%;
+  max-width: 20rem;
+  margin-inline-start: auto;
+}
+
+.ocs-operator-update-plan-target__label--spacer {
+  visibility: hidden;
+  margin-bottom: var(--pf-t--global--spacer--xs);
+  user-select: none;
+}
+
+.ocs-operator-update-plan-target__value--placeholder {
+  visibility: hidden;
+}
+
+.ocs-operator-update-plan-target__release-notes {
+  padding-inline-start: 0;
+}
+
+.ocs-operator-update-plan-sidebar {
+  width: 16.25rem;
+  flex-shrink: 0;
+}
+
+.ocs-operator-update-plan-sidebar__block {
+  margin-bottom: var(--pf-t--global--spacer--md);
+}
+
+.ocs-operator-update-plan-sidebar__block--divider {
+  padding-top: var(--pf-t--global--spacer--md);
+  border-top: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.ocs-operator-update-plan-sidebar__section-title {
+  margin-bottom: var(--pf-t--global--spacer--sm);
+}
+
+.ocs-operator-update-plan-sidebar__term {
+  margin: 0 0 var(--pf-t--global--spacer--xs);
+  font-size: var(--pf-t--global--font--size--body--sm);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-operator-update-plan-sidebar__value {
+  font-size: var(--pf-t--global--font--size--body--default);
+}
+
+.ocs-operator-update-plan-timeline__dot--selected {
+  background: var(--pf-t--global--color--brand--default, var(--pf-color-blue-50));
+  border-color: var(--pf-t--global--color--brand--default, var(--pf-color-blue-50));
+}
+
+.ocs-operator-update-plan-timeline__version--selected {
+  color: var(--pf-t--global--color--brand--default, var(--pf-color-blue-50));
+  font-weight: var(--pf-t--global--font--weight--body--bold);
+}
+
+.ocs-operator-update-plan-timeline__version:hover {
+  color: var(--pf-t--global--color--brand--default, var(--pf-color-blue-50));
+}
+
 /* High Contrast Light Theme */
 .high-contrast {
   --background: #ffffff;
@@ -1650,6 +1769,15 @@ html .ocs-console-page.pf-v6-c-page {
 
 .ocs-user-preferences__theme-section-title {
   margin-block-end: var(--pf-t--global--spacer--md, 1rem);
+}
+
+.ocs-csp-page__controls .ocs-user-preferences__field {
+  min-width: 14rem;
+}
+
+.ocs-csp-page__mode-hint {
+  flex: 1;
+  min-width: 16rem;
 }
 
 @media (max-width: 48rem) {

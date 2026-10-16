@@ -19,7 +19,9 @@ import {
 } from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { OcsNamedResourceDataView, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { prototypeResourceYaml } from "../../lib/prototypeResourceYaml";
 import FavoriteButton from "../../components/FavoriteButton";
 import DebugPodModal, { type DebugPodTarget } from "./DebugPodModal";
 import PodActionsMenu from "./PodActionsMenu";
@@ -358,6 +360,23 @@ export default function PodDetailPage() {
                 </DescriptionList>
               </section>
             </>
+          ) : activeTab === "yaml" ? (
+            <section className="ocs-pod-details__section" aria-label="Pod YAML">
+              <ConsoleYamlEditor
+                initialYaml={prototypeResourceYaml({
+                  kind: "Pod",
+                  name: pod.name,
+                  namespace: pod.namespace,
+                  extra: `spec:
+  nodeName: ${pod.node ?? "worker-0"}
+  containers:
+    - name: ${pod.containers[0]?.name ?? "main"}
+      image: ${pod.containers[0]?.image ?? "registry.example/app:latest"}`,
+                })}
+                downloadFileName={`${pod.name}.yaml`}
+                ariaLabel="Pod YAML"
+              />
+            </section>
           ) : activeTab === "terminal" ? (
             <div className="ocs-pod-details__section">
               {pod.distroless || pod.status === "CrashLoopBackOff" ? (

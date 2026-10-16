@@ -1,8 +1,6 @@
 import { useMemo, useState } from "react";
 import { useParams } from "react-router";
 import {
-  CodeBlock,
-  CodeBlockCode,
   Content,
   DescriptionList,
   DescriptionListDescription,
@@ -23,6 +21,7 @@ import SearchPlusIcon from "@patternfly/react-icons/dist/esm/icons/search-plus-i
 import ExpandIcon from "@patternfly/react-icons/dist/esm/icons/expand-icon";
 import OutlinedQuestionCircleIcon from "@patternfly/react-icons/dist/esm/icons/outlined-question-circle-icon";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import { OcsPrototypeListTable, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import { findApplicationSet, type ApplicationSetGeneratorNode } from "./gitopsData";
@@ -155,9 +154,11 @@ export default function GitOpsApplicationSetDetailRich() {
           ) : null}
 
           {activeTab === "yaml" ? (
-            <CodeBlock>
-              <CodeBlockCode>{appSetYaml(rec)}</CodeBlockCode>
-            </CodeBlock>
+            <ConsoleYamlEditor
+              initialYaml={appSetYaml(rec)}
+              downloadFileName={`${rec.name}.yaml`}
+              ariaLabel="ApplicationSet YAML"
+            />
           ) : null}
 
           {activeTab === "generators" ? (

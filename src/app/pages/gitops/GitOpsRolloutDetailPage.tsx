@@ -34,7 +34,9 @@ import {
 import AngleRightIcon from "@patternfly/react-icons/dist/esm/icons/angle-right-icon";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { prototypeResourceYaml } from "../../lib/prototypeResourceYaml";
 import FavoriteButton from "../../components/FavoriteButton";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import {
@@ -850,6 +852,17 @@ export default function GitOpsRolloutDetailPage() {
                 </div>
               )}
             </FlexItem>
+          ) : activeTab === "yaml" ? (
+            <ConsoleYamlEditor
+              initialYaml={prototypeResourceYaml({
+                apiVersion: "argoproj.io/v1alpha1",
+                kind: "Rollout",
+                name: rolloutName,
+                namespace: ns,
+              })}
+              downloadFileName={`${rolloutName}.yaml`}
+              ariaLabel="Rollout YAML"
+            />
           ) : (
             <Content component="p" className="pf-v6-u-color-200">
               {activeTab.charAt(0).toUpperCase()}

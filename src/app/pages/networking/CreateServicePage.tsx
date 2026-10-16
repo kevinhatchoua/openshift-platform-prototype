@@ -82,8 +82,6 @@ export default function CreateServicePage() {
       listPath="/networking"
       canCreate={canCreate}
       onCreate={handleCreate}
-      yamlText={sync.yamlText}
-      showDownload={sync.viewMode === "yaml"}
     >
       <Form>
         <DualModeCreateLayout

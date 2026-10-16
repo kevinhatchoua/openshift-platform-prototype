@@ -20,12 +20,14 @@ export type ToastMessage = {
   variant: ToastVariant;
   title: string;
   timeout?: number;
+  children?: ReactNode;
 };
 
 export type ToastInput = {
   variant: ToastVariant;
   title: string;
   timeout?: number;
+  children?: ReactNode;
 };
 
 /** Persisted entry for the masthead Notification drawer (OCP-style history). */
@@ -166,7 +168,9 @@ export function ToastProvider({ children }: { children: ReactNode }) {
                 onClose={() => dismissToast(toast.key)}
               />
             }
-          />
+          >
+            {toast.children}
+          </Alert>
         ))}
       </AlertGroup>
     </ToastContext.Provider>

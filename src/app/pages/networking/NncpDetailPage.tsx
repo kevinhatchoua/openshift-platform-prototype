@@ -14,6 +14,7 @@ import {
   TabTitleText,
   Title,
 } from "@patternfly/react-core";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import {
@@ -133,7 +134,11 @@ export default function NncpDetailPage() {
 
           {activeTab === "yaml" ? (
             <section className="ocs-node-details__panel" aria-label="YAML">
-              <pre className="ocs-net-yaml">{nncpYaml(nncp)}</pre>
+              <ConsoleYamlEditor
+                initialYaml={nncpYaml(nncp)}
+                downloadFileName={`${nncp.name}.yaml`}
+                ariaLabel="NodeNetworkConfigurationPolicy YAML"
+              />
             </section>
           ) : null}
         </Flex>

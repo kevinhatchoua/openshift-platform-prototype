@@ -8,9 +8,12 @@ import {
   Divider,
   FormGroup,
   Radio,
-  TextArea,
   Title,
 } from "@patternfly/react-core";
+import {
+  ConsoleYamlEditor,
+  CONSOLE_YAML_ACTIONS_CREATE,
+} from "../../components/console/ConsoleYamlEditor";
 import type { ConfigureViewMode } from "./useSyncedFormYaml";
 import type { YamlSchemaField } from "./networkCreateYaml";
 
@@ -81,13 +84,12 @@ export function DualModeCreateLayout({
 
       {viewMode === "yaml" ? (
         <div className="ocs-dual-mode-create__yaml-layout">
-          <TextArea
-            id="create-resource-yaml"
-            className="ocs-dual-mode-create__yaml-editor"
-            value={yamlText}
-            onChange={(_event, value) => onYamlChange(value)}
-            resizeOrientation="vertical"
-            aria-label="Resource YAML"
+          <ConsoleYamlEditor
+            initialYaml={yamlText}
+            yaml={yamlText}
+            onChange={onYamlChange}
+            actions={CONSOLE_YAML_ACTIONS_CREATE}
+            ariaLabel="Resource YAML"
           />
           <aside className="ocs-dual-mode-create__schema" aria-label={`${schemaTitle} schema`}>
             <Title headingLevel="h3" size="md">

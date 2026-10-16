@@ -116,8 +116,6 @@ export default function PrototypeGenericCreatePage({ forcedKind }: { forcedKind?
       listPath={listMeta.path}
       canCreate={sync.canSubmit}
       onCreate={handleCreate}
-      yamlText={sync.yamlText}
-      showDownload={sync.viewMode === "yaml"}
     >
       <Form>
         <DualModeCreateLayout

@@ -70,6 +70,7 @@ import ResourceQuotasPage from "./pages/administration/ResourceQuotasPage";
 import LimitRangesPage from "./pages/administration/LimitRangesPage";
 import CustomResourceDefinitionsPage from "./pages/administration/CustomResourceDefinitionsPage";
 import DynamicPluginsPage from "./pages/administration/DynamicPluginsPage";
+import ContentSecurityPolicyPage from "./pages/administration/ContentSecurityPolicyPage";
 import SoftwareCatalogPage from "./pages/ecosystem/SoftwareCatalogPage";
 import InstalledOperatorsPage from "./pages/ecosystem/InstalledOperatorsPage";
 import HelmPage from "./pages/ecosystem/HelmPage";
@@ -278,6 +279,7 @@ export const router = createBrowserRouter([
             Component: createPrototypeResourceDetailPage("crds"),
           },
           { path: "administration/dynamic-plugins", Component: DynamicPluginsPage },
+          { path: "administration/content-security-policy", Component: ContentSecurityPolicyPage },
           { path: "user-preferences", Component: UserPreferencesPage },
           { path: "settings", loader: () => redirect("/administration/cluster-settings") },
           { path: "alerts", Component: AlertsPage },

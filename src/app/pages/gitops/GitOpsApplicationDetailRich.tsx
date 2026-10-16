@@ -3,8 +3,6 @@ import { useParams } from "react-router";
 import {
   Alert,
   Button,
-  CodeBlock,
-  CodeBlockCode,
   DescriptionList,
   DescriptionListDescription,
   DescriptionListGroup,
@@ -20,6 +18,7 @@ import {
   Content,
 } from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import { OcsPrototypeListTable, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import {
@@ -329,9 +328,11 @@ export default function GitOpsApplicationDetailRich() {
           ) : null}
 
           {activeTab === "yaml" ? (
-            <CodeBlock>
-              <CodeBlockCode>{appYaml(rec)}</CodeBlockCode>
-            </CodeBlock>
+            <ConsoleYamlEditor
+              initialYaml={appYaml(rec)}
+              downloadFileName={`${rec.name}.yaml`}
+              ariaLabel="Application YAML"
+            />
           ) : null}
 
           {activeTab === "events" ? (

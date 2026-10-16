@@ -24,6 +24,7 @@ import CopyIcon from "@patternfly/react-icons/dist/esm/icons/copy-icon";
 import OutlinedClockIcon from "@patternfly/react-icons/dist/esm/icons/outlined-clock-icon";
 import PencilAltIcon from "@patternfly/react-icons/dist/esm/icons/pencil-alt-icon";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import { OcsPrototypeListTable } from "../../components/dataView/OcsPrototypeListTable";
@@ -324,7 +325,11 @@ export default function UdnDetailPage() {
 
           {activeTab === "yaml" ? (
             <section className="ocs-node-details__panel" aria-label="YAML">
-              <pre className="ocs-net-yaml">{udnYaml(udn)}</pre>
+              <ConsoleYamlEditor
+                initialYaml={udnYaml(udn)}
+                downloadFileName={`${udn.name}.yaml`}
+                ariaLabel="UserDefinedNetwork YAML"
+              />
             </section>
           ) : null}
 

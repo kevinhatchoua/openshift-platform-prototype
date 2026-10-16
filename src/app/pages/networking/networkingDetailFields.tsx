@@ -15,6 +15,7 @@ import {
 import OutlinedClockIcon from "@patternfly/react-icons/dist/esm/icons/outlined-clock-icon";
 import PencilAltIcon from "@patternfly/react-icons/dist/esm/icons/pencil-alt-icon";
 import SearchIcon from "@patternfly/react-icons/dist/esm/icons/search-icon";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import { prototypeDetailPath } from "../../lib/prototypeListStore";
 
 export function NamespaceValue({ namespace }: { namespace: string }) {
@@ -140,10 +141,10 @@ export function MetadataGrid({ left, right }: { left: ReactNode; right: ReactNod
   );
 }
 
-export function YamlPanel({ yaml }: { yaml: string }) {
+export function YamlPanel({ yaml, downloadFileName = "resource.yaml" }: { yaml: string; downloadFileName?: string }) {
   return (
     <section className="ocs-node-details__panel" aria-label="YAML">
-      <pre className="ocs-net-yaml">{yaml}</pre>
+      <ConsoleYamlEditor initialYaml={yaml} downloadFileName={downloadFileName} />
     </section>
   );
 }

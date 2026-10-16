@@ -85,8 +85,6 @@ export default function CreateRoutePage() {
       listPath="/networking/routes"
       canCreate={canCreate}
       onCreate={handleCreate}
-      yamlText={sync.yamlText}
-      showDownload={sync.viewMode === "yaml"}
     >
       <Form>
         <DualModeCreateLayout

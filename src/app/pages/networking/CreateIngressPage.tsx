@@ -83,8 +83,6 @@ export default function CreateIngressPage() {
       listPath="/networking/ingresses"
       canCreate={canCreate}
       onCreate={handleCreate}
-      yamlText={sync.yamlText}
-      showDownload={sync.viewMode === "yaml"}
     >
       <Form>
         <DualModeCreateLayout

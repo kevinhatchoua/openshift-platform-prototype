@@ -14,6 +14,7 @@ import {
   TabTitleText,
   Title,
 } from "@patternfly/react-core";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import {
@@ -175,7 +176,11 @@ export default function NadDetailPage() {
 
           {activeTab === "yaml" ? (
             <section className="ocs-node-details__panel" aria-label="YAML">
-              <pre className="ocs-net-yaml">{nadYaml(nad)}</pre>
+              <ConsoleYamlEditor
+                initialYaml={nadYaml(nad)}
+                downloadFileName={`${nad.name}.yaml`}
+                ariaLabel="NetworkAttachmentDefinition YAML"
+              />
             </section>
           ) : null}
 

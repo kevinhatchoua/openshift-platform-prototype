@@ -1,12 +1,25 @@
 import { useState, useMemo } from "react";
 import { useParams, Link, useNavigate } from "react-router";
-import { AlertTriangle, ExternalLink, ChevronRight, ArrowRight, CheckCircle2, Info, Edit2 } from "@/lib/pfIcons";
+import {
+  Button,
+  Card,
+  CardBody,
+  Flex,
+  FormSelect,
+  FormSelectOption,
+  Tab,
+  Tabs,
+  TabTitleText,
+} from "@patternfly/react-core";
+import { AlertTriangle, ExternalLink, ChevronRight, CheckCircle2, Info } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { OperatorSubscriptionUpdateModal } from "../../components/ecosystem/OperatorSubscriptionUpdateModal";
 import GitOpsOperatorDetailView from "../gitops/GitOpsOperatorDetailView";
 import OlmV1ExtensionDetailView from "./OlmV1ExtensionDetailView";
 import { getPrototypeInstalledOperator, isOlmV1ExtensionOperatorName } from "./installedOperatorsLookup";
 import InstalledCatalogOperatorDetailPage from "./InstalledCatalogOperatorDetailPage";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 
 // Channel definitions with available versions and cluster compatibility
 interface ChannelDef {
@@ -63,19 +76,29 @@ export default function OperatorDetailPage() {
 function DefaultOperatorDetailPage() {
   const { operatorId, operatorName } = useParams();
   const navigate = useNavigate();
-  const [activeTab, setActiveTab] = useState<"details" | "yaml" | "update-plan" | "events" | "kubapp">("details");
+  const [activeTab, setActiveTab] = useState<"details" | "yaml" | "subscription" | "events" | "kubapp">("details");
 
-  // Update plan state
+  const clusterVersion = "4.21.0";
+  const [installedChannel, setInstalledChannel] = useState("stable-4.5");
+  const [installedVersion, setInstalledVersion] = useState("3.0.0");
+  const [installedApproval, setInstalledApproval] = useState<"Automatic" | "Manual">("Manual");
+
   const [selectedChannel, setSelectedChannel] = useState("stable-4.5");
   const [selectedVersion, setSelectedVersion] = useState("3.1.0");
-
-  const currentChannel = "stable-4.5";
-  const currentVersion = "3.0.0";
-  const clusterVersion = "4.21.0";
+  const [updateApproval, setUpdateApproval] = useState<"Automatic" | "Manual">("Manual");
+  const [subscriptionUpdateOpen, setSubscriptionUpdateOpen] = useState(false);
 
   const channelDef = useMemo(() => CHANNELS.find((c) => c.name === selectedChannel), [selectedChannel]);
   const availableVersions = useMemo(() => channelDef?.versions ?? [], [channelDef]);
   const selectedVersionDef = useMemo(() => availableVersions.find((v) => v.version === selectedVersion), [availableVersions, selectedVersion]);
+
+  const subscriptionHasChanges =
+    selectedChannel !== installedChannel ||
+    selectedVersion !== installedVersion ||
+    updateApproval !== installedApproval;
+
+  const canStartSubscriptionUpdate =
+    subscriptionHasChanges && !selectedVersionDef?.requiresClusterUpdate;
 
   // When channel changes, auto-select the latest version in that channel
   const handleChannelChange = (ch: string) => {
@@ -91,10 +114,10 @@ function DefaultOperatorDetailPage() {
   const operator = {
     id,
     name: "Abot Operator-v3.0.0",
-    version: currentVersion,
+    version: installedVersion,
     newVersion: "3.1.0",
     provider: "Refactz Technologies Pvt Ltd",
-    hasUpdate: true,
+    hasUpdate: installedVersion !== "3.1.0",
     description: "Deploys and manages Red Hat Process Automation Manager and Red Hat Decision Manager environments.",
     longDescription: `Red Hat Process Automation Manager is a platform for developing containerized microservices and applications that automate business decisions and processes. It includes business process management (BPM), business rules management (BRM), and business resource optimization and complex event processing (CEP) technologies. It also includes a user experience platform to create engaging user interfaces for process and decision services with minimal coding.
 
@@ -124,10 +147,32 @@ To use the guided installer to provision an environment, open the Installer link
     },
   };
 
+  const operatorYaml = useMemo(
+    () =>
+      `apiVersion: operators.coreos.com/v1alpha1
+kind: ClusterServiceVersion
+metadata:
+  name: ${operator.clusterServiceVersion.name}
+  namespace: ${operator.clusterServiceVersion.namespace}
+spec:
+  displayName: ${operator.name}
+  version: ${operator.version}
+  provider:
+    name: ${operator.provider}
+  install:
+    strategy: deployment
+    spec:
+      deployments:
+        - name: business-automation-operator
+          spec:
+            replicas: 1`,
+    [operator.clusterServiceVersion.name, operator.clusterServiceVersion.namespace, operator.name, operator.provider, operator.version],
+  );
+
   const tabs = [
     { id: "details", label: "Details" },
     { id: "yaml", label: "YAML" },
-    { id: "update-plan", label: "Update plan" },
+    { id: "subscription", label: "Subscription" },
     { id: "events", label: "Events" },
     { id: "kubapp", label: "KubApp" },
   ];
@@ -150,28 +195,20 @@ To use the guided installer to provision an environment, open the Installer link
             <FavoriteButton name={operator.name} path={`/ecosystem/installed-operators/${operatorName}`} />
           </div>
           <p className="text-[14px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-            {operator.version} provided by {operator.provider}
+            {installedVersion} provided by {operator.provider}
           </p>
         </div>
 
-        {/* Tabs */}
-        <div className="border-b border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] mb-[24px]">
-          <div className="flex gap-[24px]">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id as any)}
-                className={`pb-[12px] border-b-2 transition-colors ${
-                  activeTab === tab.id
-                    ? "border-[#0066cc] dark:border-[#4dabf7] font-semibold text-[#151515] dark:text-white"
-                    : "border-transparent text-[#4d4d4d] dark:text-[#b0b0b0] hover:text-[#151515] dark:hover:text-white"
-                } text-[14px] -mb-[1px]`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
+        <Tabs
+          activeKey={activeTab}
+          onSelect={(_event, tabKey) => setActiveTab(String(tabKey) as typeof activeTab)}
+          aria-label="Operator details"
+          className="ocs-console-page-tabs pf-v6-u-mb-lg"
+        >
+          {tabs.map((tab) => (
+            <Tab key={tab.id} eventKey={tab.id} title={<TabTitleText>{tab.label}</TabTitleText>} />
+          ))}
+        </Tabs>
 
         {/* Tab Content */}
         {activeTab === "details" && (
@@ -187,10 +224,10 @@ To use the guided installer to provision an environment, open the Installer link
                     </p>
                   </div>
                   <button
-                    onClick={() => setActiveTab("update-plan")}
+                    onClick={() => setActiveTab("subscription")}
                     className="text-[14px] text-[#0066cc] dark:text-[#4dabf7] hover:underline font-semibold whitespace-nowrap"
                   >
-                    View update plan
+                    View subscription
                   </button>
                 </div>
               </div>
@@ -326,60 +363,104 @@ To use the guided installer to provision an environment, open the Installer link
           </>
         )}
 
-        {activeTab === "update-plan" && (
+        {activeTab === "subscription" && (
           <div className="flex gap-[24px]">
             {/* Main content */}
             <div className="flex-1">
-              {/* Channel and Version selectors */}
-              <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] rounded-[16px] p-[24px] mb-[24px]">
-                {/* Row 1: Channel */}
-                <div className="flex items-center gap-[16px] mb-[20px]">
-                  <div className="min-w-[160px]">
-                    <p className="text-[12px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[4px]">Current channel</p>
-                    <p className="text-[15px] text-[#151515] dark:text-white font-semibold">{currentChannel}</p>
+              <Card isPlain className="ocs-operator-update-plan-target pf-v6-u-mb-lg">
+                <CardBody>
+                <div className="ocs-operator-update-plan-target__rows">
+                  <div className="ocs-operator-update-plan-target__row">
+                    <div className="ocs-operator-update-plan-target__current">
+                      <p className="ocs-operator-update-plan-target__label">Current channel</p>
+                      <p className="ocs-operator-update-plan-target__value">{installedChannel}</p>
+                    </div>
+                    <div className="ocs-operator-update-plan-target__field">
+                      <label className="ocs-operator-update-plan-target__label" htmlFor="operator-target-channel">
+                        Target channel
+                      </label>
+                      <FormSelect
+                        id="operator-target-channel"
+                        aria-label="Target channel"
+                        value={selectedChannel}
+                        onChange={(_e, value) => handleChannelChange(value)}
+                      >
+                        {CHANNELS.map((ch) => (
+                          <FormSelectOption key={ch.name} value={ch.name} label={ch.name} />
+                        ))}
+                      </FormSelect>
+                    </div>
                   </div>
-                  <ArrowRight className="size-[18px] text-[#6a6e73] dark:text-[#a0a0a0] shrink-0 mt-[16px]" />
-                  <div className="min-w-[200px]">
-                    <p className="text-[12px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[4px]">Target channel</p>
-                    <select
-                      value={selectedChannel}
-                      onChange={(e) => handleChannelChange(e.target.value)}
-                      className="w-full px-[12px] py-[8px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[999px] text-[14px] text-[#151515] dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
-                    >
-                      {CHANNELS.map((ch) => (
-                        <option key={ch.name} value={ch.name}>{ch.name}</option>
-                      ))}
-                    </select>
+
+                  <div className="ocs-operator-update-plan-target__row">
+                    <div className="ocs-operator-update-plan-target__current">
+                      <p className="ocs-operator-update-plan-target__label">Current version</p>
+                      <p className="ocs-operator-update-plan-target__value">{installedVersion}</p>
+                    </div>
+                    <div className="ocs-operator-update-plan-target__field">
+                      <label className="ocs-operator-update-plan-target__label" htmlFor="operator-target-version">
+                        Target version
+                      </label>
+                      <FormSelect
+                        id="operator-target-version"
+                        aria-label="Target version"
+                        value={selectedVersion}
+                        onChange={(_e, value) => setSelectedVersion(value)}
+                      >
+                        {availableVersions.map((v) => (
+                          <FormSelectOption
+                            key={v.version}
+                            value={v.version}
+                            label={
+                              v.requiresClusterUpdate
+                                ? `${v.version} (requires cluster ${v.clusterMin}+)`
+                                : v.version
+                            }
+                          />
+                        ))}
+                      </FormSelect>
+                      <Button
+                        className="ocs-operator-update-plan-target__release-notes pf-v6-u-mt-sm"
+                        variant="link"
+                        isInline
+                        component="a"
+                        href="https://docs.openshift.com/container-platform/latest/release_notes/ocp-4-18-release-notes.html"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        icon={<ExternalLink className="size-[12px]" aria-hidden />}
+                        iconPosition="right"
+                      >
+                        View release notes
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="ocs-operator-update-plan-target__row">
+                    <div className="ocs-operator-update-plan-target__current">
+                      <p className="ocs-operator-update-plan-target__label">Update approval</p>
+                      <p className="ocs-operator-update-plan-target__value">{installedApproval}</p>
+                    </div>
+                    <div className="ocs-operator-update-plan-target__field ocs-operator-update-plan-target__field--control-only">
+                      <label
+                        className="ocs-operator-update-plan-target__label ocs-operator-update-plan-target__label--spacer"
+                        htmlFor="operator-update-approval"
+                      >
+                        Update approval
+                      </label>
+                      <FormSelect
+                        id="operator-update-approval"
+                        aria-label="Update approval"
+                        value={updateApproval}
+                        onChange={(_e, value) => setUpdateApproval(value as "Automatic" | "Manual")}
+                      >
+                        <FormSelectOption value="Automatic" label="Automatic" />
+                        <FormSelectOption value="Manual" label="Manual" />
+                      </FormSelect>
+                    </div>
                   </div>
                 </div>
-
-                {/* Row 2: Version */}
-                <div className="flex items-center gap-[16px] mb-[16px]">
-                  <div className="min-w-[160px]">
-                    <p className="text-[12px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[4px]">Current version</p>
-                    <p className="text-[15px] text-[#151515] dark:text-white font-semibold">{currentVersion}</p>
-                  </div>
-                  <ArrowRight className="size-[18px] text-[#6a6e73] dark:text-[#a0a0a0] shrink-0 mt-[16px]" />
-                  <div className="min-w-[200px]">
-                    <p className="text-[12px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[4px]">Target version</p>
-                    <select
-                      value={selectedVersion}
-                      onChange={(e) => setSelectedVersion(e.target.value)}
-                      className="w-full px-[12px] py-[8px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[999px] text-[14px] text-[#151515] dark:text-white cursor-pointer focus:outline-none focus:ring-2 focus:ring-[#0066cc]"
-                    >
-                      {availableVersions.map((v) => (
-                        <option key={v.version} value={v.version}>
-                          {v.version}{v.requiresClusterUpdate ? ` (requires cluster ${v.clusterMin}+)` : ""}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                </div>
-
-                <a href="https://docs.openshift.com/container-platform/latest/release_notes/ocp-4-18-release-notes.html" target="_blank" rel="noopener noreferrer" className="text-[13px] text-[#0066cc] dark:text-[#4dabf7] hover:underline flex items-center gap-[4px]">
-                  View release notes <ExternalLink className="size-[12px]" />
-                </a>
-              </div>
+                </CardBody>
+              </Card>
 
               {/* Cluster compatibility warning */}
               {selectedVersionDef?.requiresClusterUpdate && (
@@ -409,11 +490,11 @@ To use the guided installer to provision an environment, open the Installer link
               {/* Version timeline */}
               <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] rounded-[16px] p-[24px] mb-[24px]">
                 <h3 className="font-semibold text-[16px] text-[#151515] dark:text-white mb-[4px]">{selectedChannel}</h3>
-                <p className="text-[13px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[16px]">{currentVersion} (Current)</p>
+                <p className="text-[13px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[16px]">{installedVersion} (Current)</p>
 
                 <div className="flex flex-col">
                   {availableVersions.map((v, i) => {
-                    const isCurrent = v.version === currentVersion;
+                    const isCurrent = v.version === installedVersion;
                     const isSelected = v.version === selectedVersion;
                     const isLast = i === availableVersions.length - 1;
                     return (
@@ -424,7 +505,7 @@ To use the guided installer to provision an environment, open the Installer link
                             isCurrent
                               ? "bg-[#3e8635] border-[#3e8635]"
                               : isSelected
-                                ? "bg-[#0066cc] border-[#0066cc] dark:bg-[#4dabf7] dark:border-[#4dabf7]"
+                                ? "ocs-operator-update-plan-timeline__dot--selected"
                                 : v.requiresClusterUpdate
                                   ? "bg-transparent border-[#f0ab00]"
                                   : "bg-transparent border-[#6a6e73] dark:border-[#a0a0a0]"
@@ -436,13 +517,9 @@ To use the guided installer to provision an environment, open the Installer link
                         <div className="pb-[16px]">
                           <button
                             onClick={() => setSelectedVersion(v.version)}
-                            className={`text-[14px] ${
-                              isSelected
-                                ? "text-[#0066cc] dark:text-[#4dabf7] font-semibold"
-                                : isCurrent
-                                  ? "text-[#151515] dark:text-white font-semibold"
-                                  : "text-[#151515] dark:text-white hover:text-[#0066cc] dark:hover:text-[#4dabf7]"
-                            }`}
+                            className={`text-[14px] ocs-operator-update-plan-timeline__version ${
+                              isSelected ? "ocs-operator-update-plan-timeline__version--selected" : ""
+                            } ${isCurrent ? "font-semibold" : ""}`}
                           >
                             {v.version}
                           </button>
@@ -458,90 +535,69 @@ To use the guided installer to provision an environment, open the Installer link
                 </div>
               </div>
 
-              {/* Actions */}
-              <div className="flex items-center gap-[12px]">
-                <button
-                  disabled={!!selectedVersionDef?.requiresClusterUpdate}
-                  className={`px-[20px] py-[10px] rounded-[8px] font-semibold text-[14px] transition-colors ${
-                    selectedVersionDef?.requiresClusterUpdate
-                      ? "bg-[#d2d2d2] text-[#6a6e73] cursor-not-allowed"
-                      : "bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white"
-                  }`}
+              <Flex gap={{ default: "gapMd" }} alignItems={{ default: "alignItemsCenter" }}>
+                <Button
+                  variant="primary"
+                  isDisabled={!canStartSubscriptionUpdate}
+                  onClick={() => setSubscriptionUpdateOpen(true)}
                 >
                   Update
-                </button>
-                <button className="px-[20px] py-[10px] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] font-semibold text-[14px] text-[#151515] dark:text-white hover:bg-[rgba(0,0,0,0.05)] dark:hover:bg-[rgba(255,255,255,0.05)] transition-colors">
-                  Preview update
-                </button>
-                <a href="https://docs.openshift.com/container-platform/latest/operators/understanding/olm-understanding-operatorhub.html" target="_blank" rel="noopener noreferrer" className="text-[14px] text-[#0066cc] dark:text-[#4dabf7] hover:underline font-semibold flex items-center gap-[4px]">
-                  Link <ExternalLink className="size-[14px]" />
-                </a>
-              </div>
+                </Button>
+              </Flex>
+
+              <OperatorSubscriptionUpdateModal
+                operatorName={operator.name}
+                isOpen={subscriptionUpdateOpen}
+                current={{
+                  channel: installedChannel,
+                  version: installedVersion,
+                  approval: installedApproval,
+                }}
+                target={{
+                  channel: selectedChannel,
+                  version: selectedVersion,
+                  approval: updateApproval,
+                }}
+                onClose={() => setSubscriptionUpdateOpen(false)}
+                onComplete={(target) => {
+                  setInstalledChannel(target.channel);
+                  setInstalledVersion(target.version);
+                  setInstalledApproval(target.approval);
+                  setSelectedChannel(target.channel);
+                  setSelectedVersion(target.version);
+                  setUpdateApproval(target.approval);
+                }}
+              />
             </div>
 
-            {/* Right sidebar - Update strategy */}
-            <div className="w-[260px] shrink-0">
-              <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] rounded-[16px] p-[20px]">
-                <h3 className="font-semibold text-[15px] text-[#151515] dark:text-white mb-[16px]">Update strategy</h3>
-
-                <div className="space-y-[14px]">
-                  <div>
-                    <p className="text-[12px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[2px]">Update approval</p>
-                    <div className="flex items-center gap-[6px]">
-                      <p className="text-[14px] text-[#151515] dark:text-white">Manual</p>
-                      <Edit2 className="size-[12px] text-[#6a6e73] dark:text-[#a0a0a0] cursor-pointer hover:text-[#0066cc]" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[2px]">Update channel</p>
-                    <div className="flex items-center gap-[6px]">
-                      <p className="text-[14px] text-[#151515] dark:text-white">{selectedChannel}</p>
-                      <Edit2 className="size-[12px] text-[#6a6e73] dark:text-[#a0a0a0] cursor-pointer hover:text-[#0066cc]" />
-                    </div>
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[2px]">Version</p>
-                    <p className="text-[14px] text-[#151515] dark:text-white">{currentVersion}</p>
-                  </div>
-                  <div>
-                    <p className="text-[12px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[2px]">Cluster version</p>
-                    <p className="text-[14px] text-[#151515] dark:text-white">{clusterVersion}</p>
-                  </div>
-                  <div className="pt-[8px] border-t border-[rgba(0,0,0,0.08)] dark:border-[rgba(255,255,255,0.08)]">
-                    <p className="text-[12px] text-[#6a6e73] dark:text-[#a0a0a0] mb-[4px]">Manage Subscription</p>
-                    <Link to="/ecosystem/installed-operators" className="text-[13px] text-[#0066cc] dark:text-[#4dabf7] hover:underline flex items-center gap-[4px]">
-                      Manage in OpenShift Cluster Management <ExternalLink className="size-[12px]" />
-                    </Link>
-                  </div>
-                </div>
-              </div>
+            <div className="ocs-operator-update-plan-sidebar">
+              <Card isPlain>
+                <CardBody>
+                  <Button
+                    variant="link"
+                    isInline
+                    component="a"
+                    href="https://console.redhat.com/openshift"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    icon={<ExternalLink className="size-[12px]" aria-hidden />}
+                    iconPosition="right"
+                  >
+                    Manage in OpenShift Cluster Management
+                  </Button>
+                </CardBody>
+              </Card>
             </div>
           </div>
         )}
 
-        {activeTab === "yaml" && (
-          <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] rounded-[16px] p-[24px]">
-            <pre className="text-[13px] font-mono text-[#151515] dark:text-[#e0e0e0] whitespace-pre-wrap">
-{`apiVersion: operators.coreos.com/v1alpha1
-kind: ClusterServiceVersion
-metadata:
-  name: ${operator.clusterServiceVersion.name}
-  namespace: ${operator.clusterServiceVersion.namespace}
-spec:
-  displayName: ${operator.name}
-  version: ${operator.version}
-  provider:
-    name: ${operator.provider}
-  install:
-    strategy: deployment
-    spec:
-      deployments:
-        - name: business-automation-operator
-          spec:
-            replicas: 1`}
-            </pre>
-          </div>
-        )}
+        {activeTab === "yaml" ? (
+          <ConsoleYamlEditor
+            initialYaml={operatorYaml}
+            downloadFileName="clusterserviceversion.yaml"
+            ariaLabel="ClusterServiceVersion YAML"
+          />
+        ) : null}
 
         {activeTab === "events" && (
           <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] rounded-[16px] p-[24px]">
@@ -549,7 +605,7 @@ spec:
               {[
                 { type: "Normal", reason: "InstallSucceeded", message: "install strategy completed with no errors", time: "2m ago" },
                 { type: "Normal", reason: "AllCatalogSourcesHealthy", message: "all available catalogsources are healthy", time: "5m ago" },
-                { type: "Warning", reason: "UpdateAvailable", message: `New version ${operator.newVersion} available in channel ${currentChannel}`, time: "1h ago" },
+                { type: "Warning", reason: "UpdateAvailable", message: `New version ${operator.newVersion} available in channel ${installedChannel}`, time: "1h ago" },
               ].map((event, i) => (
                 <div key={i} className="flex items-start gap-[12px] p-[12px] rounded-[8px] bg-[rgba(0,0,0,0.02)] dark:bg-[rgba(255,255,255,0.02)]">
                   <div className={`size-[8px] rounded-full mt-[6px] shrink-0 ${event.type === "Normal" ? "bg-[#3e8635]" : "bg-[#f0ab00]"}`} />

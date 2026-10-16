@@ -16,6 +16,7 @@ import {
   Title,
 } from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import {
@@ -181,7 +182,11 @@ export default function NamespaceDetailPage() {
           ) : null}
 
           {activeTab === "yaml" ? (
-            <pre className="ocs-net-yaml">{namespaceYaml(nsName, meta.status, meta.created)}</pre>
+            <ConsoleYamlEditor
+              initialYaml={namespaceYaml(nsName, meta.status, meta.created)}
+              downloadFileName={`${nsName}.yaml`}
+              ariaLabel="Namespace YAML"
+            />
           ) : null}
         </Flex>
       </Breadcrumbs>

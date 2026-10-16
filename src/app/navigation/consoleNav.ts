@@ -119,6 +119,7 @@ export const ADMINISTRATION_SUB: SubNavEntry[] = [
   { path: "/administration/limit-ranges", label: "LimitRanges" },
   { path: "/administration/custom-resource-definitions", label: "CustomResourceDefinitions" },
   { path: "/administration/dynamic-plugins", label: "Dynamic Plugins" },
+  { path: "/administration/content-security-policy", label: "Content security policy" },
 ];
 
 /** GitOps surfaces (HPUX-1943 / HPUX-2073 / GITOPS-10917). */
@@ -207,6 +208,7 @@ export function collectStubPaths(): string[] {
     "/administration/limit-ranges",
     "/administration/custom-resource-definitions",
     "/administration/dynamic-plugins",
+    "/administration/content-security-policy",
   ]);
   for (const group of all) {
     for (const entry of group) {

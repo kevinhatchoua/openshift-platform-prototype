@@ -30,7 +30,9 @@ import PauseIcon from "@patternfly/react-icons/dist/esm/icons/pause-icon";
 import PlayIcon from "@patternfly/react-icons/dist/esm/icons/play-icon";
 import RedoIcon from "@patternfly/react-icons/dist/esm/icons/redo-icon";
 import ExternalLinkAltIcon from "@patternfly/react-icons/dist/esm/icons/external-link-alt-icon";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { prototypeResourceYaml } from "../../lib/prototypeResourceYaml";
 import FavoriteButton from "../../components/FavoriteButton";
 import { VMNetworkResourceLink } from "../../components/networking/VMNetworkResourceLink";
 import { getVirtualMachine, vmDetailPath, type VmNetworkInterface } from "../networking/networkingMockData";
@@ -278,7 +280,20 @@ export default function VirtualMachineDetailPage() {
               </Flex>
             ) : null}
 
-            {activeTab !== "overview" && activeTab !== "configuration" ? (
+            {activeTab === "yaml" ? (
+              <ConsoleYamlEditor
+                initialYaml={prototypeResourceYaml({
+                  apiVersion: "kubevirt.io/v1",
+                  kind: "VirtualMachine",
+                  name: vm.name,
+                  namespace: vm.namespace,
+                })}
+                downloadFileName={`${vm.name}.yaml`}
+                ariaLabel="VirtualMachine YAML"
+              />
+            ) : null}
+
+            {activeTab !== "overview" && activeTab !== "configuration" && activeTab !== "yaml" ? (
               <section className="ocs-node-details__panel">
                 <Content component="p" className="pf-v6-u-color-200">
                   {activeTab} tab prototype stub.

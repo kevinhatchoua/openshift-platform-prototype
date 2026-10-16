@@ -1,12 +1,10 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
   Button,
   Card,
   CardBody,
   CardTitle,
-  CodeBlock,
-  CodeBlockCode,
   DescriptionList,
   DescriptionListDescription,
   DescriptionListGroup,
@@ -24,9 +22,17 @@ import PencilAltIcon from "@patternfly/react-icons/dist/esm/icons/pencil-alt-ico
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import {
+  InstalledOperatorDetailsSections,
+  InstalledOperatorSubscriptionPanel,
+  InstalledOperatorYamlPanel,
+  operatorToConsoleModel,
+  useInstalledOperatorYaml,
+} from "../../components/ecosystem/installedOperator/InstalledOperatorConsolePanels";
+import {
   OlmV1ExtensionEditHintAlert,
   useOlmV1ExtensionLifecycleActions,
 } from "../../components/ecosystem/OlmV1ExtensionLifecycleActions";
+import type { CatalogOperator } from "../ecosystem/installedOperatorsTypes";
 import { getPrototypeInstalledOperator } from "../ecosystem/installedOperatorsLookup";
 import { ResourceName } from "./gitopsShared";
 
@@ -132,6 +138,47 @@ function tabLabel(tab: OperatorTab): string {
     .join(" ");
 }
 
+function GitOpsOperatorMetadataSidebar() {
+  return (
+    <Card isPlain className="ocs-gitops-operator-sidebar">
+      <CardBody>
+        <DescriptionList isCompact>
+          <DescriptionListGroup>
+            <DescriptionListTerm>Provider</DescriptionListTerm>
+            <DescriptionListDescription>Red Hat Inc</DescriptionListDescription>
+          </DescriptionListGroup>
+          <DescriptionListGroup>
+            <DescriptionListTerm>Created at</DescriptionListTerm>
+            <DescriptionListDescription>2 minutes ago</DescriptionListDescription>
+          </DescriptionListGroup>
+          <DescriptionListGroup>
+            <DescriptionListTerm>Console plugin</DescriptionListTerm>
+            <DescriptionListDescription>
+              <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                <code>gitops-plugin</code>: <Label color="green">Enabled</Label>
+                <Button variant="plain" aria-label="Edit console plugin">
+                  <PencilAltIcon aria-hidden />
+                </Button>
+              </Flex>
+            </DescriptionListDescription>
+          </DescriptionListGroup>
+          <DescriptionListGroup>
+            <DescriptionListTerm>Links</DescriptionListTerm>
+            <DescriptionListDescription>Not available</DescriptionListDescription>
+          </DescriptionListGroup>
+          <DescriptionListGroup>
+            <DescriptionListTerm>Maintainers</DescriptionListTerm>
+            <DescriptionListDescription>
+              OpenShift GitOps Team (
+              <a href="mailto:team-gitops@redhat.com">team-gitops@redhat.com</a>)
+            </DescriptionListDescription>
+          </DescriptionListGroup>
+        </DescriptionList>
+      </CardBody>
+    </Card>
+  );
+}
+
 function ProvidedApiCard({ api }: { api: ProvidedApi }) {
   return (
     <Card isCompact className="ocs-gitops-operator-api-card">
@@ -180,6 +227,17 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
   const displayName = "Red Hat OpenShift GitOps";
   const version = operator.version;
 
+  const consoleModel = useMemo(
+    () =>
+      operatorToConsoleModel(operator as CatalogOperator, {
+        displayName,
+        provider: "Red Hat Inc",
+        subscriptionName: "openshift-gitops-operator",
+      }),
+    [operator, displayName],
+  );
+  const operatorYaml = useInstalledOperatorYaml(consoleModel);
+
   const { actionsDropdown, lifecycleModals, openEdit, canManageClusterExtension } =
     useOlmV1ExtensionLifecycleActions({
       operator,
@@ -201,170 +259,129 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
           { label: "Operator details" },
         ]}
       >
-        <Grid hasGutter>
-          <GridItem md={9}>
-            <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-              <Flex
-                alignItems={{ default: "alignItemsCenter" }}
-                justifyContent={{ default: "justifyContentSpaceBetween" }}
-                flexWrap={{ default: "wrap" }}
-                gap={{ default: "gapMd" }}
-              >
-                <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }}>
-                  <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
-                    <ResourceName kind="ArgoCD" name={displayName} />
-                  </Flex>
-                  <span className="ocs-gitops-operator-detail__subtitle">
-                    {version} provided by Red Hat Inc
-                  </span>
-                </Flex>
-                <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
-                  <FavoriteButton name={displayName} path={operatorPath} />
-                  {actionsDropdown}
-                </Flex>
+        <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }} className="ocs-gitops-operator-detail">
+          <Flex
+            alignItems={{ default: "alignItemsCenter" }}
+            justifyContent={{ default: "justifyContentSpaceBetween" }}
+            flexWrap={{ default: "wrap" }}
+            gap={{ default: "gapMd" }}
+            className="ocs-gitops-operator-detail__page-header"
+          >
+            <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }}>
+              <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }} flexWrap={{ default: "wrap" }}>
+                <ResourceName kind="ArgoCD" name={displayName} />
               </Flex>
-
-              <OlmV1ExtensionEditHintAlert onEdit={openEdit} canEdit={canManageClusterExtension} />
-
-              <div className="ocs-gitops-operator-tabs">
-                <Tabs
-                  activeKey={activeTab}
-                  onSelect={(_e, key) => setActiveTab(String(key) as OperatorTab)}
-                  aria-label="GitOps operator details"
-                  role="region"
-                >
-                  {OPERATOR_TABS.map((tab) => (
-                    <Tab key={tab} eventKey={tab} title={<TabTitleText>{tabLabel(tab)}</TabTitleText>} />
-                  ))}
-                </Tabs>
-              </div>
-
-              {activeTab === "details" ? (
-                <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-                  <Title headingLevel="h2" size="lg">
-                    Provided APIs
-                  </Title>
-                  <div className="ocs-gitops-operator-api-grid">
-                    {GITOPS_PROVIDED_APIS.map((api) => (
-                      <ProvidedApiCard key={api.kind} api={api} />
-                    ))}
-                  </div>
-                </Flex>
-              ) : null}
-
-              {activeTab === "yaml" ? (
-                <CodeBlock>
-                  <CodeBlockCode>{`apiVersion: operators.coreos.com/v1alpha1
-kind: ClusterServiceVersion
-metadata:
-  name: openshift-gitops.v${version}
-  namespace: openshift-gitops-operator
-spec:
-  displayName: ${displayName}
-  version: ${version}
-  provider:
-    name: Red Hat Inc`}</CodeBlockCode>
-                </CodeBlock>
-              ) : null}
-
-              {activeTab === "subscription" ? (
-                <DescriptionList isHorizontal isCompact>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Channel</DescriptionListTerm>
-                    <DescriptionListDescription>gitops-1.12</DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Approval</DescriptionListTerm>
-                    <DescriptionListDescription>Automatic</DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Starting version</DescriptionListTerm>
-                    <DescriptionListDescription>{version}</DescriptionListDescription>
-                  </DescriptionListGroup>
-                </DescriptionList>
-              ) : null}
-
-              {activeTab === "events" ? (
-                <DescriptionList isHorizontal isCompact>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>InstallSucceeded</DescriptionListTerm>
-                    <DescriptionListDescription>install strategy completed with no errors</DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>AllCatalogSourcesHealthy</DescriptionListTerm>
-                    <DescriptionListDescription>all available catalogsources are healthy</DescriptionListDescription>
-                  </DescriptionListGroup>
-                </DescriptionList>
-              ) : null}
-
-              {activeTab === "all-instances" ? (
-                <DescriptionList isHorizontal isCompact>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Argo CD</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      <Link to="/gitops/argocd">openshift-gitops</Link>
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                </DescriptionList>
-              ) : null}
-
-              {activeTab !== "details" &&
-              activeTab !== "yaml" &&
-              activeTab !== "subscription" &&
-              activeTab !== "events" &&
-              activeTab !== "all-instances" ? (
-                <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
-                  <Title headingLevel="h2" size="lg">
-                    {tabLabel(activeTab)}
-                  </Title>
-                  <p className="ocs-gitops-operator-cr-tab__empty">
-                    No {tabLabel(activeTab)} instances in this namespace. Use Create instance on the Details tab to add
-                    one.
-                  </p>
-                </Flex>
-              ) : null}
+              <span className="ocs-gitops-operator-detail__subtitle">
+                {version} provided by Red Hat Inc
+              </span>
             </Flex>
-          </GridItem>
+            <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
+              <FavoriteButton name={displayName} path={operatorPath} />
+              {actionsDropdown}
+            </Flex>
+          </Flex>
 
-          <GridItem md={3}>
-            <Card isPlain className="ocs-gitops-operator-sidebar">
-              <CardBody>
-                <DescriptionList isCompact>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Provider</DescriptionListTerm>
-                    <DescriptionListDescription>Red Hat Inc</DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Created at</DescriptionListTerm>
-                    <DescriptionListDescription>2 minutes ago</DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Console plugin</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-                        <code>gitops-plugin</code>: <Label color="green">Enabled</Label>
-                        <Button variant="plain" aria-label="Edit console plugin">
-                          <PencilAltIcon aria-hidden />
-                        </Button>
-                      </Flex>
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Links</DescriptionListTerm>
-                    <DescriptionListDescription>Not available</DescriptionListDescription>
-                  </DescriptionListGroup>
-                  <DescriptionListGroup>
-                    <DescriptionListTerm>Maintainers</DescriptionListTerm>
-                    <DescriptionListDescription>
-                      OpenShift GitOps Team (
-                      <a href="mailto:team-gitops@redhat.com">team-gitops@redhat.com</a>)
-                    </DescriptionListDescription>
-                  </DescriptionListGroup>
-                </DescriptionList>
-              </CardBody>
-            </Card>
-          </GridItem>
-        </Grid>
+          <OlmV1ExtensionEditHintAlert onEdit={openEdit} canEdit={canManageClusterExtension} />
+
+          <div className="ocs-gitops-operator-tabs ocs-gitops-operator-detail__tabs ocs-console-page-tabs">
+            <Tabs
+              activeKey={activeTab}
+              onSelect={(_e, key) => setActiveTab(String(key) as OperatorTab)}
+              aria-label="GitOps operator details"
+              role="region"
+              className="ocs-console-page-tabs"
+            >
+              {OPERATOR_TABS.map((tab) => (
+                <Tab key={tab} eventKey={tab} title={<TabTitleText>{tabLabel(tab)}</TabTitleText>} />
+              ))}
+            </Tabs>
+          </div>
+
+          {activeTab === "details" ? (
+            <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
+              <Grid hasGutter className="ocs-gitops-operator-detail__summary">
+                <GridItem md={9} lg={9}>
+                  <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
+                    <Title headingLevel="h2" size="lg">Provided APIs</Title>
+                    <div className="ocs-gitops-operator-api-grid">
+                      {GITOPS_PROVIDED_APIS.map((api) => (
+                        <ProvidedApiCard key={api.kind} api={api} />
+                      ))}
+                    </div>
+                    <InstalledOperatorDetailsSections model={consoleModel} sections={["description"]} />
+                  </Flex>
+                </GridItem>
+                <GridItem md={3} lg={3}>
+                  <GitOpsOperatorMetadataSidebar />
+                </GridItem>
+              </Grid>
+              <InstalledOperatorDetailsSections
+                model={consoleModel}
+                sections={["csv", "conditions"]}
+                leadingDivider
+              />
+            </Flex>
+          ) : null}
+
+          {activeTab === "yaml" ? <InstalledOperatorYamlPanel initialYaml={operatorYaml} /> : null}
+
+          {activeTab === "subscription" ? (
+            <InstalledOperatorSubscriptionPanel
+              model={consoleModel}
+              channel={operator.channel}
+              version={operator.version}
+              autoUpdate={operator.autoUpdate}
+              packageName={operator.packageName}
+              canEdit={canManageClusterExtension}
+              onChannelVersionChange={(nextChannel, nextVersion) => {
+                setOperator((prev) => ({ ...prev, channel: nextChannel, version: nextVersion }));
+              }}
+              onApprovalChange={(autoUpdate) => {
+                setOperator((prev) => ({ ...prev, autoUpdate }));
+              }}
+            />
+          ) : null}
+
+          {activeTab === "events" ? (
+            <DescriptionList isHorizontal isCompact>
+              <DescriptionListGroup>
+                <DescriptionListTerm>InstallSucceeded</DescriptionListTerm>
+                <DescriptionListDescription>install strategy completed with no errors</DescriptionListDescription>
+              </DescriptionListGroup>
+              <DescriptionListGroup>
+                <DescriptionListTerm>AllCatalogSourcesHealthy</DescriptionListTerm>
+                <DescriptionListDescription>all available catalogsources are healthy</DescriptionListDescription>
+              </DescriptionListGroup>
+            </DescriptionList>
+          ) : null}
+
+          {activeTab === "all-instances" ? (
+            <DescriptionList isHorizontal isCompact>
+              <DescriptionListGroup>
+                <DescriptionListTerm>Argo CD</DescriptionListTerm>
+                <DescriptionListDescription>
+                  <Link to="/gitops/argocd">openshift-gitops</Link>
+                </DescriptionListDescription>
+              </DescriptionListGroup>
+            </DescriptionList>
+          ) : null}
+
+          {activeTab !== "details" &&
+          activeTab !== "yaml" &&
+          activeTab !== "subscription" &&
+          activeTab !== "events" &&
+          activeTab !== "all-instances" ? (
+            <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
+              <Title headingLevel="h2" size="lg">
+                {tabLabel(activeTab)}
+              </Title>
+              <p className="ocs-gitops-operator-cr-tab__empty">
+                No {tabLabel(activeTab)} instances in this namespace. Use Create instance on the Details tab to add
+                one.
+              </p>
+            </Flex>
+          ) : null}
+        </Flex>
       </Breadcrumbs>
       {lifecycleModals}
     </div>

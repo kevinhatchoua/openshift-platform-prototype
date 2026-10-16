@@ -20,6 +20,7 @@ import {
 } from "@patternfly/react-core";
 import CubesIcon from "@patternfly/react-icons/dist/esm/icons/cubes-icon";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import { OcsPrototypeListTable, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import { GitOpsSimpleListPage } from "./GitOpsSimpleListPage";
@@ -126,9 +127,15 @@ function AppProjectDetailBody({
           ) : null}
 
           {activeTab === "yaml" ? (
-            <Content component="pre" className="ocs-gitops-yaml-block">
-              {`apiVersion: argoproj.io/v1alpha1\nkind: AppProject\nmetadata:\n  name: ${rec.name}\n  namespace: ${rec.ns}`}
-            </Content>
+            <ConsoleYamlEditor
+              initialYaml={`apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: ${rec.name}
+  namespace: ${rec.ns}`}
+              downloadFileName={`${rec.name}.yaml`}
+              ariaLabel="AppProject YAML"
+            />
           ) : null}
 
           {activeTab === "allow-deny" ? (

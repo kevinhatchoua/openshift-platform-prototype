@@ -24,7 +24,7 @@ export function OlmOperatingModeTabs({ id = "olm-operating-mode" }: OlmOperating
         }
       }}
       variant="secondary"
-      className="ocs-olm-mode-tabs"
+      className="ocs-olm-mode-tabs ocs-console-page-tabs"
     >
       <Tab
         eventKey="nextgen"

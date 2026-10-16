@@ -1,8 +1,6 @@
 import { useState } from "react";
 import { useParams } from "react-router";
 import {
-  CodeBlock,
-  CodeBlockCode,
   Content,
   DescriptionList,
   DescriptionListDescription,
@@ -15,6 +13,7 @@ import {
   TabTitleText,
 } from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import { OcsPrototypeListTable, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
@@ -213,9 +212,11 @@ function ImageUpdaterDetailBody({
           ) : null}
 
           {activeTab === "yaml" ? (
-            <CodeBlock>
-              <CodeBlockCode>{imageUpdaterYaml(rec)}</CodeBlockCode>
-            </CodeBlock>
+            <ConsoleYamlEditor
+              initialYaml={imageUpdaterYaml(rec)}
+              downloadFileName={`${rec.name}.yaml`}
+              ariaLabel="ImageUpdater YAML"
+            />
           ) : null}
 
           {activeTab === "history" ? (

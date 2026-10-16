@@ -1,16 +1,6 @@
 import { useEffect, useState } from "react";
-import {
-  Button,
-  Flex,
-  FlexItem,
-  Modal,
-  ModalBody,
-  ModalFooter,
-  ModalHeader,
-  TextArea,
-} from "@patternfly/react-core";
-import CopyIcon from "@patternfly/react-icons/dist/esm/icons/copy-icon";
-import DownloadIcon from "@patternfly/react-icons/dist/esm/icons/download-icon";
+import { Modal, ModalBody, ModalHeader } from "@patternfly/react-core";
+import { ConsoleYamlEditor } from "../../../components/console/ConsoleYamlEditor";
 import { TopologyLightSpeedAction } from "./TopologyLightSpeedAction";
 import { LightspeedAiAccuracyInline } from "../../../components/lightspeed/LightspeedLegalCopy";
 
@@ -23,16 +13,6 @@ type ViewYamlModalProps = {
   onSave?: (yaml: string) => void;
 };
 
-function downloadYaml(filename: string, content: string) {
-  const blob = new Blob([content], { type: "text/yaml;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = filename;
-  link.click();
-  URL.revokeObjectURL(url);
-}
-
 export default function ViewYamlModal({
   isOpen,
   resourceLabel,
@@ -42,30 +22,19 @@ export default function ViewYamlModal({
   onSave,
 }: ViewYamlModalProps) {
   const [draft, setDraft] = useState(yaml);
-  const [copied, setCopied] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
       setDraft(yaml);
-      setCopied(false);
     }
   }, [isOpen, yaml]);
 
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(draft);
-      setCopied(true);
-    } catch {
-      setCopied(false);
-    }
-  };
+  const safeFilename = resourceLabel.replace(/[^a-zA-Z0-9._-]+/g, "-").toLowerCase() || "resource";
 
-  const handleSave = () => {
-    onSave?.(draft);
+  const handleSave = (nextYaml: string) => {
+    onSave?.(nextYaml);
     onClose();
   };
-
-  const safeFilename = resourceLabel.replace(/[^a-zA-Z0-9._-]+/g, "-").toLowerCase() || "resource";
 
   return (
     <Modal
@@ -85,42 +54,16 @@ export default function ViewYamlModal({
             <LightspeedAiAccuracyInline className="ocs-pf-topo-yaml-modal__disclaimer" />
           </div>
         ) : null}
-        <TextArea
-          id="topology-resource-yaml"
-          aria-label={`YAML for ${resourceLabel}`}
-          value={draft}
-          onChange={(_event, value) => setDraft(value)}
-          className="ocs-pf-topo-yaml-modal__editor"
-          resizeOrientation="vertical"
-          rows={18}
+        <ConsoleYamlEditor
+          initialYaml={yaml}
+          yaml={draft}
+          onChange={setDraft}
+          downloadFileName={`${safeFilename}.yaml`}
+          ariaLabel={`YAML for ${resourceLabel}`}
+          onSave={handleSave}
+          onCancel={onClose}
         />
       </ModalBody>
-      <ModalFooter>
-        <Flex flexWrap={{ default: "wrap" }} spaceItems={{ default: "spaceItemsSm" }} className="pf-v6-u-w-100">
-          <FlexItem>
-            <Button variant="secondary" icon={<CopyIcon aria-hidden />} onClick={handleCopy}>
-              {copied ? "Copied" : "Copy"}
-            </Button>
-          </FlexItem>
-          <FlexItem>
-            <Button
-              variant="secondary"
-              icon={<DownloadIcon aria-hidden />}
-              onClick={() => downloadYaml(`${safeFilename}.yaml`, draft)}
-            >
-              Download
-            </Button>
-          </FlexItem>
-          <FlexItem align={{ default: "alignRight" }} className="pf-v6-u-ml-auto">
-            <Button variant="link" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button variant="primary" onClick={handleSave}>
-              Save
-            </Button>
-          </FlexItem>
-        </Flex>
-      </ModalFooter>
     </Modal>
   );
 }

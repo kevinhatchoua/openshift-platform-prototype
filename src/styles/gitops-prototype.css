@@ -308,8 +308,14 @@
   color: var(--pf-t--global--text--color--subtle);
 }
 
+.ocs-gitops-operator-detail__page-header,
+.ocs-gitops-operator-detail__tabs {
+  width: 100%;
+}
+
 .ocs-gitops-operator-tabs {
   overflow-x: auto;
+  width: 100%;
 }
 
 .ocs-gitops-operator-tabs .pf-v6-c-tabs {
@@ -333,6 +339,10 @@
   font-size: var(--pf-t--global--font--size--body--default);
 }
 
+.ocs-gitops-operator-detail__summary {
+  align-items: flex-start;
+}
+
 .ocs-gitops-operator-sidebar {
   position: sticky;
   top: var(--pf-t--global--spacer--md);
@@ -341,4 +351,122 @@
 .ocs-gitops-operator-cr-tab__empty {
   margin: 0;
   color: var(--pf-t--global--text--color--subtle);
+}
+
+/* Installed operator console-style tabs (YAML, Subscription, Details) */
+.ocs-io-yaml-panel {
+  border: 1px solid var(--pf-t--global--border--color--default);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--secondary--default);
+  min-height: 24rem;
+}
+
+.ocs-io-yaml-panel__toolbar {
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  border-bottom: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.ocs-io-yaml-panel__editor {
+  font-family: var(--pf-t--global--font--family--monospace);
+  font-size: var(--pf-t--global--font--size--body--default);
+  min-height: 18rem;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.ocs-io-yaml-panel__footer {
+  padding: var(--pf-t--global--spacer--md);
+  border-top: 1px solid var(--pf-t--global--border--color--default);
+}
+
+.ocs-io-subscription-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--pf-t--global--spacer--md);
+  align-items: stretch;
+}
+
+@media (max-width: 992px) {
+  .ocs-io-subscription-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.ocs-io-subscription-card {
+  height: 100%;
+}
+
+.ocs-io-subscription-card__body {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 6.5rem;
+}
+
+.ocs-io-subscription-card__footnote {
+  margin-top: auto;
+  margin-bottom: 0;
+}
+
+.ocs-io-subscription-card__footnote-spacer {
+  display: block;
+  flex: 1 1 auto;
+  min-height: 1.25rem;
+}
+
+.ocs-io-subscription-status-icon--success {
+  color: var(--pf-t--global--icon--color--status--success--default);
+}
+
+.ocs-io-subscription-status-icon--warning {
+  color: var(--pf-t--global--icon--color--status--warning--default);
+}
+
+.ocs-io-subscription-status-icon--info {
+  color: var(--pf-t--global--icon--color--status--info--default);
+}
+
+.ocs-io-subscription-meta,
+.ocs-io-csv-details {
+  --pf-v6-c-description-list--GridTemplateColumns--count: 2;
+}
+
+.ocs-io-operator-detail-sections {
+  display: flex;
+  flex-direction: column;
+}
+
+.ocs-io-operator-detail-section {
+  padding-block: var(--pf-t--global--spacer--xl);
+}
+
+.ocs-io-operator-detail-section--description {
+  padding-bottom: 0;
+}
+
+.ocs-io-operator-detail-section__title {
+  margin-bottom: var(--pf-t--global--spacer--md);
+}
+
+.ocs-io-operator-detail-section__body {
+  margin: 0;
+  max-width: 48rem;
+}
+
+.ocs-io-operator-detail-section__divider {
+  margin: 0;
+}
+
+.ocs-io-operator-detail-dl {
+  --pf-v6-c-description-list--RowGap: var(--pf-t--global--spacer--lg);
+  --pf-v6-c-description-list--ColumnGap: var(--pf-t--global--spacer--2xl);
+}
+
+.ocs-io-operator-detail-dl .pf-v6-c-description-list__group {
+  margin-bottom: var(--pf-t--global--spacer--md);
+}
+
+.ocs-io-operator-detail-dl .pf-v6-c-description-list__term {
+  padding-bottom: var(--pf-t--global--spacer--xs);
 }

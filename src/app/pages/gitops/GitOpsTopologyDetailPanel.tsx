@@ -20,6 +20,7 @@ import { Link } from "react-router";
 import type { GitOpsTopoGraph, GitOpsTopoNode } from "./gitopsTopologyData";
 import { childrenOf } from "./gitopsTopologyData";
 import { GitOpsEditDeleteMenu, HealthStatus, ResourceName } from "./gitopsShared";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import { useToast } from "../../contexts/ToastContext";
 
 type GitOpsTopologyDetailPanelProps = {
@@ -126,11 +127,15 @@ export default function GitOpsTopologyDetailPanel({
 
         {tab === "yaml" ? (
           <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }} className="pf-v6-u-mt-md">
-            <pre className="ocs-gitops-topo-yaml">{`apiVersion: argoproj.io/v1alpha1
+            <ConsoleYamlEditor
+              initialYaml={`apiVersion: argoproj.io/v1alpha1
 kind: ${node.kind}
 metadata:
   name: ${node.name}
-  namespace: ${node.ns ?? "argocd"}`}</pre>
+  namespace: ${node.ns ?? "argocd"}`}
+              downloadFileName={`${node.name}.yaml`}
+              ariaLabel={`${node.kind} YAML`}
+            />
             <Button
               variant="secondary"
               onClick={() =>

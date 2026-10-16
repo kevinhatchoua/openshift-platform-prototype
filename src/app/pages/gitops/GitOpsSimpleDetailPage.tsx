@@ -13,7 +13,9 @@ import {
   TabTitleText,
   Title,
 } from "@patternfly/react-core";
+import { ConsoleYamlEditor } from "../../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { prototypeResourceYaml } from "../../lib/prototypeResourceYaml";
 import FavoriteButton from "../../components/FavoriteButton";
 import { gitopsDetailPath } from "./gitopsData";
 import { GitOpsEditDeleteMenu, HealthStatus, ResourceName, type GitOpsActionItem } from "./gitopsShared";
@@ -100,6 +102,17 @@ export default function GitOpsSimpleDetailPage({
               </DescriptionList>
               {extraContent}
             </>
+          ) : activeTab === "yaml" ? (
+            <ConsoleYamlEditor
+              initialYaml={prototypeResourceYaml({
+                apiVersion: "argoproj.io/v1alpha1",
+                kind: kindLabel,
+                name: title,
+                namespace: ns,
+              })}
+              downloadFileName={`${title}.yaml`}
+              ariaLabel={`${kindLabel} YAML`}
+            />
           ) : (
             <Content component="p" className="pf-v6-u-color-200">
               {activeTab} view is a prototype stub.

@@ -14,7 +14,9 @@ import {
   TabTitleText,
   Title,
 } from "@patternfly/react-core";
+import { ConsoleYamlEditor } from "../components/console/ConsoleYamlEditor";
 import Breadcrumbs from "../components/Breadcrumbs";
+import { prototypeResourceYaml } from "../lib/prototypeResourceYaml";
 import FavoriteButton from "../components/FavoriteButton";
 import {
   PROTOTYPE_LIST_META,
@@ -92,9 +94,16 @@ export default function PrototypeResourceDetailPage({ listKey }: { listKey: Prot
               </Content>
             </Tab>
             <Tab eventKey="yaml" title={<TabTitleText>YAML</TabTitleText>}>
-              <Content component="p" className="pf-v6-u-mt-md">
-                YAML editing for created prototype resources will be expanded in a future iteration.
-              </Content>
+              <ConsoleYamlEditor
+                className="pf-v6-u-mt-md"
+                initialYaml={prototypeResourceYaml({
+                  kind: stored?.kind ?? meta.kind,
+                  name,
+                  namespace: namespace || undefined,
+                })}
+                downloadFileName={`${name}.yaml`}
+                ariaLabel={`${meta.kind} YAML`}
+              />
             </Tab>
           </Tabs>
 

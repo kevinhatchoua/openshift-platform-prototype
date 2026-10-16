@@ -13,8 +13,19 @@ import {
   Grid,
   GridItem,
   Label,
+  Tab,
+  Tabs,
+  TabTitleText,
   Title,
 } from "@patternfly/react-core";
+import {
+  InstalledOperatorDetailsSections,
+  InstalledOperatorSubscriptionPanel,
+  InstalledOperatorYamlPanel,
+  operatorToConsoleModel,
+  useInstalledOperatorYaml,
+} from "../../components/ecosystem/installedOperator/InstalledOperatorConsolePanels";
+import type { CatalogOperator } from "./installedOperatorsTypes";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import { OlmV1ClusterExtensionSpecFields } from "../../components/ecosystem/OlmV1ClusterExtensionSpecFields";
@@ -33,7 +44,10 @@ type OlmV1ExtensionDetailViewProps = {
   operatorName: string;
 };
 
+type ExtensionDetailTab = "details" | "yaml" | "subscription";
+
 function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnType<typeof getPrototypeInstalledOperator>> }) {
+  const [activeTab, setActiveTab] = useState<ExtensionDetailTab>("details");
   const [operator, setOperator] = useState(initial);
   const [specDraft, setSpecDraft] = useState<OlmV1ClusterExtensionSpec>(() =>
     defaultClusterExtensionSpec({
@@ -76,6 +90,12 @@ function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnT
     specDraft.version !== operator.version ||
     specDraft.versionRange !== (operator.versionRange ?? "");
 
+  const consoleModel = useMemo(
+    () => operatorToConsoleModel(operator as CatalogOperator),
+    [operator],
+  );
+  const operatorYaml = useInstalledOperatorYaml(consoleModel);
+
   return (
     <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
       <Breadcrumbs
@@ -117,6 +137,47 @@ function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnT
               {saveMessage ? (
                 <Alert variant="success" title={saveMessage} isInline onTimeout={() => setSaveMessage(null)} timeout={8000} />
               ) : null}
+
+              <div className="ocs-gitops-operator-tabs ocs-console-page-tabs">
+                <Tabs
+                  activeKey={activeTab}
+                  onSelect={(_e, key) => setActiveTab(String(key) as ExtensionDetailTab)}
+                  aria-label="Cluster extension operator details"
+                  className="ocs-console-page-tabs"
+                >
+                  <Tab eventKey="details" title={<TabTitleText>Details</TabTitleText>} />
+                  <Tab eventKey="yaml" title={<TabTitleText>YAML</TabTitleText>} />
+                  <Tab eventKey="subscription" title={<TabTitleText>Subscription</TabTitleText>} />
+                </Tabs>
+              </div>
+
+              {activeTab === "yaml" ? <InstalledOperatorYamlPanel initialYaml={operatorYaml} /> : null}
+
+              {activeTab === "subscription" ? (
+                <InstalledOperatorSubscriptionPanel
+                  model={consoleModel}
+                  channel={operator.channel}
+                  version={operator.version}
+                  autoUpdate={operator.autoUpdate}
+                  packageName={operator.packageName}
+                  canEdit={canManageClusterExtension}
+                  onChannelVersionChange={(nextChannel, nextVersion) => {
+                    setOperator((prev) =>
+                      prev
+                        ? { ...prev, channel: nextChannel, version: nextVersion }
+                        : prev,
+                    );
+                    setSpecDraft((prev) => ({ ...prev, channel: nextChannel, version: nextVersion }));
+                  }}
+                  onApprovalChange={(autoUpdate) => {
+                    setOperator((prev) => (prev ? { ...prev, autoUpdate } : prev));
+                  }}
+                />
+              ) : null}
+
+              {activeTab === "details" ? (
+                <>
+              <InstalledOperatorDetailsSections model={consoleModel} />
 
               <OlmMigrationStatusPanel operator={operator} variant="cluster-extension" />
 
@@ -202,6 +263,8 @@ function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnT
                 <Alert variant="warning" title="Compatibility note" isInline>
                   {operator.compatibilityMessage}
                 </Alert>
+              ) : null}
+                </>
               ) : null}
             </Flex>
           </GridItem>

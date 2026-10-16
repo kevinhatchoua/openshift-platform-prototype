@@ -1673,7 +1673,7 @@ export default function InstalledOperatorsPage() {
     return IO_LIST_ADV_FILTER_SPEC.filter((a) => !omit.has(String(a.id)));
   }, [showLifecycleListColumns]);
 
-  const showSelectionColumn = isClassic;
+  const showSelectionColumn = true;
 
   const operatorsWithCompat = useMemo(() => {
     return operators.map((op) => {
@@ -2459,13 +2459,7 @@ export default function InstalledOperatorsPage() {
                                 <Content component="small">
                                   <code>{op.version}</code>
                                 </Content>
-                                {isNextGen && op.isOlmV1Extension ? (
-                                  <Content component="small">
-                                    <Button variant="link" isInline onClick={() => openOlmV1Update(op)}>
-                                      Edit channel and version
-                                    </Button>
-                                  </Content>
-                                ) : op.updateAvailable ? (
+                                {!(isNextGen && op.isOlmV1Extension) && op.updateAvailable ? (
                                   <Content component="small">
                                     <Button
                                       variant="link"
