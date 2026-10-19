@@ -70,7 +70,7 @@ export function OlmMigrationStatusPanel({ operator, variant }: OlmMigrationStatu
             </DescriptionListGroup>
           </DescriptionList>
           {state.message ? (
-            <Alert variant="info" isInline title="Prototype note" className="pf-v6-u-mt-md">
+            <Alert variant="info" isInline title="Status message" className="pf-v6-u-mt-md">
               {state.message}
             </Alert>
           ) : null}
@@ -120,8 +120,8 @@ export function OlmMigrationStatusPanel({ operator, variant }: OlmMigrationStatu
         </DescriptionList>
         {operator.olmMigrationActivity === "failed_manual" ? (
           <Alert variant="danger" isInline title="Manual recovery might be required">
-            Automatic rollback does not apply after the point of no return. Review operator conditions
-            and custom resources; restore from backup if CRDs were removed.
+            Automatic rollback is not available for this failure. Review operator conditions and custom
+            resources; restore from backup if CRDs were removed.
           </Alert>
         ) : null}
         {operator.olmMigrationActivity === "failed_rollback" ? (

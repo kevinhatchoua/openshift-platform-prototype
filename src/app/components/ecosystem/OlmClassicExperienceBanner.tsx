@@ -21,7 +21,7 @@ export function OlmClassicExperienceBanner() {
     <Alert
       variant="warning"
       isInline
-      title="Viewing legacy operators"
+      title="Viewing OLM (Classic)"
       className="ocs-olm-classic-experience-banner pf-v6-u-mb-md"
     >
       <Content component="p" className="pf-v6-u-mb-sm">

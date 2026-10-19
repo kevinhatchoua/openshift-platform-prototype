@@ -38,7 +38,7 @@ function defaultBlockersForEligibility(
       {
         code: "already_migrated",
         title: `Already managed by ${OLM_MODE_LABELS.nextgen}`,
-        description: `${op.name} is already under OLMv1 management.`,
+        description: `${op.name} is already managed with OLM v1.`,
         resolution: `Switch to the ${OLM_MODE_LABELS.nextgen} tab to review or update this operator.`,
         actionLabel: `View in ${OLM_MODE_LABELS.nextgen}`,
         actionHref: detailsHref,
@@ -88,7 +88,7 @@ function defaultBlockersForEligibility(
           "The installed version is not compatible with migration prerequisites for this cluster.",
         resolution: op.updateAvailable
           ? `Update to ${op.updateAvailable} or a supported version, then retry migration.`
-          : "Update the operator to a version that supports OLMv1 migration, then retry.",
+          : "Update the operator to a version that supports OLM v1 migration, then retry.",
         actionLabel: op.updateAvailable ? "Update operator" : "View operator details",
         actionHref: op.updateAvailable ? updateHref : detailsHref,
       },
@@ -274,7 +274,7 @@ function presentationForActivity(
         tooltipTitle: "Migration in progress",
         tooltipBody:
           detail ??
-          "Catalog management is moving to Next-Gen Operators. Bundle version does not change. Watch toasts for completion.",
+          `Catalog management is moving to ${OLM_MODE_LABELS.nextgen}. Bundle version does not change. Watch toasts for completion.`,
         showSpinner: true,
       };
     case "failed_rollback":
@@ -284,18 +284,16 @@ function presentationForActivity(
         icon: <AlertCircle aria-hidden />,
         tooltipTitle: "Migration failed — rolled back",
         tooltipBody:
-          detail ??
-          "Migration did not complete before the point of no return. The operator was automatically rolled back to Classic management. Resolve issues and retry.",
+          `The migration library could not finish handover to ${OLM_MODE_LABELS.nextgen}. Management was restored to ${OLM_MODE_LABELS.classic}. Resolve reported issues and retry migration.`,
       };
     case "failed_manual":
       return {
         label: "Failed (manual action required)",
         iconStatus: "danger",
         icon: <AlertCircle aria-hidden />,
-        tooltipTitle: "Migration failed after point of no return",
+        tooltipTitle: "Migration failed — manual action required",
         tooltipBody:
-          detail ??
-          "Automatic rollback does not apply. Review operator conditions, managed resources, and CRDs. Restore from backup if custom resources were removed.",
+          "Automatic rollback is not available for this failure. Review operator conditions, managed resources, and CRDs. Restore from backup if custom resources were removed.",
       };
     case "error":
       return {

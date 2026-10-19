@@ -1352,7 +1352,7 @@ export default function SoftwareCatalogPage() {
                 }
               >
                 {operatorCatalogFilter === "nextgen"
-                  ? `The Next-Gen Operators catalog lists OLMv1 cluster extensions that pass compatibility checks for this cluster. Try adjusting filters or include ${OLM_CATALOG_FACET_LABELS.classic}.`
+                  ? `The ${OLM_CATALOG_FACET_LABELS.nextgen} catalog lists packages that pass compatibility checks for this cluster. Try adjusting filters or include ${OLM_CATALOG_FACET_LABELS.classic}.`
                   : `Try adjusting search or facet filters, or switch the Catalog filter to ${OLM_CATALOG_FACET_LABELS.nextgen}.`}
               </Alert>
             ) : null}

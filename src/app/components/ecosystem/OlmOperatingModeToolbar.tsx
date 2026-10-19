@@ -58,8 +58,8 @@ export function OlmOperatingModeToolbar({
       </Flex>
       <Content component="small" className="ocs-olm-mode-toolbar-hint">
         {mode === "classic"
-          ? `${OLM_MODE_LABELS.classic} shows OLMv0-managed operators and the classic OperatorHub catalog. Your preference applies across Software Catalog and Installed Operators.`
-          : `${OLM_MODE_LABELS.nextgen} shows OLMv1 cluster extensions from a separate catalog filtered for cluster compatibility.`}
+          ? `${OLM_MODE_LABELS.classic} lists operators managed with OLM (Classic) and the OperatorHub catalog. Your preference applies across Software Catalog and Installed Operators.`
+          : `${OLM_MODE_LABELS.nextgen} lists cluster extensions managed with OLM v1 from a catalog filtered for cluster compatibility.`}
       </Content>
       {otherModeOperatorCount > 0 && otherModeLabel ? (
         <Content component="p" className="ocs-olm-mode-cross-hint">

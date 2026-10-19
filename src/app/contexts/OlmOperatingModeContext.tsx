@@ -8,23 +8,29 @@ import {
   type ReactNode,
 } from "react";
 
-/** Console operating mode for OLMv0 (Classic) vs OLMv1 (Next-Gen) experiences. */
+/** Console operating mode for OLM (Classic) vs OLM v1 experiences. */
 export type OlmOperatingMode = "classic" | "nextgen";
 
+/** Short labels for tabs, toggles, and toolbar (docs: OLM (Classic) / OLM v1). */
 export const OLM_MODE_LABELS: Record<OlmOperatingMode, string> = {
-  classic: "Legacy operators",
-  nextgen: "Operators",
+  classic: "OLM (Classic)",
+  nextgen: "OLM v1",
 };
 
+/** Software Catalog → Version facet (includes resource kind in the label). */
 export const OLM_CATALOG_FACET_LABELS: Record<OlmOperatingMode, string> = {
-  classic: "Legacy operators",
-  nextgen: "Operators",
+  classic: "OLM (Classic) operators",
+  nextgen: "OLM v1 cluster extensions",
 };
 
 export const OLM_OPERATOR_PILL_LABELS: Record<"v0" | "v1", string> = {
-  v0: "Legacy operators",
-  v1: "Operators",
+  v0: "OLM (Classic)",
+  v1: "OLM v1",
 };
+
+/** Docs-style migration wizard title (OCPSTRAT / IBM Style). */
+export const OLM_MIGRATION_WIZARD_TITLE =
+  "Migrate OLM (Classic) operators to OLM v1 cluster extensions";
 
 const STORAGE_KEY = "ocp-prototype-olm-operating-mode-v2";
 

@@ -92,7 +92,10 @@ import { OlmV1ExtensionUninstallModals } from "../../components/ecosystem/OlmV1E
 import { OlmV1ExtensionUpdateModal } from "../../components/ecosystem/OlmV1ExtensionUpdateModal";
 import { getMigrationSummaryReason, InstalledOperatorMigrationStatusCell } from "../../components/ecosystem/olmMigrationEligibility";
 import { useOlmOperatingMode, OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
-import { ADDITIONAL_CATALOG_OPERATORS } from "./installedOperatorsFixtureData";
+import {
+  ADDITIONAL_CATALOG_OPERATORS,
+  CLUSTER_EXTENSION_PROTOTYPE_OPERATORS,
+} from "./installedOperatorsFixtureData";
 import type { CatalogOperator } from "./installedOperatorsTypes";
 
 export type { CatalogOperator, OlmMigrationEligibility } from "./installedOperatorsTypes";
@@ -510,52 +513,29 @@ function sortOperatorRows(
         cmp = order[a.status] - order[b.status];
         break;
       }
-      case "clusterCompatibility": {
-        const ta = a.isOlmV1Extension ? 1 : 0;
-        const tb = b.isOlmV1Extension ? 1 : 0;
-        if (ta !== tb) return ta - tb;
-        if (ta === 1) cmp = 0;
-        else cmp = COMPAT_SORT_ORDER[a.clusterCompatibility] - COMPAT_SORT_ORDER[b.clusterCompatibility];
+      case "clusterCompatibility":
+        cmp =
+          COMPAT_SORT_ORDER[a.clusterCompatibility] - COMPAT_SORT_ORDER[b.clusterCompatibility];
         break;
-      }
       case "lastUpdated":
         cmp = parseUpdatedAt(a.lastUpdated) - parseUpdatedAt(b.lastUpdated);
         break;
       case "support": {
-        const ta = a.isOlmV1Extension ? 1 : 0;
-        const tb = b.isOlmV1Extension ? 1 : 0;
-        if (ta !== tb) {
-          cmp = ta - tb;
-          break;
-        }
-        if (ta === 1) cmp = 0;
-        else {
-          cmp =
-            getEntitlementAwareSupportPhaseSortRank(lifecycleA, entitlement) -
-            getEntitlementAwareSupportPhaseSortRank(lifecycleB, entitlement);
-          if (cmp === 0) {
-            cmp =
-              getEntitlementAwarePhaseEndSortTimestamp(lifecycleA, entitlement) -
-              getEntitlementAwarePhaseEndSortTimestamp(lifecycleB, entitlement);
-          }
-        }
-        break;
-      }
-      case "supportPhaseEnd": {
-        const ta = a.isOlmV1Extension ? 1 : 0;
-        const tb = b.isOlmV1Extension ? 1 : 0;
-        if (ta !== tb) {
-          cmp = ta - tb;
-          break;
-        }
-        if (ta === 1) cmp = 0;
-        else {
+        cmp =
+          getEntitlementAwareSupportPhaseSortRank(lifecycleA, entitlement) -
+          getEntitlementAwareSupportPhaseSortRank(lifecycleB, entitlement);
+        if (cmp === 0) {
           cmp =
             getEntitlementAwarePhaseEndSortTimestamp(lifecycleA, entitlement) -
             getEntitlementAwarePhaseEndSortTimestamp(lifecycleB, entitlement);
         }
         break;
       }
+      case "supportPhaseEnd":
+        cmp =
+          getEntitlementAwarePhaseEndSortTimestamp(lifecycleA, entitlement) -
+          getEntitlementAwarePhaseEndSortTimestamp(lifecycleB, entitlement);
+        break;
       default:
         cmp = 0;
     }
@@ -594,7 +574,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
         code: "version_incompatible",
         title: "Operator version not supported for migration",
         description:
-          "Cluster Logging 6.4.3 is below the minimum version required for OLMv1 migration (6.5+).",
+          "Cluster Logging 6.4.3 is below the minimum version required for OLM v1 migration (6.5+).",
         resolution:
           `Update the operator to 6.5.1 or later before migrating management to ${OLM_MODE_LABELS.nextgen}.`,
         actionLabel: "Update operator",
@@ -604,7 +584,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
         code: "install_mode",
         title: "Install mode must be AllNamespaces",
         description:
-          "This operator is installed in a namespace-scoped mode. OLMv1 migration requires AllNamespaces install mode.",
+          "This operator is installed in a namespace-scoped mode. OLM v1 migration requires AllNamespaces install mode.",
         resolution:
           "Change the install mode to AllNamespaces in the operator subscription, then retry migration.",
         actionLabel: "Edit subscription",
@@ -719,7 +699,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     olmMigrationEligibility: "eligible",
     olmMigrationDemoResult: "failed_ponr",
     olmMigrationReason:
-      "Prototype: simulates failure after point of no return (manual recovery required).",
+      "ClusterExtension reports FailedManualRecovery. Review CRDs, operand secrets, and managed resources before retrying.",
   },
   {
     name: "OpenShift DNS",
@@ -835,7 +815,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
         code: "version_incompatible",
         title: "Recommended update available",
         description:
-          "Version 2.6.0 is available and might include fixes required before OLMv1 migration.",
+          "Version 2.6.0 is available and might include fixes required before OLM v1 migration.",
         resolution: "Update to 2.6.0, confirm the operator is healthy, then retry migration.",
         actionLabel: "Update operator",
         actionHref: "/ecosystem/installed-operators/Service%20Mesh/update",
@@ -884,10 +864,10 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     olmMigrationEligibility: "eligible",
     olmMigrationDemoResult: "failed",
     olmMigrationReason:
-      "Migration library could not complete catalog handover (prototype simulated failure).",
+      "Migration library could not complete catalog handover. Resolve operator health issues and retry.",
   },
   {
-    name: "OpenShift GitOps (cluster extension)",
+    name: "OpenShift GitOps",
     namespace: "openshift-gitops-operator",
     version: "1.12.0",
     channel: "gitops-1.12",
@@ -925,6 +905,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     managedNamespaces: ["observability-sample"],
     isOlmV1Extension: true,
   },
+  ...CLUSTER_EXTENSION_PROTOTYPE_OPERATORS,
   ...ADDITIONAL_CATALOG_OPERATORS,
 ];
 
@@ -1136,7 +1117,7 @@ function PhaseEndDateTooltipBody({
         >
           <Content component="p" className="pf-v6-u-mb-0">
             {phase === "Unsupported"
-              ? "This installation is not represented as entitled Red Hat support in this prototype. Confirm subscription and catalog sources before production upgrades."
+              ? "This installation is not represented as entitled Red Hat support. Confirm subscription and catalog sources before production upgrades."
               : "Published support for this operator version has ended. Remaining on this version increases risk when you plan cluster updates."}
           </Content>
           <Flex
@@ -1347,8 +1328,8 @@ function SupportLifecyclePopoverContents({
     return (
       <>
         <Content component="p" className="pf-v6-u-mb-md">
-          This install is not represented as entitled Red Hat support for this prototype row. Confirm your subscription,
-          catalog source, and support agreement in your real environment.
+          This install is not represented as entitled Red Hat support. Confirm your subscription, catalog source, and
+          support agreement before production upgrades.
         </Content>
         <LifecyclePublicScheduleBanner className="pf-v6-u-mb-md" />
         <Divider className="pf-v6-u-my-md" />
@@ -2781,7 +2762,7 @@ export default function InstalledOperatorsPage() {
           labelId="io-manage-cols-title"
           descriptorId="io-manage-cols-body"
           title="Manage columns"
-          description={`Default columns are shown by default. Additional columns include update plan, managed namespaces, catalog version (Yes/No for OLMv1 catalog), and optional row actions. Cluster compatibility, Support phase, and Current phase end date apply on both ${OLM_MODE_LABELS.classic} and ${OLM_MODE_LABELS.nextgen} tabs when lifecycle metadata is available. Operator is always shown.`}
+          description={`Default columns are shown by default. Additional columns include update plan, managed namespaces, catalog version (Yes/No for OLM v1 catalog), and optional row actions. Cluster compatibility, Support phase, and Current phase end date apply on both ${OLM_MODE_LABELS.classic} and ${OLM_MODE_LABELS.nextgen} tabs when lifecycle metadata is available. Operator is always shown.`}
         />
         <ModalBody id="io-manage-cols-body">
           <Flex

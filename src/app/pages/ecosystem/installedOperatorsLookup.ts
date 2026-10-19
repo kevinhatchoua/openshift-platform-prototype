@@ -1,9 +1,10 @@
 import type { CatalogOperator } from "./installedOperatorsTypes";
+import { CLUSTER_EXTENSION_PROTOTYPE_OPERATORS } from "./installedOperatorsFixtureData";
 
 /** Prototype lookup for Installed Operators detail/update flows (subset of list fixture). */
 const PROTOTYPE_INSTALLED_OPERATORS: CatalogOperator[] = [
   {
-    name: "OpenShift GitOps (cluster extension)",
+    name: "OpenShift GitOps",
     namespace: "openshift-gitops-operator",
     version: "1.12.0",
     channel: "gitops-1.12",
@@ -64,7 +65,7 @@ const PROTOTYPE_INSTALLED_OPERATORS: CatalogOperator[] = [
     olmMigrationEligibility: "eligible",
     olmMigrationActivity: "failed_manual",
     olmMigrationActivityDetail:
-      "Migration failed after point of no return. ClusterExtension reports FailedManualRecovery; review CRDs and operand secrets.",
+      "ClusterExtension reports FailedManualRecovery. Review CRDs, operand secrets, and managed resources.",
   },
   {
     name: "Kiali Operator",
@@ -80,7 +81,7 @@ const PROTOTYPE_INSTALLED_OPERATORS: CatalogOperator[] = [
     olmMigrationEligibility: "eligible",
     olmMigrationActivity: "failed_rollback",
     olmMigrationActivityDetail:
-      "Migration failed before point of no return. Library rolled management back to Classic Operators automatically.",
+      "Migration did not complete. Management was rolled back to OLM (Classic) automatically.",
   },
   {
     name: "Elasticsearch Operator",
@@ -101,7 +102,11 @@ const PROTOTYPE_INSTALLED_OPERATORS: CatalogOperator[] = [
 
 export function getPrototypeInstalledOperator(name: string): CatalogOperator | undefined {
   const decoded = decodeURIComponent(name);
-  return PROTOTYPE_INSTALLED_OPERATORS.find(
+  const fromRich = PROTOTYPE_INSTALLED_OPERATORS.find(
+    (op) => op.name === decoded || op.name === name,
+  );
+  if (fromRich) return fromRich;
+  return CLUSTER_EXTENSION_PROTOTYPE_OPERATORS.find(
     (op) => op.name === decoded || op.name === name,
   );
 }

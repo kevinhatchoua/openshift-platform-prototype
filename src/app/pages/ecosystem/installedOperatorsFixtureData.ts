@@ -432,3 +432,60 @@ export const ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
   ...BASE_ADDITIONAL_CATALOG_OPERATORS,
   ...MIGRATION_ELIGIBLE_SCALE_OPERATORS.filter((op) => !EXISTING_OPERATOR_NAMES.has(op.name)),
 ];
+
+const CLUSTER_EXTENSION_OPERATOR_NAMES = [
+  "Argo CD",
+  "Prometheus Operator",
+  "cert-manager",
+  "Elastic Cloud on Kubernetes",
+  "Vault Operator",
+  "Grafana Operator",
+  "OpenTelemetry Operator",
+  "Loki Operator",
+  "Tempo Operator",
+  "Thanos Operator",
+  "Knative Operator",
+  "Submariner",
+  "NVIDIA GPU Operator",
+  "Node Health Check Operator",
+  "File Integrity Operator",
+] as const;
+
+function buildClusterExtensionOperators(): CatalogOperator[] {
+  const channels = ["stable", "alpha", "fast", "preview"] as const;
+  const sources = ["redhat-operators", "community-operators", "certified-operators"] as const;
+  const statuses: CatalogOperator["status"][] = ["Running", "Running", "Running", "Pending", "Failed"];
+
+  return CLUSTER_EXTENSION_OPERATOR_NAMES.map((name, index) => {
+    const slug = name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-|-$/g, "");
+    const major = 1 + (index % 3);
+    const minor = index % 12;
+    const patch = (index * 2) % 9;
+    const namespace = `ce-${slug.slice(0, 24)}`;
+
+    return {
+      name,
+      namespace,
+      version: `${major}.${minor}.${patch}`,
+      channel: channels[index % channels.length],
+      source: sources[index % sources.length],
+      status: statuses[index % statuses.length],
+      autoUpdate: index % 4 !== 0,
+      clusterCompatibility: index % 7 === 0 ? "Incompatible" : "Compatible",
+      compatibilityMessage:
+        index % 7 === 0 ? "Cluster extension compatibility check failed (prototype)." : undefined,
+      lastUpdated: `Mar ${(index % 27) + 1}, 2026, ${(index % 11) + 8}:${String((index * 5) % 60).padStart(2, "0")} AM`,
+      managedNamespaces: [namespace],
+      isOlmV1Extension: true,
+      packageName: slug,
+      versionRange: `>=${major}.${minor}.0 <${major}.${minor + 2}.0`,
+      maxOcpVersion: "5.2",
+    };
+  });
+}
+
+/** Fifteen additional OLM v1 cluster extensions for the Installed Operators next-gen tab. */
+export const CLUSTER_EXTENSION_PROTOTYPE_OPERATORS: CatalogOperator[] = buildClusterExtensionOperators();

@@ -30,7 +30,10 @@ import {
 import type { WizardStepType } from "@patternfly/react-core";
 import { Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import DownloadIcon from "@patternfly/react-icons/dist/esm/icons/download-icon";
-import { OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
+import {
+  OLM_MIGRATION_WIZARD_TITLE,
+  OLM_MODE_LABELS,
+} from "../../contexts/OlmOperatingModeContext";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import type { CatalogOperator, OlmMigrationEligibility } from "../../pages/ecosystem/installedOperatorsTypes";
 import {
@@ -450,7 +453,7 @@ export function OlmOperatorMigrationModal({
     executeBlockers.push("Confirm you reviewed the dry run results.");
   }
   if (!ackPonr) {
-    executeBlockers.push("Confirm you understand point-of-no-return and manual recovery risks.");
+    executeBlockers.push("Confirm you understand manual recovery risks when automatic rollback does not apply.");
   }
   if (!ackBackup) {
     executeBlockers.push("Confirm you have an appropriate cluster backup or recovery plan.");
@@ -460,13 +463,12 @@ export function OlmOperatorMigrationModal({
   }
 
   const wizardStepCount = skipSelectStep ? 2 : 3;
-  const reviewAcknowledgmentsIncomplete = !ackPonr || !ackBackup;
 
   const wizardHeaderTitle = useMemo(() => {
     if (activeWizardStepId === STEP_REVIEW && isSingleOperatorFlow && selectedOperators[0]) {
       return `Execute migration for ${selectedOperators[0].name}?`;
     }
-    return `Migrate operators to ${OLM_MODE_LABELS.nextgen}`;
+    return OLM_MIGRATION_WIZARD_TITLE;
   }, [activeWizardStepId, isSingleOperatorFlow, selectedOperators]);
 
   const wizardHeaderDescription = useMemo(() => {
@@ -483,7 +485,7 @@ export function OlmOperatorMigrationModal({
     if (skipSelectStep) {
       return "Dry run and review migration for the operators you selected on the list. Bundle versions stay the same; only the managing catalog changes.";
     }
-    return "Move operator management to Next-Gen Operators without changing bundle versions. Dry run first, then review before execute.";
+    return "Move operator management from OLM (Classic) to OLM v1 without changing bundle versions. Dry run first, then review before execute.";
   }, [activeWizardStepId, skipSelectStep, wizardStepCount]);
 
   const reset = () => {
@@ -737,7 +739,7 @@ export function OlmOperatorMigrationModal({
               <StackItem>
                 <Content component="small">
                   Out of initial scope: catalog-source migration, namespace deletion in UI, operators with
-                  OLMv1 dependency constraints (filtered below).
+                  OLM v1 dependency constraints (filtered below).
                 </Content>
               </StackItem>
               <StackItem>
@@ -811,9 +813,9 @@ export function OlmOperatorMigrationModal({
             </StackItem>
             {dryRunScenarioPreview ? (
               <StackItem>
-                <Alert variant="info" isInline title="Prototype scenario mock">
-                  Dry run results are driven by the <strong>Migration scenario</strong> toggle on this page
-                  ({olmMigrationScenario}). Use <strong>Interactive</strong> for simulated library output.
+                <Alert variant="info" isInline title="Migration scenario">
+                  Dry run results follow the <strong>Migration scenario</strong> setting on this page (
+                  {olmMigrationScenario}). Use <strong>Interactive</strong> to step through library output.
                 </Alert>
               </StackItem>
             ) : null}
@@ -978,43 +980,13 @@ export function OlmOperatorMigrationModal({
         <WizardStep name="Review and execute" id={STEP_REVIEW}>
           <Stack hasGutter>
             <StackItem>
-              <Alert variant="warning" isInline title="Point of no return">
-                When you start migration, the cluster begins irreversible steps for each operator. The
-                migration library can <strong>automatically roll back</strong> only if failure occurs{" "}
-                <strong>before</strong> the point of no return. After that,{" "}
-                <strong>manual recovery</strong> might be required; custom resources tied to removed CRDs can
-                be lost without a backup.
+              <Alert variant="warning" isInline title="Before you start migration">
+                Starting migration begins cluster changes for each selected operator. The migration library
+                can <strong>automatically roll back</strong> only if failure occurs early in the workflow.
+                Later failures might require <strong>manual recovery</strong>; custom resources tied to removed
+                CRDs can be lost without a backup.
               </Alert>
             </StackItem>
-            <StackItem>
-              <Alert variant="info" isInline title="After migration starts">
-                This dialog closes when you start migration. Track progress in the{" "}
-                <strong>Migration status</strong> column. Failures before the point of no return appear as{" "}
-                <strong>Failed (rolled back)</strong>. Failures after the point of no return appear as{" "}
-                <strong>Failed (manual action required)</strong>.
-              </Alert>
-            </StackItem>
-            {reviewAcknowledgmentsIncomplete ? (
-              <StackItem>
-                <Alert
-                  variant="warning"
-                  isInline
-                  title="Complete required acknowledgments to enable Start migration"
-                  id="olm-migration-execute-prereq"
-                >
-                  <ul className="ocs-olm-migration-modal__prereq-list">
-                    {!ackPonr ? (
-                      <li>
-                        Confirm you understand point-of-no-return and manual recovery risks.
-                      </li>
-                    ) : null}
-                    {!ackBackup ? (
-                      <li>Confirm you have an appropriate cluster backup or recovery plan.</li>
-                    ) : null}
-                  </ul>
-                </Alert>
-              </StackItem>
-            ) : null}
             <StackItem>
               {isSingleOperatorFlow && selectedOperators[0] ? (
                 <Content>
@@ -1036,7 +1008,7 @@ export function OlmOperatorMigrationModal({
                   <StackItem>
                     <Checkbox
                       id="olm-migrate-ack-ponr"
-                      label="I understand that failures after the point of no return require manual intervention and that automatic rollback might not apply."
+                      label="I understand that some migration failures require manual intervention and that automatic rollback might not apply."
                       isChecked={ackPonr}
                       onChange={(_e, checked) => setAckPonr(checked)}
                     />

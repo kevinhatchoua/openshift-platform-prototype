@@ -65,7 +65,7 @@ export async function simulateDryRunScenario(
     type: "progress",
     step: "profile",
     status: "started",
-    message: `[scenario:${scenario}] Profiling selected operators (prototype mock).`,
+    message: `[scenario:${scenario}] Profiling selected operators.`,
   });
 
   await new Promise((resolve) => {

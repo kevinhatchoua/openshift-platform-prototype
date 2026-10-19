@@ -66,7 +66,7 @@ export function toastForMigrationResult(op: CatalogOperator, result: OlmMigratio
     case "failed_ponr":
       return {
         variant: "danger",
-        title: `${op.name}: migration failed after point of no return. Manual recovery might be required.`,
+        title: `${op.name}: migration failed. Manual recovery might be required.`,
       };
     case "error":
       return {

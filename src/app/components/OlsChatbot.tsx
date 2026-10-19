@@ -70,7 +70,7 @@ function installedOperatorsPrecheckDetail(version: string, channel: string): str
     `• **Required before some cluster updates** — Abot Operator-v3.0.0, Airflow Helm Operator\n` +
     `• **Up to date** — Camel K Operator\n\n` +
     `**OLM v1 (cluster extensions)**\n` +
-    `• **Healthy** — OpenShift GitOps (cluster extension)\n` +
+    `• **Healthy** — OpenShift GitOps\n` +
     `• **Conditions pending** — Sample observability bundle (discovery still settling)\n\n` +
     `**Checks performed**\n` +
     `• Subscription / extension status vs. target version\n` +

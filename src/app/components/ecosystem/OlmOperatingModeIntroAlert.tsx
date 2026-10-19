@@ -33,14 +33,14 @@ export function OlmOperatingModeIntroAlert() {
     <Alert
       variant="info"
       isInline
-      title="Two operator catalogs"
+      title="OLM (Classic) and OLM v1"
       actionClose={<AlertActionCloseButton onClose={dismiss} />}
       className="pf-v6-u-mb-md"
     >
       <Content component="p">
-        <strong>{OLM_MODE_LABELS.nextgen}</strong> lists cluster extensions installed with OLM v1.{" "}
-        <strong>{OLM_MODE_LABELS.classic}</strong> lists subscriptions managed with the classic Operator Lifecycle
-        Manager. New cluster extensions install from the Operators software catalog.
+        <strong>{OLM_MODE_LABELS.nextgen}</strong> lists cluster extensions managed with OLM v1.{" "}
+        <strong>{OLM_MODE_LABELS.classic}</strong> lists operators managed with OLM (Classic). Install new OLM v1
+        cluster extensions from the Software Catalog.
       </Content>
     </Alert>
   );

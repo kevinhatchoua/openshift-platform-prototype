@@ -41,9 +41,8 @@ export function OlmMigrationStrategyNotice() {
       }
     >
       <Content component="p" className="pf-v6-u-mb-0">
-        Select operators, run a <strong>dry run</strong> (no cluster changes), then confirm at the{" "}
-        <strong>point of no return</strong> before migration executes. Track progress in the Migration
-        status column.{" "}
+        Select operators, run a <strong>dry run</strong> (no cluster changes), review the plan, then
+        confirm and start migration. Track progress in the Migration status column.{" "}
         <a
           href="https://docs.openshift.com"
           target="_blank"
