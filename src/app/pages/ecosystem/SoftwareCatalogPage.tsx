@@ -19,7 +19,6 @@ import {
 } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import { OlmClassicExperienceBanner } from "../../components/ecosystem/OlmClassicExperienceBanner";
-import { OlmOperatingModeIntroAlert } from "../../components/ecosystem/OlmOperatingModeIntroAlert";
 import CatalogOperatorDetailPanel from "../../components/CatalogOperatorDetailPanel";
 import {
   OLM_CATALOG_FACET_LABELS,
@@ -275,8 +274,8 @@ export default function SoftwareCatalogPage() {
     }
   }, [operatorCatalogFilter, setMode, selectedTypeFacet]);
 
-  const RAW_OPERATORS: Array<Omit<CatalogItem, "catalogType">> = [
-    // OLMv0 Operators (default set - large catalog)
+  const OLM_V0_CATALOG_OPERATORS: Array<Omit<CatalogItem, "catalogType">> = [
+    // OLM (Classic) operators — mirrored in OLM v1 cluster extension catalog below
     {
       id: "abot-operator",
       name: "Abot Operator",
@@ -699,73 +698,20 @@ export default function SoftwareCatalogPage() {
       categories: ["Storage", "Certified"],
       olmVersion: "v0"
     },
-
-    // OLMv1 Operators (new simplified API - smaller set)
-    {
-      id: "argocd-operator-v1",
-      name: "Argo CD",
-      provider: "Argo Project",
-      providerType: "Community",
-      description: "Declarative GitOps continuous delivery for Kubernetes - built with OLMv1 for simpler management",
-      installed: false,
-      categories: ["Operators", "Community"],
-      olmVersion: "v1"
-    },
-    {
-      id: "prometheus-v1",
-      name: "Prometheus Operator",
-      provider: "Prometheus Community",
-      providerType: "Community",
-      description: "Provides Kubernetes native deployment and management of Prometheus and related monitoring components using OLMv1",
-      installed: true,
-      categories: ["Operators", "Community"],
-      olmVersion: "v1"
-    },
-    {
-      id: "cert-manager-v1",
-      name: "cert-manager",
-      provider: "Jetstack",
-      providerType: "Community",
-      description: "Automates the management and issuance of TLS certificates with OLMv1 simplified update control",
-      installed: false,
-      categories: ["Operators", "Community"],
-      olmVersion: "v1"
-    },
-    {
-      id: "elastic-v1",
-      name: "Elastic Cloud on Kubernetes",
-      provider: "Elastic",
-      providerType: "Certified",
-      description: "Orchestrate Elasticsearch, Kibana, APM Server, Enterprise Search, and Beats on Kubernetes with OLMv1",
-      installed: false,
-      hasUpdate: false,
-      categories: ["Operators", "Certified"],
-      olmVersion: "v1"
-    },
-    {
-      id: "vault-v1",
-      name: "Vault Operator",
-      provider: "HashiCorp",
-      providerType: "Certified",
-      description: "Manage HashiCorp Vault in Kubernetes with OLMv1 direct control over upgrade rollouts",
-      installed: true,
-      hasUpdate: true,
-      newVersion: "1.15.0",
-      currentVersion: "1.14.2",
-      categories: ["Operators", "Certified"],
-      olmVersion: "v1"
-    },
-    {
-      id: "grafana-v1",
-      name: "Grafana Operator",
-      provider: "Grafana Labs",
-      providerType: "Community",
-      description: "Kubernetes Operator for Grafana with OLMv1 streamlined API",
-      installed: false,
-      categories: ["Operators", "Community"],
-      olmVersion: "v1"
-    },
   ];
+
+  const OLM_V1_CATALOG_OPERATORS: Array<Omit<CatalogItem, "catalogType">> = OLM_V0_CATALOG_OPERATORS.map(
+    (op) => ({
+      ...op,
+      id: `${op.id}-olm-v1`,
+      olmVersion: "v1",
+      description: op.description.endsWith(".")
+        ? `${op.description.slice(0, -1)} — OLM v1 cluster extension packaging.`
+        : `${op.description} — OLM v1 cluster extension packaging.`,
+    }),
+  );
+
+  const RAW_OPERATORS = [...OLM_V0_CATALOG_OPERATORS, ...OLM_V1_CATALOG_OPERATORS];
 
   const operatorCatalogItems: CatalogItem[] = RAW_OPERATORS.map((o) => ({
     ...o,
@@ -1043,8 +989,6 @@ export default function SoftwareCatalogPage() {
             <strong>Version</strong> ({OLM_CATALOG_FACET_LABELS.nextgen} is the default).
           </p>
         </Content>
-
-        {isOperatorTypeFacet ? <OlmOperatingModeIntroAlert /> : null}
 
         {isOperatorTypeFacet && operatorCatalogFilter === "classic" ? (
           <OlmClassicExperienceBanner />

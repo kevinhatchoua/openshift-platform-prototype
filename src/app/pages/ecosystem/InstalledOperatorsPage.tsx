@@ -74,10 +74,8 @@ import {
   type ListAdvancedAttributeSpec,
 } from "../../components/dataView/ListAdvancedFilterModal";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
-import { OlmOperatingModeIntroAlert } from "../../components/ecosystem/OlmOperatingModeIntroAlert";
 import { OlmOperatingModeTabs } from "../../components/ecosystem/OlmOperatingModeTabs";
 import { OlmClassicExperienceBanner } from "../../components/ecosystem/OlmClassicExperienceBanner";
-import { OlmMigrationStrategyNotice } from "../../components/ecosystem/OlmMigrationStrategyNotice";
 import { OlmOperatorMigrationModal } from "../../components/ecosystem/OlmOperatorMigrationModal";
 import { OlmOperatorRollbackModal } from "../../components/ecosystem/OlmOperatorRollbackModal";
 import {
@@ -2100,9 +2098,7 @@ export default function InstalledOperatorsPage() {
 
             <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
               <OlmOperatingModeTabs id="installed-operators-olm-tabs" />
-              <OlmOperatingModeIntroAlert />
               <OlmClassicExperienceBanner />
-              <OlmMigrationStrategyNotice />
 
               <DataView
               ouiaId="installed-operators-data-view"
