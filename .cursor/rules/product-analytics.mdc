@@ -1,0 +1,13 @@
+---
+description: Product analytics — use project skill for Dataverse, Amplitude, and Jira routing.
+globs:
+alwaysApply: true
+---
+
+# Product Analytics (OpenShift prototype)
+
+When quantitative product or fleet questions come up in this repo:
+
+1. Read `.cursor/skills/product-analytics/SKILL.md` (or `~/.cursor/skills/product-analytics/SKILL.md` if not present).
+2. For Dataverse SQL, also load `~/.cursor/skills/dataverse-query/SKILL.md`.
+3. Never fabricate metrics; report access blockers with Dataverse console links.
