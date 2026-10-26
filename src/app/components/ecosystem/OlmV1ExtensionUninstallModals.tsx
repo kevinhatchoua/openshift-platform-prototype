@@ -23,6 +23,8 @@ type OlmV1ExtensionUninstallModalsProps = {
   operator: CatalogOperator | null;
   kind: UninstallModalKind | null;
   onClose: () => void;
+  /** Called after a successful delete when the user dismisses the completion step. */
+  onRemoved?: (operator: CatalogOperator) => void;
 };
 
 type ModalPhase = "confirm" | "progress" | "complete";
@@ -38,6 +40,7 @@ export function OlmV1ExtensionUninstallModals({
   operator,
   kind,
   onClose,
+  onRemoved,
 }: OlmV1ExtensionUninstallModalsProps) {
   const [phase, setPhase] = useState<ModalPhase>("confirm");
   const [acknowledged, setAcknowledged] = useState(false);
@@ -241,7 +244,16 @@ export function OlmV1ExtensionUninstallModals({
           </>
         ) : null}
         {phase === "complete" ? (
-          <Button key="done" variant="primary" onClick={onClose}>
+          <Button
+            key="done"
+            variant="primary"
+            onClick={() => {
+              if (kind === "delete" && operator) {
+                onRemoved?.(operator);
+              }
+              onClose();
+            }}
+          >
             {primaryLabel}
           </Button>
         ) : null}
