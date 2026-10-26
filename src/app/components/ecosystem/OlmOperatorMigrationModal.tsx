@@ -408,8 +408,7 @@ export function OlmOperatorMigrationModal({
     {},
   );
   const [ackReviewedDryRun, setAckReviewedDryRun] = useState(false);
-  const [ackPonr, setAckPonr] = useState(false);
-  const [ackBackup, setAckBackup] = useState(false);
+  const [ackReadyToExecute, setAckReadyToExecute] = useState(false);
   /** List/bulk/single-row migrate: skip re-selecting operators in the wizard. */
   const [skipSelectStep, setSkipSelectStep] = useState(false);
   const { olmMigrationScenario } = usePrototypeDemo();
@@ -442,21 +441,14 @@ export function OlmOperatorMigrationModal({
   const dryRunScenarioPreview = isDryRunPreviewScenario(olmMigrationScenario);
   const dryRunComplete =
     dryRunPassCount > 0 && dryRunPassCount === selectedOperators.length && !dryRunLoading;
-  const canExecute =
-    ackReviewedDryRun &&
-    ackPonr &&
-    ackBackup &&
-    dryRunComplete;
+  const canExecute = ackReviewedDryRun && ackReadyToExecute && dryRunComplete;
 
   const executeBlockers: string[] = [];
   if (!ackReviewedDryRun) {
     executeBlockers.push("Confirm you reviewed the dry run results.");
   }
-  if (!ackPonr) {
-    executeBlockers.push("Confirm you understand manual recovery risks when automatic rollback does not apply.");
-  }
-  if (!ackBackup) {
-    executeBlockers.push("Confirm you have an appropriate cluster backup or recovery plan.");
+  if (!ackReadyToExecute) {
+    executeBlockers.push("Confirm you are ready to start migration.");
   }
   if (!dryRunComplete) {
     executeBlockers.push("Complete a successful dry run for all selected operators.");
@@ -485,7 +477,7 @@ export function OlmOperatorMigrationModal({
     if (skipSelectStep) {
       return "Dry run and review migration for the operators you selected on the list. Bundle versions stay the same; only the managing catalog changes.";
     }
-    return "Move operator management from OLM (Classic) to OLM v1 without changing bundle versions. Dry run first, then review before execute.";
+    return `Move operator management from ${OLM_MODE_LABELS.classic} to ${OLM_MODE_LABELS.nextgen} without changing bundle versions. Dry run first, then review before execute.`;
   }, [activeWizardStepId, skipSelectStep, wizardStepCount]);
 
   const reset = () => {
@@ -497,8 +489,7 @@ export function OlmOperatorMigrationModal({
     setDryRunLogLines([]);
     setDryRunOperatorPhases({});
     setAckReviewedDryRun(false);
-    setAckPonr(false);
-    setAckBackup(false);
+    setAckReadyToExecute(false);
     setSkipSelectStep(false);
     setActiveWizardStepId(undefined);
   };
@@ -739,7 +730,7 @@ export function OlmOperatorMigrationModal({
               <StackItem>
                 <Content component="small">
                   Out of initial scope: catalog-source migration, namespace deletion in UI, operators with
-                  OLM v1 dependency constraints (filtered below).
+                  cluster extension dependency constraints (filtered below).
                 </Content>
               </StackItem>
               <StackItem>
@@ -981,10 +972,10 @@ export function OlmOperatorMigrationModal({
           <Stack hasGutter>
             <StackItem>
               <Alert variant="warning" isInline title="Before you start migration">
-                Starting migration begins cluster changes for each selected operator. The migration library
-                can <strong>automatically roll back</strong> only if failure occurs early in the workflow.
-                Later failures might require <strong>manual recovery</strong>; custom resources tied to removed
-                CRDs can be lost without a backup.
+                Starting migration begins cluster changes for each selected operator. If migration fails early,
+                the library can <strong>automatically roll back to Classic</strong>. Later failures might
+                require <strong>manual recovery</strong>. You cannot manually roll back to Classic after a
+                successful migration.
               </Alert>
             </StackItem>
             <StackItem>
@@ -1003,25 +994,13 @@ export function OlmOperatorMigrationModal({
               )}
             </StackItem>
             <StackItem>
-              <FormGroup label="Required acknowledgments" isRequired fieldId="olm-migration-ack-group">
-                <Stack hasGutter>
-                  <StackItem>
-                    <Checkbox
-                      id="olm-migrate-ack-ponr"
-                      label="I understand that some migration failures require manual intervention and that automatic rollback might not apply."
-                      isChecked={ackPonr}
-                      onChange={(_e, checked) => setAckPonr(checked)}
-                    />
-                  </StackItem>
-                  <StackItem>
-                    <Checkbox
-                      id="olm-migrate-ack-backup"
-                      label="I have an appropriate cluster backup or recovery plan."
-                      isChecked={ackBackup}
-                      onChange={(_e, checked) => setAckBackup(checked)}
-                    />
-                  </StackItem>
-                </Stack>
+              <FormGroup label="Confirm execution" isRequired fieldId="olm-migration-ack-group">
+                <Checkbox
+                  id="olm-migrate-ack-execute"
+                  label="I reviewed the dry run results and I am ready to start migration. I understand that rollback to Classic only happens automatically if migration fails early, and that I need a backup or recovery plan for manual recovery."
+                  isChecked={ackReadyToExecute}
+                  onChange={(_e, checked) => setAckReadyToExecute(checked)}
+                />
               </FormGroup>
             </StackItem>
           </Stack>

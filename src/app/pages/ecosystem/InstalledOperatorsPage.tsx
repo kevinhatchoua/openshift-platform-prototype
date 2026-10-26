@@ -32,6 +32,9 @@ import {
   Divider,
   Dropdown,
   DropdownItem,
+  EmptyState,
+  EmptyStateActions,
+  EmptyStateBody,
   Flex,
   FlexItem,
   Icon,
@@ -77,7 +80,6 @@ import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDat
 import { OlmOperatingModeTabs } from "../../components/ecosystem/OlmOperatingModeTabs";
 import { OlmClassicExperienceBanner } from "../../components/ecosystem/OlmClassicExperienceBanner";
 import { OlmOperatorMigrationModal } from "../../components/ecosystem/OlmOperatorMigrationModal";
-import { OlmOperatorRollbackModal } from "../../components/ecosystem/OlmOperatorRollbackModal";
 import {
   migrationActivityFromResult,
   runOlmMigrationInBackground,
@@ -90,6 +92,7 @@ import { OlmV1ExtensionUninstallModals } from "../../components/ecosystem/OlmV1E
 import { OlmV1ExtensionUpdateModal } from "../../components/ecosystem/OlmV1ExtensionUpdateModal";
 import { getMigrationSummaryReason, InstalledOperatorMigrationStatusCell } from "../../components/ecosystem/olmMigrationEligibility";
 import { useOlmOperatingMode, OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
+import { NEXT_GEN_CATALOG_PATH } from "../../components/ecosystem/olmCatalogRoutes";
 import {
   ADDITIONAL_CATALOG_OPERATORS,
   CLUSTER_EXTENSION_PROTOTYPE_OPERATORS,
@@ -1397,8 +1400,8 @@ function OlmV1ExtensionSupportPopoverContents() {
   return (
     <>
       <Content component="p" className="pf-v6-u-mb-md">
-        This column reflects Red Hat published phases for <strong>OLM v0</strong> catalog operators.{" "}
-        <strong>OLM v1</strong> cluster extensions use different packaging; use the same policy references and your
+        This column reflects Red Hat published phases for <strong>Classic</strong> catalog operators.{" "}
+        <strong>Cluster extensions</strong> use different packaging; use the same policy references and your
         extension version on the portal to confirm dates.
       </Content>
       <LifecyclePublicScheduleBanner />
@@ -1429,8 +1432,8 @@ function InstalledOperatorSupportPhaseCell({
       <Stack hasGutter>
         {op.isOlmV1Extension ? (
           <StackItem>
-            <Alert variant="info" title="OLM v1 cluster extension" isInline>
-              Lifecycle dates follow the same published schedules as OLM v0 operators when catalog metadata
+            <Alert variant="info" title="Cluster extension" isInline>
+              Lifecycle dates follow the same published schedules as Classic operators when catalog metadata
               is available.
             </Alert>
           </StackItem>
@@ -1548,7 +1551,6 @@ export default function InstalledOperatorsPage() {
   const [migrationModalOpen, setMigrationModalOpen] = useState(false);
   const [migrationInitialOperator, setMigrationInitialOperator] = useState<string | null>(null);
   const [migrationInitialSelection, setMigrationInitialSelection] = useState<string[] | null>(null);
-  const [rollbackTarget, setRollbackTarget] = useState<CatalogOperator | null>(null);
   const { olmMigrationScenario, permission } = usePrototypeDemo();
   const canManageOlmV1 = canManageOlmV1ClusterExtension(permission);
   const { pushToast } = useToast();
@@ -1678,6 +1680,13 @@ export default function InstalledOperatorsPage() {
     [searchAndAttributeFiltered, isNextGen]
   );
 
+  const installedClusterExtensionCount = useMemo(
+    () => operatorsWithCompat.filter((op) => op.isOlmV1Extension === true).length,
+    [operatorsWithCompat],
+  );
+
+  const showClusterExtensionsEmptyState = isNextGen && installedClusterExtensionCount === 0;
+
   const selectedOperatorsList = useMemo(
     () => modeFilteredOperators.filter((op) => selectedOperatorNames.has(op.name)),
     [modeFilteredOperators, selectedOperatorNames],
@@ -1782,22 +1791,6 @@ export default function InstalledOperatorsPage() {
     },
     [startBackgroundMigration],
   );
-
-  const handleRollbackConfirmed = useCallback((operatorName: string) => {
-    setOperators((prev) =>
-      prev.map((op) => {
-        if (op.name !== operatorName || !op.isOlmV1Extension) {
-          return op;
-        }
-        return {
-          ...op,
-          isOlmV1Extension: false,
-          olmMigrationEligibility: "eligible" as const,
-          olmMigrationReason: undefined,
-        };
-      }),
-    );
-  }, []);
 
   const selectedWithUpdates = useMemo(
     () =>
@@ -2100,6 +2093,23 @@ export default function InstalledOperatorsPage() {
               <OlmOperatingModeTabs id="installed-operators-olm-tabs" />
               <OlmClassicExperienceBanner />
 
+              {showClusterExtensionsEmptyState ? (
+                <EmptyState
+                  className="ocs-io-cluster-extensions-empty"
+                  titleText={`No ${OLM_MODE_LABELS.nextgen} installed`}
+                  headingLevel="h2"
+                >
+                  <EmptyStateBody>
+                    Install cluster extensions from the Software Catalog, or migrate Classic operators when
+                    you are ready. If you removed extensions, install again from the catalog.
+                  </EmptyStateBody>
+                  <EmptyStateActions>
+                    <Button variant="primary" component={Link} to={NEXT_GEN_CATALOG_PATH}>
+                      Go to Software Catalog
+                    </Button>
+                  </EmptyStateActions>
+                </EmptyState>
+              ) : (
               <DataView
               ouiaId="installed-operators-data-view"
               className="ocs-io-dataview"
@@ -2149,17 +2159,6 @@ export default function InstalledOperatorsPage() {
                             }}
                             icon={<Columns2 aria-hidden />}
                           />
-                        </ToolbarItem>
-                        <ToolbarItem>
-                          <Button
-                            variant="link"
-                            component={Link}
-                            to="/ecosystem/software-catalog"
-                            icon={<ExternalLink />}
-                            iconPosition="right"
-                          >
-                            Browse Software Catalog
-                          </Button>
                         </ToolbarItem>
                       </ToolbarGroup>
                     }
@@ -2638,15 +2637,6 @@ export default function InstalledOperatorsPage() {
                                   canManageOlmV1 ? (
                                     <>
                                       <DropdownItem
-                                        itemId="rollback-legacy"
-                                        onClick={() => {
-                                          setRollbackTarget(op);
-                                          setOpenKebabIndex(null);
-                                        }}
-                                      >
-                                        Roll back to {OLM_MODE_LABELS.classic}
-                                      </DropdownItem>
-                                      <DropdownItem
                                         itemId="edit-targeting"
                                         onClick={() => {
                                           openOlmV1Update(op);
@@ -2694,6 +2684,7 @@ export default function InstalledOperatorsPage() {
               </InnerScrollContainer>
             </PageSection>
             </DataView>
+              )}
             </Flex>
           </Flex>
             </Breadcrumbs>
@@ -2713,19 +2704,15 @@ export default function InstalledOperatorsPage() {
         initialSelection={migrationInitialSelection}
       />
 
-      <OlmOperatorRollbackModal
-        operator={rollbackTarget}
-        isOpen={rollbackTarget !== null}
-        onClose={() => setRollbackTarget(null)}
-        onRollbackConfirmed={handleRollbackConfirmed}
-      />
-
       <OlmV1ExtensionUninstallModals
         operator={uninstallTarget}
         kind={uninstallModalKind}
         onClose={() => {
           setUninstallTarget(null);
           setUninstallModalKind(null);
+        }}
+        onRemoved={(op) => {
+          setOperators((prev) => prev.filter((row) => row.name !== op.name));
         }}
       />
 
@@ -2758,7 +2745,7 @@ export default function InstalledOperatorsPage() {
           labelId="io-manage-cols-title"
           descriptorId="io-manage-cols-body"
           title="Manage columns"
-          description={`Default columns are shown by default. Additional columns include update plan, managed namespaces, catalog version (Yes/No for OLM v1 catalog), and optional row actions. Cluster compatibility, Support phase, and Current phase end date apply on both ${OLM_MODE_LABELS.classic} and ${OLM_MODE_LABELS.nextgen} tabs when lifecycle metadata is available. Operator is always shown.`}
+          description={`Default columns are shown by default. Additional columns include update plan, managed namespaces, catalog version (Yes/No for cluster extension catalog), and optional row actions. Cluster compatibility, Support phase, and Current phase end date apply on both ${OLM_MODE_LABELS.classic} and ${OLM_MODE_LABELS.nextgen} tabs when lifecycle metadata is available. Operator is always shown.`}
         />
         <ModalBody id="io-manage-cols-body">
           <Flex

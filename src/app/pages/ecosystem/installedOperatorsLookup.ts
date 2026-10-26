@@ -81,7 +81,7 @@ const PROTOTYPE_INSTALLED_OPERATORS: CatalogOperator[] = [
     olmMigrationEligibility: "eligible",
     olmMigrationActivity: "failed_rollback",
     olmMigrationActivityDetail:
-      "Migration did not complete. Management was rolled back to OLM (Classic) automatically.",
+      "Migration did not complete. Management was rolled back to Classic automatically.",
   },
   {
     name: "Elasticsearch Operator",

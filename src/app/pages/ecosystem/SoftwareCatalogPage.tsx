@@ -22,7 +22,6 @@ import { OlmClassicExperienceBanner } from "../../components/ecosystem/OlmClassi
 import CatalogOperatorDetailPanel from "../../components/CatalogOperatorDetailPanel";
 import {
   OLM_CATALOG_FACET_LABELS,
-  OLM_OPERATOR_PILL_LABELS,
   useOlmOperatingMode,
 } from "../../contexts/OlmOperatingModeContext";
 import {
@@ -237,7 +236,7 @@ export default function SoftwareCatalogPage() {
   const [showSidePanel, setShowSidePanel] = useState(false);
   const [selectedCatalogItem, setSelectedCatalogItem] = useState<CatalogItem | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<string[]>([
-    "Version",
+    "Catalog",
     "Type",
     "Capabilities",
     "Source",
@@ -706,8 +705,8 @@ export default function SoftwareCatalogPage() {
       id: `${op.id}-olm-v1`,
       olmVersion: "v1",
       description: op.description.endsWith(".")
-        ? `${op.description.slice(0, -1)} — OLM v1 cluster extension packaging.`
-        : `${op.description} — OLM v1 cluster extension packaging.`,
+        ? `${op.description.slice(0, -1)} — Cluster extension packaging.`
+        : `${op.description} — Cluster extension packaging.`,
     }),
   );
 
@@ -1082,20 +1081,20 @@ export default function SoftwareCatalogPage() {
 
             {isOperatorTypeFacet ? (
               <>
-            {/* Version (OLM v0 vs v1 operator packages) */}
+            {/* Catalog (Classic operators vs cluster extensions) */}
             <div className="mb-[16px]">
               <button
-                onClick={() => toggleCategory("Version")}
+                onClick={() => toggleCategory("Catalog")}
                 className="w-full flex items-center justify-between mb-[8px] text-[14px] font-semibold text-[#151515] dark:text-white"
               >
-                <span>Version</span>
-                {expandedCategories.includes("Version") ? (
+                <span>Catalog</span>
+                {expandedCategories.includes("Catalog") ? (
                   <ChevronUp className="size-[14px]" />
                 ) : (
                   <ChevronDown className="size-[14px]" />
                 )}
               </button>
-              {expandedCategories.includes("Version") && (
+              {expandedCategories.includes("Catalog") && (
                 <div className="space-y-[8px] pl-[4px]">
                   <label className="flex items-center gap-[8px] cursor-pointer text-[14px] text-[#151515] dark:text-white">
                     <input
@@ -1317,21 +1316,13 @@ export default function SoftwareCatalogPage() {
                       boxClassName="size-[40px] rounded-[6px] bg-white dark:bg-[#ececec] flex items-center justify-center p-[6px] shrink-0 border border-[rgba(0,0,0,0.08)] dark:border-[rgba(0,0,0,0.12)]"
                       logoClassName="h-[28px] w-[28px] max-h-[28px] max-w-[28px]"
                     />
-                    <div className="flex flex-col items-end gap-[6px] shrink-0 max-w-[min(148px,48%)]">
-                      {item.catalogType === "operators" && item.olmVersion ? (
-                        <span
-                          className={[
-                            "rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight text-white text-right",
-                            item.olmVersion === "v1" ? "bg-[#0066cc]" : "bg-[#5c5f62]",
-                          ].join(" ")}
-                        >
-                          {OLM_OPERATOR_PILL_LABELS[item.olmVersion]}
+                    {item.catalogType !== "operators" ? (
+                      <div className="flex flex-col items-end gap-[6px] shrink-0 max-w-[min(148px,48%)]">
+                        <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#5c5f62] text-white text-right">
+                          {catalogCardPillLabel(item)}
                         </span>
-                      ) : null}
-                      <span className="rounded-full px-[10px] py-[4px] text-[11px] font-semibold leading-tight bg-[#5c5f62] text-white text-right">
-                        {catalogCardPillLabel(item)}
-                      </span>
-                    </div>
+                      </div>
+                    ) : null}
                   </div>
                   <h3 className="font-['Red_Hat_Display:SemiBold',sans-serif] font-semibold text-[16px] text-[#151515] dark:text-white mb-[8px] leading-snug">
                     {item.name}

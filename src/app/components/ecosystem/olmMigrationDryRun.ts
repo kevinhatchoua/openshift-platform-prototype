@@ -108,7 +108,7 @@ export function buildMigrationDryRunResults(operators: CatalogOperator[]): Migra
       plannedAction,
       targetCatalog,
       summary:
-        "Dry run succeeded. Execute will hand management to the OLM v1 cluster extensions catalog. Operands keep running; the migration library can roll back automatically only if failure occurs early in the workflow.",
+        "Dry run succeeded. Execute will hand management to the cluster extensions catalog. Operands keep running; the migration library can roll back to Classic automatically only if failure occurs early in the workflow.",
       detail,
     };
   });
@@ -170,7 +170,7 @@ export async function simulateMigrationDryRun(
       type: "progress",
       step: "profile",
       status: "started",
-      message: "Profiling selected operators for OLM (Classic) to OLM v1 migration (dry run).",
+      message: "Profiling selected operators for Classic to cluster extension migration (dry run).",
     });
   }
 

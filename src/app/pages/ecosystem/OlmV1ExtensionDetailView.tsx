@@ -119,7 +119,7 @@ function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnT
                       {operator.name}
                     </Title>
                     <Label color="blue" isCompact>
-                      OLM v1 cluster extension
+                      Cluster extension
                     </Label>
                   </Flex>
                   <span className="pf-v6-u-color-200 pf-v6-u-font-size-sm">

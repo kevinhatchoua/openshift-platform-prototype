@@ -44,7 +44,7 @@ function flattenFilterChildren(children: ReactNode): ReactElement[] {
 /**
  * {@link https://github.com/patternfly/react-data-view | @patternfly/react-data-view} `DataViewFilters`
  * Installed Operators: the active filter’s **value** control sits immediately after the attribute
- * menu; advanced filter, manage columns, and Browse Software Catalog follow **after** that pair.
+ * menu; advanced filter and manage columns follow **after** that pair.
  *
  * Unlike stock `DataViewFilters`, filter children may be grouped with `<>...</>`; fragments are
  * flattened so every `DataViewTextFilter` / `DataViewCheckboxFilter` receives `showToolbarItem`.

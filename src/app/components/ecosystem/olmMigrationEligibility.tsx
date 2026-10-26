@@ -38,7 +38,7 @@ function defaultBlockersForEligibility(
       {
         code: "already_migrated",
         title: `Already managed by ${OLM_MODE_LABELS.nextgen}`,
-        description: `${op.name} is already managed with OLM v1.`,
+        description: `${op.name} is already managed as a cluster extension.`,
         resolution: `Switch to the ${OLM_MODE_LABELS.nextgen} tab to review or update this operator.`,
         actionLabel: `View in ${OLM_MODE_LABELS.nextgen}`,
         actionHref: detailsHref,
@@ -88,7 +88,7 @@ function defaultBlockersForEligibility(
           "The installed version is not compatible with migration prerequisites for this cluster.",
         resolution: op.updateAvailable
           ? `Update to ${op.updateAvailable} or a supported version, then retry migration.`
-          : "Update the operator to a version that supports OLM v1 migration, then retry.",
+          : "Update the operator to a version that supports cluster extension migration, then retry.",
         actionLabel: op.updateAvailable ? "Update operator" : "View operator details",
         actionHref: op.updateAvailable ? updateHref : detailsHref,
       },

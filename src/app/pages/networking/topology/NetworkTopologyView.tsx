@@ -641,13 +641,13 @@ export default function NetworkTopologyView({
       if (path) {
         navigate(`${path}?tab=virtualization`, { state: { fromTopology: true, tab: "virtualization" } });
         notify({
-          title: "Opening network Virtualization tab to attach a workload",
+          title: "Opening the Virtual machines tab to attach a workload",
           variant: "info",
         });
         return;
       }
       notify({
-        title: "Attach workload (prototype) — open the network detail page Virtualization tab",
+        title: "Attach workload (prototype) — open the network detail page Virtual machines tab",
         variant: "info",
       });
     },

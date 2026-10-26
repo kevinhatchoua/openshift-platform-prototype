@@ -169,7 +169,7 @@ export default function UdnDetailPage() {
               eventKey="virtualization"
               title={
                 <TabTitleText>
-                  Virtualization <NetworkVmTabBadge count={vmCount} />
+                  Virtual machines <NetworkVmTabBadge count={vmCount} />
                 </TabTitleText>
               }
             />

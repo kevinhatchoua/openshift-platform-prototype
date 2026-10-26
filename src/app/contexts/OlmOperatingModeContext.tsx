@@ -8,31 +8,28 @@ import {
   type ReactNode,
 } from "react";
 
-/** Console operating mode for OLM (Classic) vs OLM v1 experiences. */
+/** Console operating mode: Classic operators vs cluster extensions. */
 export type OlmOperatingMode = "classic" | "nextgen";
 
-/** Short labels for tabs, toggles, and toolbar (docs: OLM (Classic) / OLM v1). */
+/** Tabs, toggles, and cross-page mode labels (what is installed). */
 export const OLM_MODE_LABELS: Record<OlmOperatingMode, string> = {
-  classic: "OLM (Classic)",
-  nextgen: "OLM v1",
+  classic: "Classic operators",
+  nextgen: "Cluster extensions",
 };
 
-/** Software Catalog → Version facet (includes resource kind in the label). */
+/** Software Catalog sidebar facet labels. */
 export const OLM_CATALOG_FACET_LABELS: Record<OlmOperatingMode, string> = {
-  classic: "OLM (Classic) operators",
-  nextgen: "OLM v1 cluster extensions",
+  classic: "Classic operators",
+  nextgen: "Cluster extensions",
 };
 
-export const OLM_OPERATOR_PILL_LABELS: Record<"v0" | "v1", string> = {
-  v0: "OLM (Classic)",
-  v1: "OLM v1",
-};
+/** One-line gloss for Software Catalog and Installed Operators toolbars. */
+export const OLM_MODE_GLOSS =
+  "Classic is subscription-based operators; cluster extensions use the cluster extension catalog. Install new software as cluster extensions; migrate Classic operators when you are ready.";
 
-/** Docs-style migration wizard title (OCPSTRAT / IBM Style). */
-export const OLM_MIGRATION_WIZARD_TITLE =
-  "Migrate OLM (Classic) operators to OLM v1 cluster extensions";
+export const OLM_MIGRATION_WIZARD_TITLE = "Migrate Classic operators to cluster extensions";
 
-const STORAGE_KEY = "ocp-prototype-olm-operating-mode-v2";
+const STORAGE_KEY = "ocp-prototype-olm-operating-mode-v3";
 
 function readMode(): OlmOperatingMode {
   try {
