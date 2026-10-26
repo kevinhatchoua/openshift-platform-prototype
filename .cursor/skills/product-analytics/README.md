@@ -4,9 +4,9 @@ Routes quantitative product questions to **Dataverse**, **Amplitude**, **Jira**,
 
 ## Team playbook (read this first)
 
-**[Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1DqvUgYkrDhoZMbOWMH6z_mh4_82WRiKiF1dymfjesWk/edit)** — step-by-step setup for humans and a **Part 3** section for AI assistants to finish configuration end-to-end.
+**[Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit)** — formatted team playbook: **Part 1** for humans, **Part 2** for Cursor, **Part 3** for Claude Code.
 
-To hand off to Cursor Agent, paste the copy-paste prompt in **Part 3** of that Doc.
+To hand off setup, paste the copy-paste prompt in **Part 2** (Cursor) or **Part 3** (Claude) of that Doc.
 
 ## First-time setup (short)
 

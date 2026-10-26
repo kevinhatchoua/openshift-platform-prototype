@@ -4,7 +4,7 @@ Use these as the canonical references when extending or reviewing `product-analy
 
 ## Team playbook
 
-- [Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1DqvUgYkrDhoZMbOWMH6z_mh4_82WRiKiF1dymfjesWk/edit) (setup process for Cursor / Claude)
+- [Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit) (setup process for Cursor / Claude)
 
 ## Tailwind Domain 0 (installer, MCP, Lola)
 

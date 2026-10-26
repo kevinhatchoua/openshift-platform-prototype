@@ -2,7 +2,7 @@
 
 ## Team playbook (canonical process doc)
 
-- Google Doc: https://docs.google.com/document/d/1DqvUgYkrDhoZMbOWMH6z_mh4_82WRiKiF1dymfjesWk/edit
+- Google Doc: https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit
 
 ## Informing sources (full list)
 

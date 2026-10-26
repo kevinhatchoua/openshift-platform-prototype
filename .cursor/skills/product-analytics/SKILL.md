@@ -26,7 +26,7 @@ Quantitative product questions at Red Hat must use **approved tools and skills**
 APIs or fabricated numbers. This skill is the router and quality gate; specialized skills
 handle execution.
 
-**Setup:** [Team Playbook (Google Doc)](https://docs.google.com/document/d/1DqvUgYkrDhoZMbOWMH6z_mh4_82WRiKiF1dymfjesWk/edit) — humans start at *Start here*; **AI assistants must follow Part 3** in that Doc to complete configuration. **Sources:** [references/informing-sources.md](references/informing-sources.md).
+**Setup:** [Team Playbook (Google Doc)](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit) — humans read **Part 1**; Cursor agents follow **Part 2**; Claude Code agents follow **Part 3**. **Sources:** [references/informing-sources.md](references/informing-sources.md).
 
 ## When to use
 
@@ -130,7 +130,7 @@ How many HPUX stories shipped networking in Q3?
 | This skill (UXD repo) | `skills/product-analytics/SKILL.md` in [uxd-productivity-skills](https://gitlab.cee.redhat.com/uxd/uxd-productivity-skills) |
 | Dataverse SQL rules | [tailwind-pm dataverse-query](https://gitlab.cee.redhat.com/tailwind/tailwind-pm/-/blob/main/skills/dataverse-query/SKILL.md) |
 | Slash command | `/tailwind-pm:dataverse-query` (fleet SQL only) |
-| Team setup guide | [Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1DqvUgYkrDhoZMbOWMH6z_mh4_82WRiKiF1dymfjesWk/edit) |
+| Team setup guide | [Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit) |
 
 ## Escalation
 
