@@ -30,11 +30,6 @@ export function useOlmV1ExtensionLifecycleActions({
   const [uninstallKind, setUninstallKind] = useState<"unsubscribe" | "delete" | null>(null);
   const [editOpen, setEditOpen] = useState(false);
 
-  const openUnsubscribe = useCallback(() => {
-    setUninstallKind("unsubscribe");
-    setActionsOpen(false);
-  }, []);
-
   const openDelete = useCallback(() => {
     setUninstallKind("delete");
     setActionsOpen(false);
@@ -43,6 +38,11 @@ export function useOlmV1ExtensionLifecycleActions({
   const openEdit = useCallback(() => {
     setEditOpen(true);
     setActionsOpen(false);
+  }, []);
+
+  const openUnsubscribeFromEdit = useCallback(() => {
+    setEditOpen(false);
+    setUninstallKind("unsubscribe");
   }, []);
 
   const closeUninstall = useCallback(() => setUninstallKind(null), []);
@@ -60,11 +60,8 @@ export function useOlmV1ExtensionLifecycleActions({
       )}
     >
       <DropdownList>
-        <DropdownItem itemId="edit-targeting" onClick={openEdit}>
-          Edit channel and version
-        </DropdownItem>
-        <DropdownItem itemId="unsubscribe" onClick={openUnsubscribe}>
-          Unsubscribe from updates
+        <DropdownItem itemId="manage-updates" onClick={openEdit}>
+          Manage updates
         </DropdownItem>
         <DropdownItem itemId="delete" className="pf-m-danger" onClick={openDelete}>
           Delete extension and managed resources
@@ -85,6 +82,7 @@ export function useOlmV1ExtensionLifecycleActions({
         isOpen={editOpen}
         onClose={closeEdit}
         onComplete={(_op, spec) => onSpecUpdated?.(spec)}
+        onRequestUnsubscribe={openUnsubscribeFromEdit}
       />
     </>
   );
@@ -117,11 +115,12 @@ export function OlmV1ExtensionEditHintAlert({
   }
 
   return (
-    <Alert variant="info" title="Change extension targeting" isInline>
+    <Alert variant="info" title="Manage updates" isInline>
       <Button variant="link" isInline onClick={onEdit}>
-        Edit channel and version
+        Manage updates
       </Button>{" "}
-      to move this cluster extension to a different release. Automatic update discovery is not available in OCP 5.1.
+      to change channel and version or unsubscribe from catalog updates. Automatic update discovery is not available in
+      OCP 5.1.
     </Alert>
   );
 }

@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
+  Content,
+  Divider,
   Flex,
   Form,
   Modal,
@@ -25,6 +27,8 @@ type OlmV1ExtensionUpdateModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onComplete?: (operator: CatalogOperator, spec: OlmV1ClusterExtensionSpec) => void;
+  /** Opens unsubscribe flow (same operator); modal closes first. */
+  onRequestUnsubscribe?: () => void;
 };
 
 type ModalPhase = "edit" | "progress" | "complete";
@@ -40,6 +44,7 @@ export function OlmV1ExtensionUpdateModal({
   isOpen,
   onClose,
   onComplete,
+  onRequestUnsubscribe,
 }: OlmV1ExtensionUpdateModalProps) {
   const [phase, setPhase] = useState<ModalPhase>("edit");
   const [spec, setSpec] = useState<OlmV1ClusterExtensionSpec>(() => defaultClusterExtensionSpec());
@@ -96,7 +101,7 @@ export function OlmV1ExtensionUpdateModal({
       <ModalHeader
         title={
           <span id="olm-v1-edit-title">
-            {phase === "complete" ? "Changes applied" : "Edit cluster extension targeting"}
+            {phase === "complete" ? "Changes applied" : "Manage updates"}
           </span>
         }
       />
@@ -118,6 +123,17 @@ export function OlmV1ExtensionUpdateModal({
                 />
               </Form>
             </StackItem>
+            {onRequestUnsubscribe ? (
+              <StackItem>
+                <Divider />
+                <Content component="p" className="pf-v6-u-mt-md pf-v6-u-mb-sm pf-v6-u-color-200">
+                  Stop receiving catalog updates without removing the extension or managed resources.
+                </Content>
+                <Button variant="secondary" onClick={onRequestUnsubscribe}>
+                  Unsubscribe from updates
+                </Button>
+              </StackItem>
+            ) : null}
           </Stack>
         ) : null}
 

@@ -24,6 +24,9 @@ type DualModeCreateLayoutProps = {
   onYamlChange: (value: string) => void;
   yamlError: string | null;
   hasUnmappedContent: boolean;
+  /** Override default form/YAML banner copy (console ClusterExtension create). */
+  formBannerTitle?: string;
+  formBannerBody?: string;
   schemaTitle: string;
   schemaFields: YamlSchemaField[];
   children: React.ReactNode;
@@ -36,6 +39,8 @@ export function DualModeCreateLayout({
   onYamlChange,
   yamlError,
   hasUnmappedContent,
+  formBannerTitle,
+  formBannerBody,
   schemaTitle,
   schemaFields,
   children,
@@ -66,11 +71,11 @@ export function DualModeCreateLayout({
       {hasUnmappedContent ? (
         <Alert
           variant="info"
-          title="Some fields may not be represented in the form view."
+          title={formBannerTitle ?? "Some fields may not be represented in the form view."}
           isInline
           className="ocs-dual-mode-create__banner"
         >
-          Select YAML view for full control of unrecognized configuration.
+          {formBannerBody ?? "Select YAML view for full control of unrecognized configuration."}
         </Alert>
       ) : null}
 

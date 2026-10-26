@@ -2585,22 +2585,18 @@ export default function InstalledOperatorsPage() {
                                 >
                                   Update
                                 </DropdownItem>
-                                <DropdownItem
-                                  itemId="subscription"
-                                  isDisabled={isNextGen && op.isOlmV1Extension}
-                                  tooltip={
-                                    isNextGen && op.isOlmV1Extension
-                                      ? "Cluster extensions use extension targeting instead of a subscription"
-                                      : undefined
-                                  }
-                                  onClick={() =>
-                                    navigate(
-                                      `/ecosystem/installed-operators/${encodeURIComponent(op.name)}/subscription`
-                                    )
-                                  }
-                                >
-                                  Edit subscription
-                                </DropdownItem>
+                                {!(isNextGen && op.isOlmV1Extension) ? (
+                                  <DropdownItem
+                                    itemId="subscription"
+                                    onClick={() =>
+                                      navigate(
+                                        `/ecosystem/installed-operators/${encodeURIComponent(op.name)}/subscription`,
+                                      )
+                                    }
+                                  >
+                                    Edit subscription
+                                  </DropdownItem>
+                                ) : null}
                                 {isClassic && !op.isOlmV1Extension ? (
                                   <>
                                     <DropdownItem
@@ -2637,23 +2633,13 @@ export default function InstalledOperatorsPage() {
                                   canManageOlmV1 ? (
                                     <>
                                       <DropdownItem
-                                        itemId="edit-targeting"
+                                        itemId="manage-updates"
                                         onClick={() => {
                                           openOlmV1Update(op);
                                           setOpenKebabIndex(null);
                                         }}
                                       >
-                                        Edit channel and version
-                                      </DropdownItem>
-                                      <DropdownItem
-                                        itemId="unsubscribe"
-                                        onClick={() => {
-                                          setUninstallTarget(op);
-                                          setUninstallModalKind("unsubscribe");
-                                          setOpenKebabIndex(null);
-                                        }}
-                                      >
-                                        Unsubscribe from updates
+                                        Manage updates
                                       </DropdownItem>
                                       <DropdownItem
                                         itemId="delete-extension"
@@ -2731,6 +2717,13 @@ export default function InstalledOperatorsPage() {
                 : row,
             ),
           );
+        }}
+        onRequestUnsubscribe={() => {
+          setUpdateModalOpen(false);
+          if (updateTarget) {
+            setUninstallTarget(updateTarget);
+            setUninstallModalKind("unsubscribe");
+          }
         }}
       />
 

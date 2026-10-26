@@ -3,21 +3,22 @@ import { Link, useLocation, useNavigate, useParams } from "react-router";
 import {
   ActionGroup,
   Button,
-  ExpandableSection,
   Form,
   FormGroup,
-  FormSelect,
-  FormSelectOption,
+  FormHelperText,
+  HelperText,
+  HelperTextItem,
+  Label,
+  LabelGroup,
+  Radio,
   TextInput,
   Title,
 } from "@patternfly/react-core";
+import OutlinedQuestionCircleIcon from "@patternfly/react-icons/dist/esm/icons/outlined-question-circle-icon";
+import PencilAltIcon from "@patternfly/react-icons/dist/esm/icons/pencil-alt-icon";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import { OlmV1ClusterExtensionSpecFields } from "../../components/ecosystem/OlmV1ClusterExtensionSpecFields";
-import {
-  buildClusterExtensionYaml,
-  defaultClusterExtensionSpec,
-  type OlmV1ClusterExtensionSpec,
-} from "../../components/ecosystem/olmV1ClusterExtensionSpec";
+import FavoriteButton from "../../components/FavoriteButton";
+import { buildClusterExtensionYaml } from "../../components/ecosystem/olmV1ClusterExtensionSpec";
 import { DualModeCreateLayout } from "../networking/DualModeCreateLayout";
 import type { ConfigureViewMode } from "../networking/useSyncedFormYaml";
 import {
@@ -25,25 +26,15 @@ import {
   type ClusterExtensionCreateState,
 } from "./operatorCatalogInstallState";
 
-const NAMESPACE_OPTIONS = [
-  "openshift-operators",
-  "openshift-gitops-operator",
-  "cert-manager-operator",
-];
-
-const SERVICE_ACCOUNT_OPTIONS = [
-  "cluster-extension-controller",
-  "default",
-  "openshift-gitops-operator-controller-manager",
-];
-
 const YAML_SCHEMA_FIELDS = [
   { name: "spec.packageName", type: "string", description: "Catalog package name for the extension." },
-  { name: "spec.channel", type: "string", description: "Target channel (manual entry in 5.1)." },
-  { name: "spec.version", type: "string", description: "Target version." },
-  { name: "spec.versionRange", type: "string", description: "Optional semver range constraint." },
+  { name: "spec.version", type: "string", description: "Exact version or semver range." },
+  { name: "spec.channels", type: "string", description: "Target channels (for example, stable, beta)." },
+  { name: "spec.catalogs", type: "array", description: "Catalog sources used to resolve the package." },
   { name: "spec.serviceAccountName", type: "string", description: "Service account used by the extension controller." },
 ];
+
+const DEFAULT_CATALOGS = ["openshift-redhat-operators"];
 
 function slugFromName(name: string): string {
   return name
@@ -53,36 +44,61 @@ function slugFromName(name: string): string {
     .slice(0, 63);
 }
 
+function FieldLabel({ label, help }: { label: string; help?: string }) {
+  return (
+    <span className="ocs-cluster-extension-create__label">
+      {label}
+      {help ? (
+        <Button
+          variant="plain"
+          aria-label={`More information about ${label}`}
+          className="ocs-cluster-extension-create__help"
+          icon={<OutlinedQuestionCircleIcon aria-hidden />}
+        />
+      ) : null}
+    </span>
+  );
+}
+
 export default function ClusterExtensionCreatePage() {
   const { operatorId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
   const catalog = readClusterExtensionCreateState(operatorId, location.state);
 
-  const defaultExtensionName = useMemo(
-    () => slugFromName(catalog.name) || "new-cluster-extension",
-    [catalog.name],
-  );
-  const defaultPackage = useMemo(() => slugFromName(catalog.name) || "fancy-operator", [catalog.name]);
+  const defaultSlug = useMemo(() => slugFromName(catalog.name) || "advanced-cluster-management", [catalog.name]);
 
   const [viewMode, setViewMode] = useState<ConfigureViewMode>("form");
-  const [extensionName, setExtensionName] = useState(defaultExtensionName);
-  const [packageName, setPackageName] = useState(defaultPackage);
-  const [namespace, setNamespace] = useState("");
-  const [serviceAccount, setServiceAccount] = useState("");
-  const [advancedOpen, setAdvancedOpen] = useState(false);
-  const [spec, setSpec] = useState<OlmV1ClusterExtensionSpec>(() => defaultClusterExtensionSpec());
+  const [extensionName, setExtensionName] = useState(defaultSlug);
+  const [packageName, setPackageName] = useState(defaultSlug);
+  const [namespaceMode, setNamespaceMode] = useState<"auto" | "select">("auto");
+  const [autoNamespace, setAutoNamespace] = useState(defaultSlug);
+  const [editingNamespace, setEditingNamespace] = useState(false);
+  const [saMode, setSaMode] = useState<"auto" | "select">("auto");
+  const [autoServiceAccount, setAutoServiceAccount] = useState(`${defaultSlug}-service-account`);
+  const [editingServiceAccount, setEditingServiceAccount] = useState(false);
+  const [versionOrRange, setVersionOrRange] = useState("2.17.0");
+  const [channels, setChannels] = useState("");
+  const [catalogs, setCatalogs] = useState<string[]>(DEFAULT_CATALOGS);
   const [yamlText, setYamlText] = useState("");
+
+  const namespace = namespaceMode === "auto" ? autoNamespace : "";
+  const serviceAccountName = saMode === "auto" ? autoServiceAccount : "";
 
   const formPayload = useMemo(
     () => ({
       name: extensionName,
       packageName,
       namespace,
-      serviceAccountName: serviceAccount,
-      spec,
+      serviceAccountName,
+      spec: {
+        channel: channels.split(",")[0]?.trim() || "stable",
+        version: versionOrRange,
+        versionRange: versionOrRange,
+      },
+      catalogs,
     }),
-    [extensionName, packageName, namespace, serviceAccount, spec],
+    [extensionName, packageName, namespace, serviceAccountName, channels, versionOrRange, catalogs],
   );
 
   useEffect(() => {
@@ -95,9 +111,9 @@ export default function ClusterExtensionCreatePage() {
     extensionName.trim().length > 0 &&
     packageName.trim().length > 0 &&
     namespace.length > 0 &&
-    serviceAccount.length > 0 &&
-    spec.channel.trim().length > 0 &&
-    spec.version.trim().length > 0;
+    serviceAccountName.length > 0 &&
+    versionOrRange.trim().length > 0 &&
+    catalogs.length > 0;
 
   const handleSubmit = () => {
     const payload: ClusterExtensionCreateState = {
@@ -106,29 +122,40 @@ export default function ClusterExtensionCreatePage() {
       extensionName,
       packageName,
       namespace,
-      serviceAccountName: serviceAccount,
-      channel: spec.channel,
-      version: spec.version,
-      versionRange: spec.versionRange,
+      serviceAccountName,
+      channel: channels.split(",")[0]?.trim() || "stable",
+      version: versionOrRange,
+      versionRange: versionOrRange,
     };
     navigate(`/ecosystem/software-catalog/${catalog.id}/installing`, { state: payload });
   };
+
+  const removeCatalog = (value: string) => {
+    setCatalogs((prev) => prev.filter((c) => c !== value));
+  };
+
+  const favoritePath = `/ecosystem/software-catalog/${catalog.id}/create-cluster-extension`;
 
   return (
     <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">
       <Breadcrumbs
         items={[
-          { label: "Ecosystem", path: "/ecosystem" },
           { label: "Software Catalog", path: "/ecosystem/software-catalog?catalog=nextgen" },
           { label: "Create ClusterExtension" },
         ]}
       >
-        <Title headingLevel="h1" size="2xl" className="pf-v6-u-mb-sm">
-          Create ClusterExtension
-        </Title>
-        <p className="pf-v6-u-mb-lg pf-v6-u-color-200">
-          Add and configure custom resources for your project.
-        </p>
+        <div className="ocs-cluster-extension-create__header-row pf-v6-u-mb-md">
+          <div>
+            <Title headingLevel="h1" size="2xl" className="pf-v6-u-mb-sm">
+              Create ClusterExtension
+            </Title>
+            <p className="pf-v6-u-color-200">
+              Create a ClusterExtension to add functionality to your cluster. Operator Lifecycle Manager v1
+              manages ClusterExtensions.
+            </p>
+          </div>
+          <FavoriteButton name={`Create ${catalog.name}`} path={favoritePath} />
+        </div>
 
         <div className="ocs-cluster-extension-create pf-v6-u-pb-xl">
           <DualModeCreateLayout
@@ -138,74 +165,192 @@ export default function ClusterExtensionCreatePage() {
             onYamlChange={setYamlText}
             yamlError={null}
             hasUnmappedContent
+            formBannerTitle="Some fields might not be displayed in this form."
+            formBannerBody="Select YAML view to edit all fields."
             schemaTitle="ClusterExtension"
             schemaFields={YAML_SCHEMA_FIELDS}
           >
             <Form>
-              <FormGroup label="ClusterExtension name" isRequired fieldId="ce-name">
+              <FormGroup label="Name" isRequired fieldId="ce-name">
                 <TextInput
                   id="ce-name"
                   value={extensionName}
                   onChange={(_e, v) => setExtensionName(v)}
-                  aria-label="ClusterExtension name"
+                  aria-label="Name"
                 />
               </FormGroup>
 
-              <FormGroup label="Package name" isRequired fieldId="ce-package">
+              <FormGroup
+                label={<FieldLabel label="Package name" help />}
+                isRequired
+                fieldId="ce-package"
+              >
                 <TextInput
                   id="ce-package"
                   value={packageName}
                   onChange={(_e, v) => setPackageName(v)}
                   aria-label="Package name"
                 />
-                <p className="pf-v6-u-mt-sm pf-v6-u-font-size-sm pf-v6-u-color-200">
-                  This is the key for finding the desired package.
-                </p>
               </FormGroup>
 
-              <FormGroup label="Namespace" isRequired fieldId="ce-namespace">
-                <FormSelect
-                  id="ce-namespace"
-                  aria-label="Namespace"
-                  value={namespace}
-                  onChange={(_e, v) => setNamespace(v)}
-                >
-                  <FormSelectOption value="" label="Select a namespace" />
-                  {NAMESPACE_OPTIONS.map((ns) => (
-                    <FormSelectOption key={ns} value={ns} label={ns} />
-                  ))}
-                </FormSelect>
-                <p className="pf-v6-u-mt-sm pf-v6-u-font-size-sm pf-v6-u-color-200">
-                  We strongly suggest that you create a new namespace for each ClusterExtension you install.
-                </p>
-              </FormGroup>
-
-              <FormGroup label="Service account name" isRequired fieldId="ce-sa">
-                <FormSelect
-                  id="ce-sa"
-                  aria-label="Service account name"
-                  value={serviceAccount}
-                  onChange={(_e, v) => setServiceAccount(v)}
-                >
-                  <FormSelectOption value="" label="Select a service account name" />
-                  {SERVICE_ACCOUNT_OPTIONS.map((sa) => (
-                    <FormSelectOption key={sa} value={sa} label={sa} />
-                  ))}
-                </FormSelect>
-              </FormGroup>
-
-              <ExpandableSection
-                toggleText={advancedOpen ? "Advanced configuration" : "Advanced configuration"}
-                onToggle={(_e, open) => setAdvancedOpen(open)}
-                isExpanded={advancedOpen}
-                className="pf-v6-u-mt-md pf-v6-u-mb-md"
+              <FormGroup
+                label="Namespace"
+                isRequired
+                fieldId="ce-namespace"
               >
-                <OlmV1ClusterExtensionSpecFields idPrefix="ce-create-advanced" value={spec} onChange={setSpec} />
-              </ExpandableSection>
+                <FormHelperText>
+                  <HelperText>
+                    <HelperTextItem>
+                      Namespace for the operator controller, manifest, etc. A dedicated operator namespace is
+                      recommended.
+                    </HelperTextItem>
+                  </HelperText>
+                </FormHelperText>
+                <Radio
+                  id="ce-ns-auto"
+                  name="ce-namespace"
+                  isChecked={namespaceMode === "auto"}
+                  onChange={() => setNamespaceMode("auto")}
+                  label={
+                    <span className="ocs-cluster-extension-create__auto-row">
+                      Automatically create a new Namespace:{" "}
+                      {editingNamespace ? (
+                        <TextInput
+                          id="ce-ns-auto-edit"
+                          value={autoNamespace}
+                          onChange={(_e, v) => setAutoNamespace(v)}
+                          aria-label="Namespace name"
+                          className="ocs-cluster-extension-create__inline-input"
+                        />
+                      ) : (
+                        <strong>{autoNamespace}</strong>
+                      )}
+                      <Button
+                        variant="plain"
+                        aria-label="Edit namespace name"
+                        icon={<PencilAltIcon />}
+                        onClick={() => setEditingNamespace((v) => !v)}
+                      />
+                    </span>
+                  }
+                />
+                <Radio
+                  id="ce-ns-select"
+                  name="ce-namespace"
+                  className="pf-v6-u-mt-sm"
+                  label="Select from cluster"
+                  isChecked={namespaceMode === "select"}
+                  isDisabled
+                  onChange={() => setNamespaceMode("select")}
+                />
+              </FormGroup>
+
+              <FormGroup label="Service Account" isRequired fieldId="ce-sa">
+                <FormHelperText>
+                  <HelperText>
+                    <HelperTextItem>
+                      Service account must be in the selected namespace. A dedicated service account for the
+                      operator is recommended.
+                    </HelperTextItem>
+                  </HelperText>
+                </FormHelperText>
+                <Radio
+                  id="ce-sa-auto"
+                  name="ce-service-account"
+                  isChecked={saMode === "auto"}
+                  onChange={() => setSaMode("auto")}
+                  label={
+                    <span className="ocs-cluster-extension-create__auto-row">
+                      Automatically create a new ServiceAccount:{" "}
+                      {editingServiceAccount ? (
+                        <TextInput
+                          id="ce-sa-auto-edit"
+                          value={autoServiceAccount}
+                          onChange={(_e, v) => setAutoServiceAccount(v)}
+                          aria-label="Service account name"
+                          className="ocs-cluster-extension-create__inline-input"
+                        />
+                      ) : (
+                        <strong>{autoServiceAccount}</strong>
+                      )}
+                      <Button
+                        variant="plain"
+                        aria-label="Edit service account name"
+                        icon={<PencilAltIcon />}
+                        onClick={() => setEditingServiceAccount((v) => !v)}
+                      />
+                    </span>
+                  }
+                />
+                <Radio
+                  id="ce-sa-select"
+                  name="ce-service-account"
+                  className="pf-v6-u-mt-sm"
+                  label="Select from cluster"
+                  isChecked={saMode === "select"}
+                  isDisabled
+                  onChange={() => setSaMode("select")}
+                />
+              </FormGroup>
+
+              <FormGroup
+                label={<FieldLabel label="Version or Version range" help />}
+                fieldId="ce-version"
+              >
+                <TextInput
+                  id="ce-version"
+                  value={versionOrRange}
+                  onChange={(_e, v) => setVersionOrRange(v)}
+                  aria-label="Version or Version range"
+                />
+                <FormHelperText>
+                  <HelperText>
+                    <HelperTextItem>
+                      For example, 1.2.3 for an exact version, or &gt;1.2.3 &lt;1.4.5 for a range
+                    </HelperTextItem>
+                  </HelperText>
+                </FormHelperText>
+              </FormGroup>
+
+              <FormGroup label={<FieldLabel label="Channels" help />} fieldId="ce-channels">
+                <TextInput
+                  id="ce-channels"
+                  value={channels}
+                  onChange={(_e, v) => setChannels(v)}
+                  aria-label="Channels"
+                />
+                <FormHelperText>
+                  <HelperText>
+                    <HelperTextItem>For example, stable, beta</HelperTextItem>
+                  </HelperText>
+                </FormHelperText>
+              </FormGroup>
+
+              <FormGroup label={<FieldLabel label="Catalogs" help />} fieldId="ce-catalogs">
+                <div className="ocs-cluster-extension-create__catalogs">
+                  <LabelGroup>
+                    {catalogs.map((cat) => (
+                      <Label key={cat} color="blue" onClose={() => removeCatalog(cat)}>
+                        {cat}
+                      </Label>
+                    ))}
+                  </LabelGroup>
+                  {catalogs.length > 0 ? (
+                    <Button variant="link" isInline onClick={() => setCatalogs([])}>
+                      Clear all
+                    </Button>
+                  ) : null}
+                </div>
+                <FormHelperText>
+                  <HelperText>
+                    <HelperTextItem>Package will only be resolved from specified catalogs.</HelperTextItem>
+                  </HelperText>
+                </FormHelperText>
+              </FormGroup>
 
               <ActionGroup>
                 <Button variant="primary" isDisabled={!canSubmit} onClick={handleSubmit}>
-                  Submit
+                  Create
                 </Button>
                 <Button variant="link" component={Link} to="/ecosystem/software-catalog?catalog=nextgen">
                   Cancel
