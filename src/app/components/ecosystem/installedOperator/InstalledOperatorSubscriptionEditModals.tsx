@@ -9,6 +9,7 @@ import {
   ModalBody,
   ModalFooter,
   ModalHeader,
+  Radio,
 } from "@patternfly/react-core";
 import type { SubscriptionChannelCatalog } from "./installedOperatorSubscriptionState";
 
@@ -55,8 +56,9 @@ export function UpdateChannelModal({
 
   return (
     <Modal variant="small" isOpen={isOpen} onClose={onClose} aria-labelledby="sub-edit-channel-title">
-      <ModalHeader title={<span id="sub-edit-channel-title">Edit update channel</span>} />
+      <ModalHeader title={<span id="sub-edit-channel-title">Change Subscription update channel</span>} />
       <ModalBody>
+        <p className="pf-v6-u-mb-md">Which channel is used to receive updates?</p>
         <Form>
           <FormGroup label="Update channel" isRequired fieldId="sub-edit-channel">
             <FormSelect
@@ -124,19 +126,28 @@ export function UpdateApprovalModal({
 
   return (
     <Modal variant="small" isOpen={isOpen} onClose={onClose} aria-labelledby="sub-edit-approval-title">
-      <ModalHeader title={<span id="sub-edit-approval-title">Edit update approval</span>} />
+      <ModalHeader title={<span id="sub-edit-approval-title">Change update approval strategy</span>} />
       <ModalBody>
+        <p className="pf-v6-u-mb-md">What strategy is used for approving updates?</p>
         <Form>
-          <FormGroup label="Update approval" isRequired fieldId="sub-edit-approval">
-            <FormSelect
-              id="sub-edit-approval"
-              value={draft}
-              onChange={(_e, v) => setDraft(v as UpdateApproval)}
-              aria-label="Update approval"
-            >
-              <FormSelectOption value="Automatic" label="Automatic" />
-              <FormSelectOption value="Manual" label="Manual" />
-            </FormSelect>
+          <FormGroup fieldId="sub-edit-approval">
+            <Radio
+              id="sub-approval-automatic"
+              name="sub-approval"
+              label="Automatic (default)"
+              description="New updates will be installed as soon as they become available."
+              isChecked={draft === "Automatic"}
+              onChange={() => setDraft("Automatic")}
+            />
+            <Radio
+              id="sub-approval-manual"
+              name="sub-approval"
+              className="pf-v6-u-mt-md"
+              label="Manual"
+              description="New updates need to be manually approved before installation begins."
+              isChecked={draft === "Manual"}
+              onChange={() => setDraft("Manual")}
+            />
           </FormGroup>
         </Form>
       </ModalBody>

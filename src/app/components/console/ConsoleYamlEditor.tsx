@@ -1,9 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
-import {
-  Button,
-  Flex,
-  TextArea,
-} from "@patternfly/react-core";
+import { useCallback, useEffect, useMemo, useRef, useState, type UIEvent } from "react";
+import { Button, Flex } from "@patternfly/react-core";
+import { highlightYamlToHtml, yamlLineCount } from "./yamlHighlight";
 import CogIcon from "@patternfly/react-icons/dist/esm/icons/cog-icon";
 import DownloadIcon from "@patternfly/react-icons/dist/esm/icons/download-icon";
 import ExpandIcon from "@patternfly/react-icons/dist/esm/icons/expand-icon";
@@ -89,6 +86,26 @@ export function ConsoleYamlEditor({
   );
 
   const actionFlags = useMemo(() => resolveActions(editable, actions), [editable, actions]);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const highlightedHtml = useMemo(() => highlightYamlToHtml(yaml), [yaml]);
+  const lineNumbers = useMemo(() => {
+    const count = yamlLineCount(yaml);
+    return Array.from({ length: count }, (_, i) => i + 1);
+  }, [yaml]);
+
+  const gutterRef = useRef<HTMLDivElement>(null);
+
+  const onEditorScroll = useCallback((e: UIEvent<HTMLTextAreaElement>) => {
+    const { scrollTop, scrollLeft } = e.currentTarget;
+    if (gutterRef.current) {
+      gutterRef.current.scrollTop = scrollTop;
+    }
+    const highlights = e.currentTarget.previousElementSibling;
+    if (highlights instanceof HTMLElement) {
+      highlights.scrollTop = scrollTop;
+      highlights.scrollLeft = scrollLeft;
+    }
+  }, []);
 
   const reload = useCallback(() => setYaml(savedYaml), [savedYaml, setYaml]);
   const cancel = useCallback(() => {
@@ -142,14 +159,36 @@ export function ConsoleYamlEditor({
         </Flex>
       ) : null}
 
-      <TextArea
-        className="ocs-console-yaml-editor__editor ocs-io-yaml-panel__editor"
-        aria-label={ariaLabel}
-        value={yaml}
-        onChange={(_e, v) => setYaml(v)}
-        resizeOrientation="vertical"
-        isReadOnly={!editable}
-      />
+      <div className="ocs-console-yaml-editor__editor-host">
+        <div className="ocs-console-yaml-editor__gutter" ref={gutterRef} aria-hidden="true">
+          {lineNumbers.map((n) => (
+            <span key={n} className="ocs-console-yaml-editor__gutter-line">{n}</span>
+          ))}
+        </div>
+        <div className="ocs-console-yaml-editor__editor-scroll" ref={scrollRef}>
+          <div className="ocs-console-yaml-editor__editor-stack">
+            <pre
+              className="ocs-console-yaml-editor__highlights"
+              aria-hidden="true"
+              // eslint-disable-next-line react/no-danger
+              dangerouslySetInnerHTML={{ __html: highlightedHtml }}
+            />
+            <textarea
+              className="ocs-console-yaml-editor__editor ocs-io-yaml-panel__editor"
+              aria-label={ariaLabel}
+              value={yaml}
+              onChange={(e) => setYaml(e.target.value)}
+              onScroll={onEditorScroll}
+              readOnly={!editable}
+              spellCheck={false}
+              autoCapitalize="off"
+              autoComplete="off"
+              autoCorrect="off"
+              rows={Math.max(16, lineNumbers.length)}
+            />
+          </div>
+        </div>
+      </div>
 
       {showFooter ? (
         <Flex

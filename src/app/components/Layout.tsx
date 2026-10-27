@@ -52,6 +52,7 @@ import { usePermissions } from "../contexts/PermissionsContext";
 import { useChat } from "../contexts/ChatContext";
 import { useFavorites } from "../contexts/FavoritesContext";
 import { useToast } from "../contexts/ToastContext";
+import { useDocumentPageTitle } from "../hooks/useDocumentPageTitle";
 import {
   ADMINISTRATION_SUB,
   AGENTIC_RUNS_SUB,
@@ -282,6 +283,7 @@ function UserMenu({
 }
 
 export default function Layout() {
+  useDocumentPageTitle();
   const [isImpersonateModalOpen, setIsImpersonateModalOpen] = useState(false);
   const [isCopyLoginOpen, setIsCopyLoginOpen] = useState(false);
   const [isFavoritesExpanded, setIsFavoritesExpanded] = useState(false);

@@ -104,11 +104,12 @@ const BASE_ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
   {
     name: "Advanced Cluster Management",
     namespace: "open-cluster-management",
-    version: "2.12.0",
-    channel: "release-2.12",
+    version: "2.17.3",
+    channel: "release-2.17",
+    packageName: "advanced-cluster-management",
     source: "redhat-operators",
     status: "Running",
-    autoUpdate: false,
+    autoUpdate: true,
     clusterCompatibility: "Compatible",
     supportLifecycle: {
       fullSupportEndDate: "2026-01-15",
@@ -118,9 +119,8 @@ const BASE_ADDITIONAL_CATALOG_OPERATORS: CatalogOperator[] = [
       eus3EndDate: "2029-07-20",
       eolEndDate: "2029-07-20",
     },
-    updateAvailable: "2.13.0",
     maxOcpVersion: "5.2",
-    lastUpdated: "Apr 2, 2026, 8:45 AM",
+    lastUpdated: "Oct 26, 2026, 2:55 PM",
     managedNamespaces: ["open-cluster-management", "multicluster-engine"],
     olmMigrationEligibility: "eligible",
   },
@@ -451,10 +451,67 @@ const CLUSTER_EXTENSION_OPERATOR_NAMES = [
   "File Integrity Operator",
 ] as const;
 
+/** Prototype error rows for Cluster extensions tab — Troubleshoot with AI (row Actions). */
+const CLUSTER_EXTENSION_ERROR_FIXTURES: Partial<
+  Record<(typeof CLUSTER_EXTENSION_OPERATOR_NAMES)[number], Partial<CatalogOperator>>
+> = {
+  "Vault Operator": {
+    status: "Degraded",
+    olmMigrationActivity: "error",
+    olmMigrationActivityDetail:
+      "ClusterExtension install strategy failed: catalog bundle unpack error (digest mismatch).",
+    olmClusterExtensionMigration: {
+      installedCondition: "False",
+      migrationPhase: "InstallFailed",
+      rollbackState: "None",
+      lastTransitionTime: "2026-03-09T18:40:00Z",
+      message: "install strategy completed with errors",
+    },
+  },
+  "Loki Operator": {
+    status: "Degraded",
+    updateAvailable: "2.7.6",
+    olmMigrationActivity: "failed_manual",
+    olmMigrationActivityDetail:
+      "Subscription reconcile stalled after version bump; operand pods not ready in managed namespace.",
+    olmClusterExtensionMigration: {
+      installedCondition: "False",
+      migrationPhase: "ReconcileError",
+      rollbackState: "ManualRequired",
+      lastTransitionTime: "2026-03-11T09:12:00Z",
+      message: "0/3 operand pods ready",
+    },
+  },
+  Submariner: {
+    status: "Degraded",
+    olmMigrationActivity: "incomplete",
+    olmMigrationActivityDetail: "Cluster extension reported incomplete recovery; gateway DaemonSet not scheduled.",
+    compatibilityMessage: "Operand health check failed on one or more nodes (prototype).",
+  },
+  "File Integrity Operator": {
+    status: "Degraded",
+    updateAvailable: "3.2.2",
+    olmMigrationActivity: "failed_rollback",
+    olmMigrationActivityDetail: "Automatic rollback did not restore prior ClusterServiceVersion reference.",
+    olmClusterExtensionMigration: {
+      installedCondition: "Unknown",
+      migrationPhase: "RollbackFailed",
+      rollbackState: "Failed",
+      lastTransitionTime: "2026-03-08T22:05:00Z",
+      message: "rollback to previous bundle version timed out",
+    },
+  },
+  "Elastic Cloud on Kubernetes": {
+    status: "Degraded",
+    updateAvailable: "1.3.7",
+    olmMigrationActivity: "error",
+    olmMigrationActivityDetail: "Elasticsearch operand CR failed validation after extension upgrade.",
+  },
+};
+
 function buildClusterExtensionOperators(): CatalogOperator[] {
   const channels = ["stable", "alpha", "fast", "preview"] as const;
   const sources = ["redhat-operators", "community-operators", "certified-operators"] as const;
-  const statuses: CatalogOperator["status"][] = ["Running", "Running", "Running", "Pending", "Failed"];
 
   return CLUSTER_EXTENSION_OPERATOR_NAMES.map((name, index) => {
     const slug = name
@@ -466,15 +523,24 @@ function buildClusterExtensionOperators(): CatalogOperator[] {
     const patch = (index * 2) % 9;
     const namespace = `ce-${slug.slice(0, 24)}`;
 
+    const version = `${major}.${minor}.${patch}`;
+    const updateAvailable =
+      index % 4 === 0 ? `${major}.${minor}.${patch + 1}` : index % 5 === 0 ? `${major}.${minor + 1}.0` : undefined;
+
+    const errorFixture = CLUSTER_EXTENSION_ERROR_FIXTURES[name];
+    const defaultStatus: CatalogOperator["status"] =
+      index % 13 === 6 ? "Pending" : "Running";
+
     return {
       name,
       namespace,
-      version: `${major}.${minor}.${patch}`,
+      version,
       channel: channels[index % channels.length],
       source: sources[index % sources.length],
-      status: statuses[index % statuses.length],
+      status: errorFixture?.status ?? defaultStatus,
       autoUpdate: index % 4 !== 0,
       clusterCompatibility: index % 7 === 0 ? "Incompatible" : "Compatible",
+      updateAvailable,
       compatibilityMessage:
         index % 7 === 0 ? "Cluster extension compatibility check failed (prototype)." : undefined,
       lastUpdated: `Mar ${(index % 27) + 1}, 2026, ${(index % 11) + 8}:${String((index * 5) % 60).padStart(2, "0")} AM`,
@@ -483,6 +549,7 @@ function buildClusterExtensionOperators(): CatalogOperator[] {
       packageName: slug,
       versionRange: `>=${major}.${minor}.0 <${major}.${minor + 2}.0`,
       maxOcpVersion: "5.2",
+      ...errorFixture,
     };
   });
 }

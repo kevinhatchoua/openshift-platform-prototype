@@ -11,6 +11,8 @@ import {
 export const AGENTIC_RUNS_LIST_PATH = "/agentic-runs";
 export const AGENTIC_RUN_NAMESPACE = "openshift-lightspeed";
 export const AGENTIC_RUN_TRIGGER_DOMAIN = "cluster-version-operator";
+export const AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION = "cluster-extension";
+export const AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION_TROUBLESHOOT = "cluster-extension-troubleshoot";
 
 export type AgenticAnalysisPhase = "Analyzing" | "Analysed" | "Failed" | "Cancelled";
 export type AgenticRunStatus = "Completed" | "Failed" | "Cancelled" | "In progress";
@@ -33,6 +35,14 @@ export type AgenticUpdateRun = {
   triggerDomain: string;
   tokensConsumed: string;
   recommendation: "not-recommended" | null;
+  /** Set when triggerDomain is cluster-extension (OLM v1 subscription pre-check). */
+  extensionName?: string;
+  extensionNamespace?: string;
+  currentVersion?: string;
+  proposedVersion?: string;
+  versionRange?: string;
+  /** Human-readable symptom summary for troubleshoot agentic runs. */
+  attentionSummary?: string;
 };
 
 export const AGENTIC_UPDATE_RUNS: AgenticUpdateRun[] = [
@@ -234,6 +244,31 @@ export function clusterReadinessJson(run: AgenticUpdateRun): string {
 }
 
 export function analysisLogLines(run: AgenticUpdateRun): string {
+  if (run.triggerDomain === AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION_TROUBLESHOOT) {
+    return [
+      `[troubleshoot] sandbox=${run.sandbox}`,
+      "[troubleshoot] loading ClusterExtension status and events",
+      "[troubleshoot] skill=operator-lifecycle-v1",
+      `[troubleshoot] extension=${run.extensionName ?? "unknown"} namespace=${run.extensionNamespace ?? "openshift-operators"}`,
+      `[troubleshoot] attention=${run.attentionSummary ?? "conditions require review"}`,
+      "[troubleshoot] correlating managed CRDs and operand health",
+      "[troubleshoot] drafting remediation steps",
+      "[troubleshoot] writing agentic run record",
+    ].join("\n");
+  }
+  if (run.triggerDomain === AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION) {
+    return [
+      `[analysis] sandbox=${run.sandbox}`,
+      "[analysis] loading ClusterExtension and catalog subscription spec",
+      "[analysis] skill=operator-lifecycle-v1",
+      `[analysis] extension=${run.extensionName ?? "unknown"} namespace=${run.extensionNamespace ?? "openshift-operators"}`,
+      `[analysis] channel=${run.channel} current=${run.currentVersion ?? "-"} proposed=${run.proposedVersion ?? run.targetVersion}`,
+      `[analysis] versionRange=${run.versionRange ?? "(none)"}`,
+      "[analysis] validating semver range against proposed version",
+      "[analysis] checking extension conditions and managed CRDs (read-only)",
+      "[analysis] writing recommendations",
+    ].join("\n");
+  }
   return [
     `[analysis] sandbox=${run.sandbox}`,
     "[analysis] loading ClusterVersion and operator compatibility",
@@ -242,5 +277,66 @@ export function analysisLogLines(run: AgenticUpdateRun): string {
     `[analysis] proposed path ${CLUSTER_CURRENT_VERSION} → ${run.targetVersion} (${run.updateType})`,
     `[analysis] blocker: ${CLUSTER_BLOCKER_MESSAGE}`,
     "[analysis] writing remediation option",
+  ].join("\n");
+}
+
+export function clusterExtensionReadinessJson(run: AgenticUpdateRun): string {
+  return JSON.stringify(
+    {
+      extension: run.extensionName,
+      namespace: run.extensionNamespace ?? "openshift-operators",
+      channel: run.channel,
+      current_version: run.currentVersion,
+      proposed_version: run.proposedVersion ?? run.targetVersion,
+      version_range: run.versionRange,
+      checks: [
+        {
+          name: "semver-range",
+          status: run.versionRange ? "pass" : "warn",
+          message: run.versionRange
+            ? "Proposed version satisfies the declared range"
+            : "No version range set; only the pinned version will be reconciled",
+        },
+        {
+          name: "clusterextension-available",
+          status: "pass",
+          message: "ClusterExtension reports Available=True (prototype fixture)",
+        },
+        {
+          name: "catalogd-update-discovery",
+          status: "warn",
+          message: "Catalog-backed update discovery was not evaluated in this pre-check",
+        },
+      ],
+    },
+    null,
+    2,
+  );
+}
+
+export function clusterExtensionTroubleshootRequestPrompt(run: AgenticUpdateRun): string {
+  return [
+    "You are an OpenShift operator lifecycle advisor. Troubleshoot ClusterExtension health and subscription issues.",
+    "",
+    `Extension: ${run.extensionName ?? "cluster extension"}`,
+    `Namespace: ${run.extensionNamespace ?? "openshift-operators"}`,
+    `Observed: ${run.attentionSummary ?? "Extension conditions need review"}`,
+    "",
+    "Produce ranked remediation steps (safe order), kubectl/oc checks, and when to retry updates or contact support.",
+  ].join("\n");
+}
+
+export function clusterExtensionAnalysisRequestPrompt(run: AgenticUpdateRun): string {
+  return [
+    "You are an OpenShift operator lifecycle advisor. Analyze ClusterExtension subscription changes before the admin patches spec.",
+    "",
+    `Extension: ${run.extensionName ?? "cluster extension"}`,
+    `Namespace: ${run.extensionNamespace ?? "openshift-operators"}`,
+    `Channel: ${run.channel}`,
+    `Current version: ${run.currentVersion ?? "unknown"}`,
+    `Proposed version: ${run.proposedVersion ?? run.targetVersion}`,
+    `Version range: ${run.versionRange || "(not set)"}`,
+    "",
+    "Classify risks as blocker, warning, or info. Recommend whether to apply now, adjust the range, or wait for catalogd discovery in a later release.",
   ].join("\n");
 }

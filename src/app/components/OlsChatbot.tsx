@@ -56,7 +56,7 @@ function installedOperatorsPrecheckSummary(version: string, channel: string): st
     `**OLM v0 (Subscriptions)**\n` +
     `Updates **4** · Blocking **2** · Up to date **1**\n\n` +
     `**OLM v1 (extensions)**\n` +
-    `Healthy **1** · Pending **1**\n\n` +
+    `Updates available **4** · Needs attention **2**\n\n` +
     `_Operator names, checks, and steps → **Detail analysis**_`
   );
 }
@@ -70,8 +70,9 @@ function installedOperatorsPrecheckDetail(version: string, channel: string): str
     `• **Required before some cluster updates** — Abot Operator-v3.0.0, Airflow Helm Operator\n` +
     `• **Up to date** — Camel K Operator\n\n` +
     `**OLM v1 (cluster extensions)**\n` +
-    `• **Healthy** — OpenShift GitOps\n` +
-    `• **Conditions pending** — Sample observability bundle (discovery still settling)\n\n` +
+    `• **Update available** — Abot Operator (3.0.0 → 3.1.0), OpenShift GitOps (1.12.0 → 1.13.0), Argo CD, Prometheus Operator\n` +
+    `• **Needs attention** — Sample observability bundle (Pending / incompatible)\n` +
+    `• Use **Pre-check update with AI** on the Subscription tab or row Actions before applying catalog bumps\n\n` +
     `**Checks performed**\n` +
     `• Subscription / extension status vs. target version\n` +
     `• Support and end-of-life signals (as shown in the table)\n` +

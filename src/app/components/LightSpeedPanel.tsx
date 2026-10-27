@@ -30,8 +30,11 @@ import {
   getClusterSettingsPrecheckResponse,
   getGitOpsHealthRemediationResponse,
   getPreflightRemediationResponse,
+  getClusterExtensionPrecheckResponse,
+  getClusterExtensionTroubleshootResponse,
   getUpdateStatusResponse,
 } from "./LightSpeedPanelResponses";
+import { getStoredUpdatePlan } from "../lib/updatePlansStore";
 import { getTopologyLightspeedResponse } from "../pages/networking/topology/topologyLightspeedResponses";
 import {
   LightspeedHeaderNotice,
@@ -148,6 +151,18 @@ export default function LightSpeedPanel({ isOpen, onClose, dockTop = null }: Lig
       if (namespace && applicationName) {
         report = getGitOpsHealthRemediationResponse(applicationName, namespace);
       }
+    } else if (chatContext.startsWith("ols-cluster-extension-precheck:")) {
+      const runId = chatContext.split(":")[1];
+      const run = runId ? getStoredUpdatePlan(runId) : undefined;
+      if (run) {
+        report = getClusterExtensionPrecheckResponse(run);
+      }
+    } else if (chatContext.startsWith("ols-cluster-extension-troubleshoot:")) {
+      const runId = chatContext.split(":")[1];
+      const run = runId ? getStoredUpdatePlan(runId) : undefined;
+      if (run) {
+        report = getClusterExtensionTroubleshootResponse(run);
+      }
     }
 
     if (!report) return undefined;
@@ -231,6 +246,17 @@ export default function LightSpeedPanel({ isOpen, onClose, dockTop = null }: Lig
     if (lowerSuggestion.includes("update status")) {
       setContext("ols-update-status");
       return;
+    }
+    if (lowerSuggestion.includes("open agentic run")) {
+      const runId =
+        chatContext.startsWith("ols-cluster-extension-precheck:") ||
+        chatContext.startsWith("ols-cluster-extension-troubleshoot:")
+          ? chatContext.split(":")[1]
+          : undefined;
+      if (runId) {
+        navigate(`/agentic-runs/${encodeURIComponent(runId)}`);
+        return;
+      }
     }
     setIsTyping(true);
     const response = getAIResponse(suggestion, location.pathname);

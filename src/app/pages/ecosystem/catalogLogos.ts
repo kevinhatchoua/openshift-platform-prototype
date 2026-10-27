@@ -113,12 +113,20 @@ function metaFromDef(d: LogoDef): LogoMeta {
   return { src: SI(d.slug), accent: d.hex };
 }
 
+/** Cluster extension catalog entries use `-olm-v1` suffix; logos are keyed by base OperatorHub id. */
+export function normalizeOperatorHubCatalogId(id: string): string {
+  return id.replace(/-olm-v1$/, "");
+}
+
 export function catalogItemLogoMeta(id: string, catalogType: LogoCatalogType): LogoMeta {
-  const direct = OPERATOR_DEF[id];
+  const operatorId = catalogType === "operators" ? normalizeOperatorHubCatalogId(id) : id;
+  const direct = OPERATOR_DEF[operatorId] ?? OPERATOR_DEF[id];
   if (direct) return metaFromDef(direct);
 
   const i = indexFromId(id);
   switch (catalogType) {
+    case "operators":
+      return metaFromDef(def("redhatopenshift", "#EE0000"));
     case "helmCharts":
       return metaFromDef(HELM_ROTATION[i % HELM_ROTATION.length]);
     case "devfiles":

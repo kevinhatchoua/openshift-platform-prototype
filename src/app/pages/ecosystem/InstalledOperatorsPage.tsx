@@ -14,6 +14,7 @@ import {
   Clock,
   Columns2,
   Globe,
+  Sparkles,
 } from "@/lib/pfIcons";
 import ExclamationTriangleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-triangle-icon";
 import { usePatternFlyGlassActive } from "@/lib/usePatternFlyGlassActive";
@@ -63,12 +64,23 @@ import {
   useDataViewFilters,
 } from "@patternfly/react-data-view";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
+import RhUiAiTroubleshootIcon from "@patternfly/react-icons/dist/esm/icons/rh-ui-ai-troubleshoot-icon";
 import SlidersHIcon from "@patternfly/react-icons/dist/esm/icons/sliders-h-icon";
 import SortCommonAscIcon from "@patternfly/react-icons/dist/esm/icons/pficon-sort-common-asc-icon";
 import { InnerScrollContainer, Table, Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import { useChat } from "../../contexts/ChatContext";
+import { useClusterExtensionAiWorkflow } from "../../hooks/useClusterExtensionAiWorkflow";
+import {
+  clusterExtensionHasAvailableUpdate,
+  clusterExtensionNeedsAiTroubleshoot,
+  proposedClusterExtensionVersion,
+} from "../../lib/clusterExtensionAiWorkflow";
+
+const IO_AI_PRECHECK_MENU_ICON = (
+  <Sparkles aria-hidden className="ocs-io-ai-precheck-dropdown-icon ocs-ai-sparkle-cta-icon" />
+);
 import { AiAssessmentSection } from "../../components/AiAssessmentSection";
 import { OlsChatbot } from "../../components/OlsChatbot";
 import { useClusterUpdateDemoVariant } from "../../contexts/ClusterUpdateDemoContext";
@@ -868,6 +880,23 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
       "Migration library could not complete catalog handover. Resolve operator health issues and retry.",
   },
   {
+    name: "Abot Operator",
+    namespace: "bap",
+    version: "3.0.0",
+    channel: "stable-4.5",
+    source: "certified-operators",
+    status: "Running",
+    autoUpdate: false,
+    clusterCompatibility: "Compatible",
+    updateAvailable: "3.1.0",
+    maxOcpVersion: "5.2",
+    lastUpdated: "Mar 10, 2026, 11:05 AM",
+    managedNamespaces: ["bap"],
+    isOlmV1Extension: true,
+    packageName: "abot-operator",
+    versionRange: ">=3.0.0 <3.2.0",
+  },
+  {
     name: "OpenShift GitOps",
     namespace: "openshift-gitops-operator",
     version: "1.12.0",
@@ -876,6 +905,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     status: "Running",
     autoUpdate: true,
     clusterCompatibility: "Compatible",
+    updateAvailable: "1.13.0",
     supportLifecycle: {
       fullSupportEndDate: "2025-06-01",
       maintenanceEndDate: "2026-05-01",
@@ -897,10 +927,12 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     version: "0.4.1",
     channel: "stable",
     source: "community-operators",
-    status: "Pending",
+    status: "Degraded",
     autoUpdate: true,
     clusterCompatibility: "Incompatible",
-    compatibilityMessage: "V1 discovery in progress — update availability TBD",
+    compatibilityMessage: "Operand reconciliation failed — ClusterExtension installed condition is False (prototype).",
+    olmMigrationActivity: "error",
+    olmMigrationActivityDetail: "Bundle unpack succeeded but operand health checks did not pass within the reconciliation window.",
     isUnsupported: true,
     lastUpdated: "Jun 11, 2025, 9:15 AM",
     managedNamespaces: ["observability-sample"],
@@ -1598,6 +1630,8 @@ export default function InstalledOperatorsPage() {
     setChatbotOpen(true);
   }, []);
 
+  const { launchUpdatePrecheck, launchTroubleshoot } = useClusterExtensionAiWorkflow();
+
   const handleChatAction = useCallback(
     (actionId: string) => {
       if (actionId === "view-plan" || actionId === "view-history") {
@@ -1799,6 +1833,24 @@ export default function InstalledOperatorsPage() {
       ),
     [selectedOperatorsList],
   );
+
+  const selectedExtensionsWithUpdates = useMemo(
+    () => selectedOperatorsList.filter(clusterExtensionHasAvailableUpdate),
+    [selectedOperatorsList],
+  );
+
+  const selectedExtensionsNeedingTroubleshoot = useMemo(
+    () =>
+      selectedOperatorsList.filter(
+        (op) => op.isOlmV1Extension && clusterExtensionNeedsAiTroubleshoot(op),
+      ),
+    [selectedOperatorsList],
+  );
+
+  const bulkExtensionPrecheckEnabled =
+    isNextGen && canManageOlmV1 && selectedExtensionsWithUpdates.length > 0;
+  const bulkExtensionTroubleshootEnabled =
+    isNextGen && selectedExtensionsNeedingTroubleshoot.length > 0;
 
   const tableColSpan =
     (showSelectionColumn ? 1 : 0) + 1 + visibleDataColumnCount + (visibleColumns.rowActions ? 1 : 0);
@@ -2242,25 +2294,57 @@ export default function InstalledOperatorsPage() {
                       )}
                       onSelect={() => setBulkActionsOpen(false)}
                     >
-                      <DropdownItem
-                        itemId="bulk-update"
-                        isDisabled={!bulkUpdateEnabled}
-                        tooltip={
-                          !bulkActionsHasSelection
-                            ? "Select one or more operators"
-                            : !bulkUpdateEnabled
-                              ? "No selected operators have an available update"
-                              : undefined
-                        }
-                        onClick={() => {
-                          if (bulkUpdateEnabled) {
-                            openBulkUpdate();
+                      {bulkExtensionPrecheckEnabled ? (
+                        <DropdownItem
+                          itemId="bulk-extension-precheck-ai"
+                          icon={IO_AI_PRECHECK_MENU_ICON}
+                          onClick={() => {
+                            const target = selectedExtensionsWithUpdates[0];
+                            if (target) launchUpdatePrecheck(target);
+                          }}
+                        >
+                          Pre-check with AI ({selectedExtensionsWithUpdates.length})
+                        </DropdownItem>
+                      ) : null}
+                      {bulkExtensionTroubleshootEnabled ? (
+                        <DropdownItem
+                          itemId="bulk-extension-troubleshoot-ai"
+                          icon={<RhUiAiTroubleshootIcon aria-hidden />}
+                          onClick={() => {
+                            const target = selectedExtensionsNeedingTroubleshoot[0];
+                            if (target) launchTroubleshoot(target);
+                          }}
+                        >
+                          Troubleshoot with AI ({selectedExtensionsNeedingTroubleshoot.length})
+                        </DropdownItem>
+                      ) : null}
+                      {isNextGen && !bulkUpdateEnabled ? null : (
+                        <DropdownItem
+                          itemId="bulk-update"
+                          isDisabled={!bulkUpdateEnabled}
+                          tooltip={
+                            !bulkActionsHasSelection
+                              ? isNextGen
+                                ? "Select one or more cluster extensions"
+                                : "Select one or more operators"
+                              : !bulkUpdateEnabled
+                                ? isNextGen
+                                  ? "No selected cluster extensions have an available update"
+                                  : "No selected operators have an available update"
+                                : undefined
                           }
-                        }}
-                      >
-                        Update operator{selectedWithUpdates.length === 1 ? "" : "s"} (
-                        {selectedWithUpdates.length})
-                      </DropdownItem>
+                          onClick={() => {
+                            if (bulkUpdateEnabled) {
+                              openBulkUpdate();
+                            }
+                          }}
+                        >
+                          {isNextGen
+                            ? `Update cluster extension${selectedWithUpdates.length === 1 ? "" : "s"}`
+                            : `Update operator${selectedWithUpdates.length === 1 ? "" : "s"}`}{" "}
+                          ({selectedWithUpdates.length})
+                        </DropdownItem>
+                      )}
                       {isClassic ? (
                         <DropdownItem
                           itemId="bulk-migrate"
@@ -2435,20 +2519,31 @@ export default function InstalledOperatorsPage() {
                                 <Content component="small">
                                   <code>{op.version}</code>
                                 </Content>
-                                {!(isNextGen && op.isOlmV1Extension) && op.updateAvailable ? (
+                                {op.updateAvailable ? (
                                   <Content component="small">
                                     <Button
                                       variant="link"
                                       isInline
                                       component={Link}
-                                      to={`/ecosystem/installed-operators/${encodeURIComponent(op.name)}/update`}
-                                      state={{
-                                        returnTo: "/ecosystem/installed-operators",
-                                        operatorName: op.name,
-                                        operatorData: op,
-                                      }}
+                                      to={
+                                        isNextGen && op.isOlmV1Extension
+                                          ? `/ecosystem/installed-operators/${encodeURIComponent(op.name)}/subscription`
+                                          : `/ecosystem/installed-operators/${encodeURIComponent(op.name)}/update`
+                                      }
+                                      state={
+                                        isNextGen && op.isOlmV1Extension
+                                          ? undefined
+                                          : {
+                                              returnTo: "/ecosystem/installed-operators",
+                                              operatorName: op.name,
+                                              operatorData: op,
+                                            }
+                                      }
                                     >
-                                      Update available: {op.updateAvailable}
+                                      Update available:{" "}
+                                      {isNextGen && op.isOlmV1Extension
+                                        ? proposedClusterExtensionVersion(op)
+                                        : op.updateAvailable}
                                     </Button>
                                   </Content>
                                 ) : null}
@@ -2585,6 +2680,35 @@ export default function InstalledOperatorsPage() {
                                 >
                                   Update
                                 </DropdownItem>
+                                {isNextGen &&
+                                op.isOlmV1Extension &&
+                                clusterExtensionHasAvailableUpdate(op) &&
+                                canManageOlmV1 ? (
+                                  <DropdownItem
+                                    itemId="precheck-update-ai"
+                                    icon={IO_AI_PRECHECK_MENU_ICON}
+                                    onClick={() => {
+                                      launchUpdatePrecheck(op);
+                                      setOpenKebabIndex(null);
+                                    }}
+                                  >
+                                    Pre-check with AI
+                                  </DropdownItem>
+                                ) : null}
+                                {isNextGen &&
+                                op.isOlmV1Extension &&
+                                clusterExtensionNeedsAiTroubleshoot(op) ? (
+                                  <DropdownItem
+                                    itemId="troubleshoot-ai"
+                                    icon={<RhUiAiTroubleshootIcon aria-hidden />}
+                                    onClick={() => {
+                                      launchTroubleshoot(op);
+                                      setOpenKebabIndex(null);
+                                    }}
+                                  >
+                                    Troubleshoot with AI
+                                  </DropdownItem>
+                                ) : null}
                                 {!(isNextGen && op.isOlmV1Extension) ? (
                                   <DropdownItem
                                     itemId="subscription"

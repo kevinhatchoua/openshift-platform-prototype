@@ -1,0 +1,192 @@
+/**
+ * OpenShift console YAML editor (resource tab / create flows).
+ * Matches console CodeEditor chrome: dark editor surface, toolbar, pill actions.
+ */
+
+.ocs-console-yaml-editor.ocs-io-yaml-panel {
+  --ocs-yaml-editor-bg: #1e1e1e;
+  --ocs-yaml-editor-toolbar-bg: #212427;
+  --ocs-yaml-editor-border: #393f44;
+  --ocs-yaml-editor-key: #ebcb8b;
+  --ocs-yaml-editor-string: #a3be8c;
+  --ocs-yaml-editor-number: #b48ead;
+  --ocs-yaml-editor-bool: #81a1c1;
+  --ocs-yaml-editor-comment: #616e88;
+  --ocs-yaml-editor-plain: #d8dee9;
+  --ocs-yaml-editor-gutter: #4c566a;
+  --ocs-yaml-editor-footer-bg: #212427;
+
+  border: 1px solid var(--ocs-yaml-editor-border);
+  border-radius: var(--pf-t--global--border--radius--medium, 0.5rem);
+  background: var(--ocs-yaml-editor-bg);
+  min-height: 24rem;
+  overflow: hidden;
+}
+
+.ocs-console-yaml-editor__toolbar.ocs-io-yaml-panel__toolbar {
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  border-bottom: 1px solid var(--ocs-yaml-editor-border);
+  background: var(--ocs-yaml-editor-toolbar-bg);
+}
+
+.ocs-console-yaml-editor__toolbar .pf-v6-c-button.pf-m-plain {
+  color: #c7d1db;
+}
+
+.ocs-console-yaml-editor__toolbar .pf-v6-c-button.pf-m-link {
+  color: #92c5f9;
+  font-size: var(--pf-t--global--font--size--body--sm, 0.875rem);
+}
+
+.ocs-console-yaml-editor__editor-host {
+  display: flex;
+  min-height: 18rem;
+  max-height: 70vh;
+  background: var(--ocs-yaml-editor-bg);
+}
+
+.ocs-console-yaml-editor__gutter {
+  flex: 0 0 auto;
+  padding: var(--pf-t--global--spacer--md) var(--pf-t--global--spacer--sm);
+  padding-right: var(--pf-t--global--spacer--md);
+  text-align: right;
+  user-select: none;
+  font-family: "Red Hat Mono", "Red Hat Text Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--ocs-yaml-editor-gutter);
+  background: var(--ocs-yaml-editor-bg);
+  border-right: 1px solid var(--ocs-yaml-editor-border);
+  overflow: hidden;
+  max-height: 70vh;
+}
+
+.ocs-console-yaml-editor__gutter-line {
+  display: block;
+  min-height: 1.5em;
+}
+
+.ocs-console-yaml-editor__editor-scroll {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: auto;
+  max-height: 70vh;
+}
+
+.ocs-console-yaml-editor__editor-stack {
+  display: grid;
+  min-height: 18rem;
+}
+
+.ocs-console-yaml-editor__highlights,
+.ocs-console-yaml-editor__editor.ocs-io-yaml-panel__editor {
+  grid-area: 1 / 1;
+  box-sizing: border-box;
+  margin: 0;
+  padding: var(--pf-t--global--spacer--md);
+  width: 100%;
+  min-height: 18rem;
+  border: 0;
+  border-radius: 0;
+  font-family: "Red Hat Mono", "Red Hat Text Mono", ui-monospace, SFMono-Regular, Menlo, Monaco,
+    Consolas, monospace;
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  tab-size: 2;
+  white-space: pre;
+  word-wrap: normal;
+  overflow-wrap: normal;
+  overflow: auto;
+}
+
+.ocs-console-yaml-editor__highlights {
+  pointer-events: none;
+  color: var(--ocs-yaml-editor-plain);
+  background: transparent;
+  z-index: 0;
+}
+
+.ocs-console-yaml-editor__editor.ocs-io-yaml-panel__editor {
+  z-index: 1;
+  display: block;
+  resize: vertical;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: #eceff4;
+  background: transparent;
+}
+
+.ocs-console-yaml-editor__editor.ocs-io-yaml-panel__editor:focus-visible {
+  outline: 2px solid var(--pf-t--global--color--brand--default, #0066cc);
+  outline-offset: -2px;
+}
+
+.ocs-console-yaml-editor__key {
+  color: var(--ocs-yaml-editor-key);
+}
+
+.ocs-console-yaml-editor__string {
+  color: var(--ocs-yaml-editor-string);
+}
+
+.ocs-console-yaml-editor__number {
+  color: var(--ocs-yaml-editor-number);
+}
+
+.ocs-console-yaml-editor__bool {
+  color: var(--ocs-yaml-editor-bool);
+}
+
+.ocs-console-yaml-editor__comment {
+  color: var(--ocs-yaml-editor-comment);
+}
+
+.ocs-console-yaml-editor__plain {
+  color: var(--ocs-yaml-editor-plain);
+}
+
+.ocs-console-yaml-editor__punct {
+  color: var(--ocs-yaml-editor-plain);
+}
+
+.ocs-console-yaml-editor__footer.ocs-io-yaml-panel__footer {
+  padding: var(--pf-t--global--spacer--md);
+  border-top: 1px solid var(--ocs-yaml-editor-border);
+  background: var(--ocs-yaml-editor-footer-bg);
+}
+
+.ocs-console-yaml-editor__footer .pf-v6-c-button.pf-m-primary {
+  border-radius: var(--pf-t--global--border--radius--pill, 9999px);
+}
+
+.ocs-console-yaml-editor__footer .pf-v6-c-button.pf-m-secondary {
+  border-radius: var(--pf-t--global--border--radius--pill, 9999px);
+  --pf-v6-c-button--m-secondary--BackgroundColor: #2b3036;
+  --pf-v6-c-button--m-secondary--Color: #f0f0f0;
+  --pf-v6-c-button--m-secondary--BorderColor: #545b64;
+}
+
+.ocs-console-yaml-editor__footer .pf-v6-c-button.pf-m-secondary:hover {
+  --pf-v6-c-button--m-secondary--BackgroundColor: #393f44;
+}
+
+/* Legacy alias: keep gitops operator panels on the same chrome */
+.ocs-io-yaml-panel:not(.ocs-console-yaml-editor) {
+  border: 1px solid var(--ocs-yaml-editor-border, #393f44);
+  border-radius: var(--pf-t--global--border--radius--medium, 0.5rem);
+  background: var(--ocs-yaml-editor-bg, #1e1e1e);
+  min-height: 24rem;
+}
+
+.ocs-io-yaml-panel:not(.ocs-console-yaml-editor) .ocs-io-yaml-panel__toolbar {
+  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
+  border-bottom: 1px solid var(--ocs-yaml-editor-border, #393f44);
+  background: var(--ocs-yaml-editor-toolbar-bg, #212427);
+}
+
+.ocs-io-yaml-panel:not(.ocs-console-yaml-editor) .ocs-io-yaml-panel__footer {
+  padding: var(--pf-t--global--spacer--md);
+  border-top: 1px solid var(--ocs-yaml-editor-border, #393f44);
+  background: var(--ocs-yaml-editor-footer-bg, #212427);
+}

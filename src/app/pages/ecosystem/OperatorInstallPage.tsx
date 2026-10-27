@@ -347,6 +347,7 @@ function OperatorInstallSidebar({ operator }: { operator: OperatorCatalogInstall
           <div className="ocs-operator-install-page__sidebar-head">
             <CatalogBrandLogo
               id={operator.id}
+              displayName={operator.name}
               catalogType="operators"
               boxClassName="ocs-catalog-detail__logo"
               logoClassName="ocs-catalog-detail__logo-img"

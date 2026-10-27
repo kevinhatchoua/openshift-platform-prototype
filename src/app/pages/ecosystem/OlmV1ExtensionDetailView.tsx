@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
+import { useLocation } from "react-router";
 import {
   Alert,
-  Button,
   Card,
   CardBody,
   DescriptionList,
@@ -9,7 +9,6 @@ import {
   DescriptionListGroup,
   DescriptionListTerm,
   Flex,
-  Form,
   Grid,
   GridItem,
   Label,
@@ -20,7 +19,6 @@ import {
 } from "@patternfly/react-core";
 import {
   InstalledOperatorDetailsSections,
-  InstalledOperatorSubscriptionPanel,
   InstalledOperatorYamlPanel,
   operatorToConsoleModel,
   useInstalledOperatorYaml,
@@ -28,15 +26,9 @@ import {
 import type { CatalogOperator } from "./installedOperatorsTypes";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
-import { OlmV1ClusterExtensionSpecFields } from "../../components/ecosystem/OlmV1ClusterExtensionSpecFields";
-import {
-  OlmV1ExtensionEditHintAlert,
-  useOlmV1ExtensionLifecycleActions,
-} from "../../components/ecosystem/OlmV1ExtensionLifecycleActions";
-import {
-  defaultClusterExtensionSpec,
-  type OlmV1ClusterExtensionSpec,
-} from "../../components/ecosystem/olmV1ClusterExtensionSpec";
+import { OlmV1ClusterExtensionSubscriptionPanel } from "../../components/ecosystem/OlmV1ClusterExtensionSubscriptionPanel";
+import { useOlmV1ExtensionLifecycleActions } from "../../components/ecosystem/OlmV1ExtensionLifecycleActions";
+import type { OlmV1ClusterExtensionSpec } from "../../components/ecosystem/olmV1ClusterExtensionSpec";
 import { OlmMigrationStatusPanel } from "../../components/ecosystem/OlmMigrationStatusPanel";
 import { getPrototypeInstalledOperator } from "./installedOperatorsLookup";
 
@@ -46,16 +38,16 @@ type OlmV1ExtensionDetailViewProps = {
 
 type ExtensionDetailTab = "details" | "yaml" | "subscription";
 
-function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnType<typeof getPrototypeInstalledOperator>> }) {
-  const [activeTab, setActiveTab] = useState<ExtensionDetailTab>("details");
-  const [operator, setOperator] = useState(initial);
-  const [specDraft, setSpecDraft] = useState<OlmV1ClusterExtensionSpec>(() =>
-    defaultClusterExtensionSpec({
-      channel: initial.channel,
-      version: initial.version,
-      versionRange: initial.versionRange,
-    }),
+function OlmV1ExtensionDetailContent({
+  initial,
+}: {
+  initial: NonNullable<ReturnType<typeof getPrototypeInstalledOperator>>;
+}) {
+  const location = useLocation();
+  const [activeTab, setActiveTab] = useState<ExtensionDetailTab>(
+    location.pathname.endsWith("/subscription") ? "subscription" : "details",
   );
+  const [operator, setOperator] = useState(initial);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
 
   const operatorPath = `/ecosystem/installed-operators/${encodeURIComponent(operator.name)}`;
@@ -71,24 +63,14 @@ function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnT
           }
         : prev,
     );
-    setSpecDraft(spec);
     setSaveMessage("Cluster extension targeting saved (prototype stub).");
   };
 
-  const { actionsDropdown, lifecycleModals, openEdit, canManageClusterExtension } =
+  const { actionsDropdown, lifecycleModals, openManageSubscription, canManageClusterExtension } =
     useOlmV1ExtensionLifecycleActions({
       operator,
       onSpecUpdated: applySpec,
     });
-
-  const handleInlineSave = () => {
-    applySpec(specDraft);
-  };
-
-  const specDirty =
-    specDraft.channel !== operator.channel ||
-    specDraft.version !== operator.version ||
-    specDraft.versionRange !== (operator.versionRange ?? "");
 
   const consoleModel = useMemo(
     () => operatorToConsoleModel(operator as CatalogOperator),
@@ -132,10 +114,14 @@ function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnT
                 </Flex>
               </Flex>
 
-              <OlmV1ExtensionEditHintAlert onEdit={openEdit} canEdit={canManageClusterExtension} />
-
               {saveMessage ? (
-                <Alert variant="success" title={saveMessage} isInline onTimeout={() => setSaveMessage(null)} timeout={8000} />
+                <Alert
+                  variant="success"
+                  title={saveMessage}
+                  isInline
+                  onTimeout={() => setSaveMessage(null)}
+                  timeout={8000}
+                />
               ) : null}
 
               <div className="ocs-gitops-operator-tabs ocs-console-page-tabs">
@@ -154,116 +140,63 @@ function OlmV1ExtensionDetailContent({ initial }: { initial: NonNullable<ReturnT
               {activeTab === "yaml" ? <InstalledOperatorYamlPanel initialYaml={operatorYaml} /> : null}
 
               {activeTab === "subscription" ? (
-                <InstalledOperatorSubscriptionPanel
-                  model={consoleModel}
-                  channel={operator.channel}
-                  version={operator.version}
-                  autoUpdate={operator.autoUpdate}
-                  packageName={operator.packageName}
-                  canEdit={canManageClusterExtension}
-                  onChannelVersionChange={(nextChannel, nextVersion) => {
-                    setOperator((prev) =>
-                      prev
-                        ? { ...prev, channel: nextChannel, version: nextVersion }
-                        : prev,
-                    );
-                    setSpecDraft((prev) => ({ ...prev, channel: nextChannel, version: nextVersion }));
-                  }}
-                  onApprovalChange={(autoUpdate) => {
-                    setOperator((prev) => (prev ? { ...prev, autoUpdate } : prev));
-                  }}
+                <OlmV1ClusterExtensionSubscriptionPanel
+                  operator={operator}
+                  canManage={canManageClusterExtension}
+                  onSpecUpdated={applySpec}
+                  onManageSubscription={openManageSubscription}
                 />
               ) : null}
 
               {activeTab === "details" ? (
                 <>
-              <InstalledOperatorDetailsSections model={consoleModel} />
+                  <InstalledOperatorDetailsSections model={consoleModel} />
 
-              <OlmMigrationStatusPanel operator={operator} variant="cluster-extension" />
+                  <OlmMigrationStatusPanel operator={operator} variant="cluster-extension" />
 
-              <Card isPlain>
-                <CardBody>
-                  <Title headingLevel="h2" size="lg" className="pf-v6-u-mb-md">
-                    Extension targeting
-                  </Title>
-                  <Form className="pf-v6-u-max-width-md">
-                    <OlmV1ClusterExtensionSpecFields
-                      idPrefix="ce-detail"
-                      value={specDraft}
-                      onChange={setSpecDraft}
-                      isReadOnly={!canManageClusterExtension}
-                    />
-                    <Flex gap={{ default: "gapSm" }} className="pf-v6-u-mt-md">
-                      <Button
-                        variant="primary"
-                        isDisabled={!canManageClusterExtension || !specDirty}
-                        onClick={handleInlineSave}
-                      >
-                        Save
-                      </Button>
-                      <Button
-                        variant="link"
-                        isDisabled={!canManageClusterExtension || !specDirty}
-                        onClick={() =>
-                          setSpecDraft(
-                            defaultClusterExtensionSpec({
-                              channel: operator.channel,
-                              version: operator.version,
-                              versionRange: operator.versionRange,
-                            }),
-                          )
-                        }
-                      >
-                        Reset
-                      </Button>
-                    </Flex>
-                  </Form>
-                </CardBody>
-              </Card>
+                  <Card isPlain>
+                    <CardBody>
+                      <Title headingLevel="h2" size="lg" className="pf-v6-u-mb-md">
+                        Cluster extension details
+                      </Title>
+                      <DescriptionList isHorizontal isCompact>
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>Package name</DescriptionListTerm>
+                          <DescriptionListDescription>{operator.packageName ?? "—"}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>Namespace</DescriptionListTerm>
+                          <DescriptionListDescription>{operator.namespace}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>Status</DescriptionListTerm>
+                          <DescriptionListDescription>{operator.status}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>Cluster compatibility</DescriptionListTerm>
+                          <DescriptionListDescription>{operator.clusterCompatibility}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>Managed namespaces</DescriptionListTerm>
+                          <DescriptionListDescription>
+                            {(operator.managedNamespaces ?? []).join(", ") || "—"}
+                          </DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>Automatic updates</DescriptionListTerm>
+                          <DescriptionListDescription>
+                            {operator.autoUpdate ? "Enabled" : "Manual approval"}
+                          </DescriptionListDescription>
+                        </DescriptionListGroup>
+                      </DescriptionList>
+                    </CardBody>
+                  </Card>
 
-              <Card isPlain>
-                <CardBody>
-                  <Title headingLevel="h2" size="lg" className="pf-v6-u-mb-md">
-                    Cluster extension details
-                  </Title>
-                  <DescriptionList isHorizontal isCompact>
-                    <DescriptionListGroup>
-                      <DescriptionListTerm>Package name</DescriptionListTerm>
-                      <DescriptionListDescription>{operator.packageName ?? "—"}</DescriptionListDescription>
-                    </DescriptionListGroup>
-                    <DescriptionListGroup>
-                      <DescriptionListTerm>Namespace</DescriptionListTerm>
-                      <DescriptionListDescription>{operator.namespace}</DescriptionListDescription>
-                    </DescriptionListGroup>
-                    <DescriptionListGroup>
-                      <DescriptionListTerm>Status</DescriptionListTerm>
-                      <DescriptionListDescription>{operator.status}</DescriptionListDescription>
-                    </DescriptionListGroup>
-                    <DescriptionListGroup>
-                      <DescriptionListTerm>Cluster compatibility</DescriptionListTerm>
-                      <DescriptionListDescription>{operator.clusterCompatibility}</DescriptionListDescription>
-                    </DescriptionListGroup>
-                    <DescriptionListGroup>
-                      <DescriptionListTerm>Managed namespaces</DescriptionListTerm>
-                      <DescriptionListDescription>
-                        {(operator.managedNamespaces ?? []).join(", ") || "—"}
-                      </DescriptionListDescription>
-                    </DescriptionListGroup>
-                    <DescriptionListGroup>
-                      <DescriptionListTerm>Automatic updates</DescriptionListTerm>
-                      <DescriptionListDescription>
-                        {operator.autoUpdate ? "Enabled" : "Manual approval"}
-                      </DescriptionListDescription>
-                    </DescriptionListGroup>
-                  </DescriptionList>
-                </CardBody>
-              </Card>
-
-              {operator.compatibilityMessage ? (
-                <Alert variant="warning" title="Compatibility note" isInline>
-                  {operator.compatibilityMessage}
-                </Alert>
-              ) : null}
+                  {operator.compatibilityMessage ? (
+                    <Alert variant="warning" title="Compatibility note" isInline>
+                      {operator.compatibilityMessage}
+                    </Alert>
+                  ) : null}
                 </>
               ) : null}
             </Flex>

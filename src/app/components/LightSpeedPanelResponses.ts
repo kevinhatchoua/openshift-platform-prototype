@@ -5,6 +5,7 @@ import {
   CLUSTER_CURRENT_VERSION,
   CLUSTER_PATCH_VERSION,
 } from "../constants/clusterVersionDemo";
+import { agenticRunPath, type AgenticUpdateRun } from "../constants/agenticUpdateRuns";
 
 export function getUpdateStatusResponse(): {
   content: string;
@@ -1401,5 +1402,100 @@ export function getAIResponse(userInput: string, currentPath?: string): {
       'How do I trigger a build?',
       'Explain Services vs Routes'
     ]
+  };
+}
+
+export function getClusterExtensionTroubleshootResponse(run: AgenticUpdateRun): {
+  content: string;
+  tools: string[];
+  sources: Array<{ title: string; href: string }>;
+  suggestions: string[];
+} {
+  const name = run.extensionName ?? "Cluster extension";
+  const detailPath = agenticRunPath(run.id);
+  const attention = run.attentionSummary ?? "Extension conditions need review";
+
+  return {
+    content:
+      `**Cluster extension troubleshooting**\n\n` +
+      `**${name}** · namespace \`${run.extensionNamespace ?? "openshift-operators"}\`\n\n` +
+      `**What we see**\n${attention}\n\n` +
+      `**Checks (agentic run \`${run.id}\`)**\n` +
+      `✅ **ClusterExtension** — controller reachable (fixture)\n` +
+      `⚠️ **Operands** — review managed workload pods and CRD instances\n` +
+      `⚠️ **Conditions** — compare Installed / Available / FailedManualRecovery messages\n` +
+      `ℹ️ **Catalog** — confirm channel \`${run.channel}\` and version \`${run.currentVersion ?? "unknown"}\` still published\n\n` +
+      `**Recommended sequence**\n` +
+      `1. \`oc get clusterextension -n ${run.extensionNamespace ?? "openshift-operators"}\`\n` +
+      `2. Inspect extension events and operand namespaces.\n` +
+      `3. Fix blockers (secrets, CRD drift, incompatible version pins).\n` +
+      `4. When healthy and an update exists, run **Pre-check update with AI** before changing spec.\n\n` +
+      `Full run: ${detailPath}`,
+    tools: ["operator-lifecycle-v1", "cluster-extension-troubleshoot"],
+    sources: [
+      { title: "Agentic run details", href: detailPath },
+      { title: "OpenShift documentation — Cluster extensions", href: "https://docs.openshift.com/" },
+    ],
+    suggestions: [
+      "Show safe remediation order",
+      "When can I retry the update?",
+      "Open agentic run details",
+    ],
+  };
+}
+
+export function getClusterExtensionPrecheckResponse(run: AgenticUpdateRun): {
+  content: string;
+  tools: string[];
+  sources: Array<{ title: string; href: string }>;
+  suggestions: string[];
+} {
+  const name = run.extensionName ?? "Cluster extension";
+  const current = run.currentVersion ?? "unknown";
+  const proposed = run.proposedVersion ?? run.targetVersion;
+  const range = run.versionRange?.trim();
+  const detailPath = agenticRunPath(run.id);
+
+  const rangeNote = range
+    ? `Declared range \`${range}\` accepts the proposed version in this prototype check.`
+    : "No version range is set. Only the pinned version field will be reconciled until you add a range.";
+
+  return {
+    content:
+      `**Cluster extension update pre-check**\n\n` +
+      `**${name}** · namespace \`${run.extensionNamespace ?? "openshift-operators"}\`\n\n` +
+      `**Proposed targeting**\n` +
+      `• Channel: **${run.channel}**\n` +
+      `• Current version: **${current}**\n` +
+      `• Proposed version: **${proposed}**\n` +
+      (range ? `• Version range: **${range}**\n` : "") +
+      `\n**Checks (agentic run \`${run.id}\`)**\n` +
+      `✅ **ClusterExtension Available** — extension controller reports healthy (fixture)\n` +
+      `✅ **Semver range** — ${rangeNote}\n` +
+      `⚠️ **Catalog discovery** — confirm the target channel and version against your catalog source before applying changes\n` +
+      `ℹ️ **Managed CRDs** — review operand compatibility in release notes before bumping major versions\n\n` +
+      `**Recommendations**\n` +
+      `1. If this matches your intent, select **Update** on the Subscription tab.\n` +
+      `2. Keep a bounded version range when you want patch-level catalog updates without pinning every bump.\n` +
+      `3. Open the **Agentic run** record for logs, readiness JSON, and downloadable report.\n\n` +
+      `**Next steps**\n` +
+      `• View full run: ${detailPath}\n` +
+      `• Ask me to explain semver range syntax or rollback options.`,
+    tools: ["operator-lifecycle-v1", "cluster-extension-readiness"],
+    sources: [
+      {
+        title: "Agentic run details",
+        href: detailPath,
+      },
+      {
+        title: "OpenShift documentation — Cluster extensions",
+        href: "https://docs.openshift.com/",
+      },
+    ],
+    suggestions: [
+      "Explain the version range result",
+      "What happens if I unsubscribe?",
+      "Open agentic run details",
+    ],
   };
 }

@@ -1,8 +1,27 @@
 import type { CatalogOperator } from "./installedOperatorsTypes";
-import { CLUSTER_EXTENSION_PROTOTYPE_OPERATORS } from "./installedOperatorsFixtureData";
+import {
+  ADDITIONAL_CATALOG_OPERATORS,
+  CLUSTER_EXTENSION_PROTOTYPE_OPERATORS,
+} from "./installedOperatorsFixtureData";
 
 /** Prototype lookup for Installed Operators detail/update flows (subset of list fixture). */
 const PROTOTYPE_INSTALLED_OPERATORS: CatalogOperator[] = [
+  {
+    name: "Abot Operator",
+    namespace: "bap",
+    version: "3.0.0",
+    channel: "stable-4.5",
+    packageName: "abot-operator",
+    versionRange: ">=3.0.0 <3.2.0",
+    source: "certified-operators",
+    status: "Running",
+    autoUpdate: false,
+    clusterCompatibility: "Compatible",
+    updateAvailable: "3.1.0",
+    lastUpdated: "Mar 10, 2026, 11:05 AM",
+    managedNamespaces: ["bap"],
+    isOlmV1Extension: true,
+  },
   {
     name: "OpenShift GitOps",
     namespace: "openshift-gitops-operator",
@@ -26,6 +45,7 @@ const PROTOTYPE_INSTALLED_OPERATORS: CatalogOperator[] = [
     lastUpdated: "Jun 12, 2025, 4:02 PM",
     managedNamespaces: ["openshift-gitops"],
     isOlmV1Extension: true,
+    updateAvailable: "1.13.0",
     olmMigrationEligibility: "migrated",
     olmClusterExtensionMigration: {
       installedCondition: "True",
@@ -100,15 +120,17 @@ const PROTOTYPE_INSTALLED_OPERATORS: CatalogOperator[] = [
   },
 ];
 
+function matchOperatorName(op: CatalogOperator, decoded: string, raw: string): boolean {
+  return op.name === decoded || op.name === raw;
+}
+
 export function getPrototypeInstalledOperator(name: string): CatalogOperator | undefined {
   const decoded = decodeURIComponent(name);
-  const fromRich = PROTOTYPE_INSTALLED_OPERATORS.find(
-    (op) => op.name === decoded || op.name === name,
-  );
+  const fromRich = PROTOTYPE_INSTALLED_OPERATORS.find((op) => matchOperatorName(op, decoded, name));
   if (fromRich) return fromRich;
-  return CLUSTER_EXTENSION_PROTOTYPE_OPERATORS.find(
-    (op) => op.name === decoded || op.name === name,
-  );
+  const fromCatalog = ADDITIONAL_CATALOG_OPERATORS.find((op) => matchOperatorName(op, decoded, name));
+  if (fromCatalog && !fromCatalog.isOlmV1Extension) return fromCatalog;
+  return CLUSTER_EXTENSION_PROTOTYPE_OPERATORS.find((op) => matchOperatorName(op, decoded, name));
 }
 
 export function isOlmV1ExtensionOperatorName(name: string): boolean {

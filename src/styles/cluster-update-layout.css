@@ -108,6 +108,15 @@ html:not(.no-glass) .pf-v6-c-expandable-section.ocp-cluster-expandable--plain.pf
   vertical-align: middle;
 }
 
+/* Installed Operators bulk/row menus: same sparkle glyph as cluster “Pre-check with AI”, menu scale */
+.pf-v6-c-dropdown__menu-item .ocs-io-ai-precheck-dropdown-icon,
+.pf-v6-c-menu__item .ocs-io-ai-precheck-dropdown-icon {
+  width: 1.125rem !important;
+  height: 1.125rem !important;
+  min-width: 1.125rem;
+  min-height: 1.125rem;
+}
+
 /* Proposed-plan card: sparkle aligns with agent plan heading Title (h2 xl); see AI_GENERATED_PLAN_HEADING */
 /**
  * Agent-based updates card: same sparkle scale + color treatment as “Pre-check with AI” (not PF status.teal).

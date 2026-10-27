@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import {
   Alert,
   Button,
-  Content,
-  Divider,
   Flex,
   Form,
   Modal,
@@ -27,8 +25,8 @@ type OlmV1ExtensionUpdateModalProps = {
   isOpen: boolean;
   onClose: () => void;
   onComplete?: (operator: CatalogOperator, spec: OlmV1ClusterExtensionSpec) => void;
-  /** Opens unsubscribe flow (same operator); modal closes first. */
-  onRequestUnsubscribe?: () => void;
+  /** When set, seeds the form instead of operator fields (Subscription tab Update flow). */
+  initialSpec?: OlmV1ClusterExtensionSpec;
 };
 
 type ModalPhase = "edit" | "progress" | "complete";
@@ -44,7 +42,7 @@ export function OlmV1ExtensionUpdateModal({
   isOpen,
   onClose,
   onComplete,
-  onRequestUnsubscribe,
+  initialSpec,
 }: OlmV1ExtensionUpdateModalProps) {
   const [phase, setPhase] = useState<ModalPhase>("edit");
   const [spec, setSpec] = useState<OlmV1ClusterExtensionSpec>(() => defaultClusterExtensionSpec());
@@ -55,13 +53,14 @@ export function OlmV1ExtensionUpdateModal({
     setPhase("edit");
     setProgressStep(0);
     setSpec(
-      defaultClusterExtensionSpec({
-        channel: operator.channel,
-        version: operator.version,
-        versionRange: operator.versionRange,
-      }),
+      initialSpec ??
+        defaultClusterExtensionSpec({
+          channel: operator.channel,
+          version: operator.version,
+          versionRange: operator.versionRange,
+        }),
     );
-  }, [isOpen, operator?.name, operator?.channel, operator?.version, operator?.versionRange]);
+  }, [isOpen, operator?.name, operator?.channel, operator?.version, operator?.versionRange, initialSpec]);
 
   if (!operator) {
     return null;
@@ -101,19 +100,13 @@ export function OlmV1ExtensionUpdateModal({
       <ModalHeader
         title={
           <span id="olm-v1-edit-title">
-            {phase === "complete" ? "Changes applied" : "Manage updates"}
+            {phase === "complete" ? "Changes applied" : "Update subscription"}
           </span>
         }
       />
       <ModalBody id="olm-v1-edit-body">
         {phase === "edit" ? (
           <Stack hasGutter>
-            <StackItem>
-              <Alert variant="info" title="Manual edit (OCP 5.1)" isInline>
-                Console applies channel and version from your input. Update availability from catalogd is stubbed
-                until OCPSTRAT-3760 lands in 5.2.
-              </Alert>
-            </StackItem>
             <StackItem>
               <Form>
                 <OlmV1ClusterExtensionSpecFields
@@ -123,17 +116,6 @@ export function OlmV1ExtensionUpdateModal({
                 />
               </Form>
             </StackItem>
-            {onRequestUnsubscribe ? (
-              <StackItem>
-                <Divider />
-                <Content component="p" className="pf-v6-u-mt-md pf-v6-u-mb-sm pf-v6-u-color-200">
-                  Stop receiving catalog updates without removing the extension or managed resources.
-                </Content>
-                <Button variant="secondary" onClick={onRequestUnsubscribe}>
-                  Unsubscribe from updates
-                </Button>
-              </StackItem>
-            ) : null}
           </Stack>
         ) : null}
 
@@ -180,7 +162,7 @@ export function OlmV1ExtensionUpdateModal({
               Cancel
             </Button>
             <Button key="submit" variant="primary" isDisabled={!canSubmit} onClick={handleSubmit}>
-              Apply changes
+              Update
             </Button>
           </>
         ) : null}

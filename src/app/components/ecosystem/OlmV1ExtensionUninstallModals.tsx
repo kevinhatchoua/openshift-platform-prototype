@@ -88,7 +88,7 @@ export function OlmV1ExtensionUninstallModals({
     kind === "unsubscribe"
       ? phase === "complete"
         ? "Unsubscribed from updates"
-        : "Unsubscribe from updates"
+        : "Manage subscription"
       : phase === "complete"
         ? "Cluster extension deleted"
         : "Delete cluster extension";

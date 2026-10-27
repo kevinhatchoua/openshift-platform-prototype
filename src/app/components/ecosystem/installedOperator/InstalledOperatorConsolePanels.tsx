@@ -24,6 +24,7 @@ import {
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
 import ExclamationTriangleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-triangle-icon";
 import InfoCircleIcon from "@patternfly/react-icons/dist/esm/icons/info-circle-icon";
+import OutlinedClockIcon from "@patternfly/react-icons/dist/esm/icons/outlined-clock-icon";
 import PencilAltIcon from "@patternfly/react-icons/dist/esm/icons/pencil-alt-icon";
 import {
   InnerScrollContainer,
@@ -68,7 +69,7 @@ export function operatorToConsoleModel(
     displayName: overrides?.displayName ?? operator.name,
     version: operator.version,
     provider: overrides?.provider ?? (operator.source === "Built-in" ? "Red Hat" : operator.source),
-    subscriptionName: overrides?.subscriptionName ?? `${pkg}-operator`,
+    subscriptionName: overrides?.subscriptionName ?? operator.packageName ?? `${pkg}-operator`,
     namespace: operator.namespace,
     channel: operator.channel,
     description:
@@ -123,15 +124,17 @@ export function InstalledOperatorYamlPanel({ initialYaml }: InstalledOperatorYam
   );
 }
 
-const SUBSCRIPTION_CONDITIONS = [
-  {
-    type: "CatalogSourcesUnhealthy",
-    status: "False",
-    updated: "Just now",
-    reason: "AllCatalogSourcesHealthy",
-    message: "all available catalogsources are healthy",
-  },
-];
+function subscriptionConditions(updatedAt: string) {
+  return [
+    {
+      type: "CatalogSourcesUnhealthy",
+      status: "False",
+      updated: updatedAt,
+      reason: "AllCatalogSourcesHealthy",
+      message: "all available catalogsources are healthy",
+    },
+  ];
+}
 
 const CSV_CONDITIONS = [
   { phase: "Pending", updated: "Just now", reason: "RequirementsUnknown", message: "requirements not yet checked" },
@@ -199,6 +202,13 @@ export function InstalledOperatorSubscriptionPanel({
       : upgradeStatus.kind === "newer-than-channel"
         ? "Change channel or version to align with the subscription"
         : null;
+
+  const catalogSourceId = model.provider === "Red Hat" ? "redhat-operators" : "community-operators";
+  const installPlanId =
+    model.subscriptionName === "advanced-cluster-management"
+      ? "install-2zkgm"
+      : `install-${model.subscriptionName.replace(/[^a-z0-9]/gi, "").slice(0, 6)}`;
+  const subscriptionUpdatedAt = model.csv.createdAt;
 
   return (
     <div className="ocs-io-operator-detail-sections">
@@ -282,7 +292,17 @@ export function InstalledOperatorSubscriptionPanel({
               </DescriptionListGroup>
             </DescriptionList>
             <ContentMuted className="ocs-io-subscription-card__footnote">
-              {installedCount} installed · {installingCount} installing
+              <Flex gap={{ default: "gapXs" }} alignItems={{ default: "alignItemsCenter" }} flexWrap={{ default: "wrap" }}>
+                <Button variant="link" isInline className="ocs-io-subscription-card__count-link">
+                  {installedCount}
+                </Button>
+                <span>installed</span>
+                <span aria-hidden>·</span>
+                <Button variant="link" isInline className="ocs-io-subscription-card__count-link">
+                  {installingCount}
+                </Button>
+                <span>installing</span>
+              </Flex>
             </ContentMuted>
             {statusFootnote ? (
               <ContentMuted className="ocs-io-subscription-card__footnote">{statusFootnote}</ContentMuted>
@@ -327,23 +347,34 @@ export function InstalledOperatorSubscriptionPanel({
             </Flex>
           </DescriptionListDescription>
         </DescriptionListGroup>
-        <DescriptionListGroup>
-          <DescriptionListTerm>CatalogSource</DescriptionListTerm>
-          <DescriptionListDescription>
-            <Button variant="link" isInline>CS {model.provider === "Red Hat" ? "redhat-operators" : "community-operators"}</Button>
-            <Label color="green" className="pf-v6-u-ml-sm">Healthy</Label>
-          </DescriptionListDescription>
-        </DescriptionListGroup>
-        <DescriptionListGroup>
-          <DescriptionListTerm>Created at</DescriptionListTerm>
-          <DescriptionListDescription>{model.csv.createdAt}</DescriptionListDescription>
-        </DescriptionListGroup>
-        <DescriptionListGroup>
-          <DescriptionListTerm>InstallPlan</DescriptionListTerm>
-          <DescriptionListDescription>
-            <Button variant="link" isInline>IP install-plan-stub</Button>
-          </DescriptionListDescription>
-        </DescriptionListGroup>
+          <DescriptionListGroup>
+            <DescriptionListTerm>CatalogSource</DescriptionListTerm>
+            <DescriptionListDescription>
+              <Button variant="link" isInline>
+                <Label color="blue" isCompact className="pf-v6-u-mr-xs">CS</Label>
+                {catalogSourceId}
+              </Button>
+              <Label color="green" className="pf-v6-u-ml-sm">Healthy</Label>
+            </DescriptionListDescription>
+          </DescriptionListGroup>
+          <DescriptionListGroup>
+            <DescriptionListTerm>Created at</DescriptionListTerm>
+            <DescriptionListDescription>
+              <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
+                <OutlinedClockIcon aria-hidden />
+                {model.csv.createdAt}
+              </Flex>
+            </DescriptionListDescription>
+          </DescriptionListGroup>
+          <DescriptionListGroup>
+            <DescriptionListTerm>InstallPlan</DescriptionListTerm>
+            <DescriptionListDescription>
+              <Button variant="link" isInline>
+                <Label color="blue" isCompact className="pf-v6-u-mr-xs">IP</Label>
+                {installPlanId}
+              </Button>
+            </DescriptionListDescription>
+          </DescriptionListGroup>
         <DescriptionListGroup>
           <DescriptionListTerm>Owner</DescriptionListTerm>
           <DescriptionListDescription>No owner</DescriptionListDescription>
@@ -368,11 +399,16 @@ export function InstalledOperatorSubscriptionPanel({
               </Tr>
             </Thead>
             <Tbody>
-              {SUBSCRIPTION_CONDITIONS.map((row) => (
+              {subscriptionConditions(subscriptionUpdatedAt).map((row) => (
                 <Tr key={row.type}>
                   <Td dataLabel="Type">{row.type}</Td>
                   <Td dataLabel="Status">{row.status}</Td>
-                  <Td dataLabel="Updated">{row.updated}</Td>
+                  <Td dataLabel="Updated">
+                    <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
+                      <OutlinedClockIcon aria-hidden />
+                      {row.updated}
+                    </Flex>
+                  </Td>
                   <Td dataLabel="Reason">{row.reason}</Td>
                   <Td dataLabel="Message">{row.message}</Td>
                 </Tr>

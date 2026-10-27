@@ -21,17 +21,14 @@ import {
 import PencilAltIcon from "@patternfly/react-icons/dist/esm/icons/pencil-alt-icon";
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
+import { OlmV1ClusterExtensionSubscriptionPanel } from "../../components/ecosystem/OlmV1ClusterExtensionSubscriptionPanel";
 import {
   InstalledOperatorDetailsSections,
-  InstalledOperatorSubscriptionPanel,
   InstalledOperatorYamlPanel,
   operatorToConsoleModel,
   useInstalledOperatorYaml,
 } from "../../components/ecosystem/installedOperator/InstalledOperatorConsolePanels";
-import {
-  OlmV1ExtensionEditHintAlert,
-  useOlmV1ExtensionLifecycleActions,
-} from "../../components/ecosystem/OlmV1ExtensionLifecycleActions";
+import { useOlmV1ExtensionLifecycleActions } from "../../components/ecosystem/OlmV1ExtensionLifecycleActions";
 import type { CatalogOperator } from "../ecosystem/installedOperatorsTypes";
 import { getPrototypeInstalledOperator } from "../ecosystem/installedOperatorsLookup";
 import { ResourceName } from "./gitopsShared";
@@ -238,7 +235,7 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
   );
   const operatorYaml = useInstalledOperatorYaml(consoleModel);
 
-  const { actionsDropdown, lifecycleModals, openEdit, canManageClusterExtension } =
+  const { actionsDropdown, lifecycleModals, openManageSubscription, canManageClusterExtension } =
     useOlmV1ExtensionLifecycleActions({
       operator,
       onSpecUpdated: (spec) => {
@@ -280,8 +277,6 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
               {actionsDropdown}
             </Flex>
           </Flex>
-
-          <OlmV1ExtensionEditHintAlert onEdit={openEdit} canEdit={canManageClusterExtension} />
 
           <div className="ocs-gitops-operator-tabs ocs-gitops-operator-detail__tabs ocs-console-page-tabs">
             <Tabs
@@ -326,19 +321,18 @@ export default function GitOpsOperatorDetailView({ operatorName }: { operatorNam
           {activeTab === "yaml" ? <InstalledOperatorYamlPanel initialYaml={operatorYaml} /> : null}
 
           {activeTab === "subscription" ? (
-            <InstalledOperatorSubscriptionPanel
-              model={consoleModel}
-              channel={operator.channel}
-              version={operator.version}
-              autoUpdate={operator.autoUpdate}
-              packageName={operator.packageName}
-              canEdit={canManageClusterExtension}
-              onChannelVersionChange={(nextChannel, nextVersion) => {
-                setOperator((prev) => ({ ...prev, channel: nextChannel, version: nextVersion }));
+            <OlmV1ClusterExtensionSubscriptionPanel
+              operator={operator}
+              canManage={canManageClusterExtension}
+              onSpecUpdated={(spec) => {
+                setOperator((prev) => ({
+                  ...prev,
+                  channel: spec.channel,
+                  version: spec.version,
+                  versionRange: spec.versionRange,
+                }));
               }}
-              onApprovalChange={(autoUpdate) => {
-                setOperator((prev) => ({ ...prev, autoUpdate }));
-              }}
+              onManageSubscription={openManageSubscription}
             />
           ) : null}
 

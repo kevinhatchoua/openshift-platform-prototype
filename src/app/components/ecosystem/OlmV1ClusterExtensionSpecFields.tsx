@@ -45,12 +45,12 @@ export function OlmV1ClusterExtensionSpecFields({
         </FormHelperText>
       </FormGroup>
 
-      <FormGroup label="Version" isRequired fieldId={`${idPrefix}-version`}>
+      <FormGroup label="Current version" isRequired fieldId={`${idPrefix}-version`}>
         <TextInput
           id={`${idPrefix}-version`}
           value={value.version}
           onChange={(_e, v) => patch({ version: v })}
-          aria-label="Version"
+          aria-label="Current version"
           isDisabled={isReadOnly}
         />
       </FormGroup>

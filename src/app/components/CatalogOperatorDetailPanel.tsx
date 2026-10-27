@@ -77,6 +77,7 @@ export default function CatalogOperatorDetailPanel({
           <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapMd" }} flex={{ default: "flex_1" }}>
             <CatalogBrandLogo
               id={item.id}
+              displayName={item.name}
               catalogType={item.catalogType as LogoCatalogType}
               boxClassName="ocs-catalog-detail__logo"
               logoClassName="ocs-catalog-detail__logo-img"
@@ -135,7 +136,7 @@ export default function CatalogOperatorDetailPanel({
                     <DescriptionListGroup>
                       <DescriptionListTerm>Install method</DescriptionListTerm>
                       <DescriptionListDescription>
-                        ClusterExtension create form. Channel and version are entered as text during install (OCP 5.1).
+                        Cluster extension. Channel and version are entered during install.
                       </DescriptionListDescription>
                     </DescriptionListGroup>
                   ) : (

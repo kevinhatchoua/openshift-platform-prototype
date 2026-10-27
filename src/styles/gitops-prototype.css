@@ -353,32 +353,7 @@
   color: var(--pf-t--global--text--color--subtle);
 }
 
-/* Installed operator console-style tabs (YAML, Subscription, Details) */
-.ocs-io-yaml-panel {
-  border: 1px solid var(--pf-t--global--border--color--default);
-  border-radius: var(--pf-t--global--border--radius--small);
-  background: var(--pf-t--global--background--color--secondary--default);
-  min-height: 24rem;
-}
-
-.ocs-io-yaml-panel__toolbar {
-  padding: var(--pf-t--global--spacer--sm) var(--pf-t--global--spacer--md);
-  border-bottom: 1px solid var(--pf-t--global--border--color--default);
-}
-
-.ocs-io-yaml-panel__editor {
-  font-family: var(--pf-t--global--font--family--monospace);
-  font-size: var(--pf-t--global--font--size--body--default);
-  min-height: 18rem;
-  border: 0;
-  border-radius: 0;
-  background: transparent;
-}
-
-.ocs-io-yaml-panel__footer {
-  padding: var(--pf-t--global--spacer--md);
-  border-top: 1px solid var(--pf-t--global--border--color--default);
-}
+/* YAML editor chrome: see console-yaml-editor.css (ConsoleYamlEditor) */
 
 .ocs-io-subscription-cards {
   display: grid;

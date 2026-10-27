@@ -1210,17 +1210,44 @@ html.pf-v6-theme-glass.pf-v6-theme-dark .ocs-console-notification-drawer.pf-v6-c
 }
 
 /**
- * Glass Page shell: `pf-v6-c-page__sidebar-main` is an inset “card” with horizontal
- * margins. Those gutters are outside the frosted surface (parent column is transparent
- * in glass), so they read as a hard frame on both the start and end edges of the nav.
- * Pin the card to the sidebar column on both sides; canvas still from html/body
- * (see global.css). Main content keeps its own page inset.
+ * Glass Page shell — console sidenav (`ocs-console-sidebar` / `sidebar-main`).
+ *
+ * PF applies xl page-chrome **inline** margins via page-level `--*-glass` tokens; overrides on
+ * `sidebar-main` alone do not win. Zero margins on `.ocs-console-page.pf-v6-c-page`, then paint
+ * the same glass primary surface as `main-container` (rgba + blur). Do not use opaque gray-80.
  */
-:where(.pf-v6-theme-glass):not(.no-glass) .ocs-console-page .pf-v6-c-page__sidebar-main {
+:where(.pf-v6-theme-glass):not(.no-glass) .ocs-console-page.pf-v6-c-page {
   --pf-v6-c-page__sidebar-main--MarginInlineStart--glass: 0;
   --pf-v6-c-page__sidebar-main--MarginInlineEnd--glass: 0;
   --pf-v6-c-page__sidebar-main--xl--MarginInlineStart--glass: 0;
   --pf-v6-c-page__sidebar-main--xl--MarginInlineEnd--glass: 0;
+
+  --pf-v6-c-page__sidebar-main--BackgroundColor--glass: var(
+    --pf-t--global--background--color--glass--primary--default,
+    var(--pf-t--global--background--color--primary--default)
+  );
+  --pf-v6-c-page__sidebar-main--BackdropFilter--glass: var(
+    --pf-t--global--background--filter--glass--blur--primary
+  );
+  --pf-v6-c-page__sidebar-main--BorderWidth--glass: var(--pf-t--global--border--width--glass--default);
+  --pf-v6-c-page__sidebar-main--BorderColor--glass: var(--pf-t--global--border--color--glass--default);
+  --pf-v6-c-page__sidebar-main--BorderRadius--glass: var(--pf-t--global--border--radius--glass--default);
+  --pf-v6-c-page__sidebar-main--BoxShadow--glass: var(--pf-t--global--box-shadow--glass--default);
+}
+
+:where(.pf-v6-theme-glass):not(.no-glass) .ocs-console-page .ocs-console-sidebar .pf-v6-c-page__sidebar-main {
+  flex: 1 1 auto;
+  align-self: stretch;
+  min-height: 0;
+  margin-inline-start: 0 !important;
+  margin-inline-end: 0 !important;
+  background-color: var(
+    --pf-t--global--background--color--glass--primary--default,
+    var(--pf-t--global--background--color--primary--default)
+  ) !important;
+  background-image: none !important;
+  -webkit-backdrop-filter: var(--pf-t--global--background--filter--glass--blur--primary) !important;
+  backdrop-filter: var(--pf-t--global--background--filter--glass--blur--primary) !important;
 }
 
 html.dark .ocs-console-sidebar .pf-v6-c-nav {

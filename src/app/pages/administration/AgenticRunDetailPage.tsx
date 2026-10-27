@@ -24,9 +24,14 @@ import { AssessmentReport } from "../../components/cluster-update/AssessmentRepo
 import { LIGHTSPEED_AUTONOMOUS_FEATURES_DISCLAIMER } from "../../components/lightspeed/LightspeedLegalCopy";
 import {
   AGENTIC_RUNS_LIST_PATH,
+  AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION,
+  AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION_TROUBLESHOOT,
+  clusterExtensionTroubleshootRequestPrompt,
   agenticRunPath,
   analysisLogLines,
   analysisRequestPrompt,
+  clusterExtensionAnalysisRequestPrompt,
+  clusterExtensionReadinessJson,
   clusterReadinessJson,
   getAgenticUpdateRun,
   type AgenticUpdateRun,
@@ -51,6 +56,10 @@ function AgenticRunDetailsContent({
   optionOpen: boolean;
   setOptionOpen: (open: boolean) => void;
 }) {
+  const isClusterExtension =
+    run.triggerDomain === AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION ||
+    run.triggerDomain === AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION_TROUBLESHOOT;
+
   return (
     <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }} className="pf-v6-u-pt-lg">
       <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
@@ -75,34 +84,59 @@ function AgenticRunDetailsContent({
         </Flex>
         <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
           <CodeBlock className="ocs-agentic-run__code">
-            <CodeBlockCode>{analysisRequestPrompt()}</CodeBlockCode>
+            <CodeBlockCode>
+              {isClusterExtension
+                ? run.triggerDomain === AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION_TROUBLESHOOT
+                  ? clusterExtensionTroubleshootRequestPrompt(run)
+                  : clusterExtensionAnalysisRequestPrompt(run)
+                : analysisRequestPrompt()}
+            </CodeBlockCode>
           </CodeBlock>
           <Divider />
           <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }}>
-            <Content component="p">Current version: OCP {CLUSTER_CURRENT_VERSION}</Content>
-            <Content component="p">Target version: OCP {run.targetVersion}</Content>
-            <Content component="p">Channel: {run.channel}</Content>
-            <Content component="p">Update type: {run.updateType}</Content>
-            <Content component="p">Update path: {run.updatePath}</Content>
-            <Content component="p">
-              Other recommended versions available: {run.otherRecommended}{" "}
-              <Button
-                variant="link"
-                isInline
-                component="a"
-                href="https://access.redhat.com/errata/"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                errata
-              </Button>
-            </Content>
+            {isClusterExtension ? (
+              <>
+                <Content component="p">Extension: {run.extensionName}</Content>
+                <Content component="p">Namespace: {run.extensionNamespace ?? run.namespace}</Content>
+                <Content component="p">Installed version: {run.currentVersion}</Content>
+                <Content component="p">Proposed version: {run.proposedVersion ?? run.targetVersion}</Content>
+                <Content component="p">Channel: {run.channel}</Content>
+                <Content component="p">Version range: {run.versionRange || "(not set)"}</Content>
+                <Content component="p">Update path: {run.updatePath}</Content>
+                {run.attentionSummary ? (
+                  <Content component="p">Attention: {run.attentionSummary}</Content>
+                ) : null}
+              </>
+            ) : (
+              <>
+                <Content component="p">Current version: OCP {CLUSTER_CURRENT_VERSION}</Content>
+                <Content component="p">Target version: OCP {run.targetVersion}</Content>
+                <Content component="p">Channel: {run.channel}</Content>
+                <Content component="p">Update type: {run.updateType}</Content>
+                <Content component="p">Update path: {run.updatePath}</Content>
+                <Content component="p">
+                  Other recommended versions available: {run.otherRecommended}{" "}
+                  <Button
+                    variant="link"
+                    isInline
+                    component="a"
+                    href="https://access.redhat.com/errata/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    errata
+                  </Button>
+                </Content>
+              </>
+            )}
           </Flex>
           <Title headingLevel="h3" size="md">
-            Cluster Readiness Data
+            {isClusterExtension ? "Extension readiness data" : "Cluster Readiness Data"}
           </Title>
           <CodeBlock className="ocs-agentic-run__code">
-            <CodeBlockCode>{clusterReadinessJson(run)}</CodeBlockCode>
+            <CodeBlockCode>
+              {isClusterExtension ? clusterExtensionReadinessJson(run) : clusterReadinessJson(run)}
+            </CodeBlockCode>
           </CodeBlock>
           <ExpandableSection
             toggleText="View Analysis logs"
