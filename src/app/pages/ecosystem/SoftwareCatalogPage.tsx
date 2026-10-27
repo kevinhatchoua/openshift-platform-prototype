@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router";
+import ExclamationTriangleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-triangle-icon";
 import {
   Alert,
   AlertActionCloseButton,
@@ -1230,7 +1231,7 @@ export default function SoftwareCatalogPage() {
                         }}
                         className="text-[13px] text-[#0066cc] dark:text-[#4dabf7] hover:underline flex items-center gap-[4px]"
                       >
-                        <AlertTriangle className="size-[14px]" />
+                        <ExclamationTriangleIcon style={{ fontSize: 14 }} />
                         New version available
                       </a>
                     ) : item.catalogType === "operators" && item.installed ? (
