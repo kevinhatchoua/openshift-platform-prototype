@@ -29,6 +29,9 @@ import {
   getApplyRemediationResponse,
   getClusterSettingsPrecheckResponse,
   getGitOpsHealthRemediationResponse,
+  getGitOpsSyncTroubleshootResponse,
+  getGitOpsRolloutDiagnoseResponse,
+  getGitOpsFleetAssessmentResponse,
   getPreflightRemediationResponse,
   getClusterExtensionPrecheckResponse,
   getClusterExtensionTroubleshootResponse,
@@ -163,6 +166,28 @@ export default function LightSpeedPanel({ isOpen, onClose, dockTop = null }: Lig
       if (run) {
         report = getClusterExtensionTroubleshootResponse(run);
       }
+    } else if (chatContext.startsWith("ols-gitops-sync-troubleshoot:")) {
+      const runId = chatContext.split(":")[1];
+      const run = runId ? getStoredUpdatePlan(runId) : undefined;
+      if (run) {
+        report = getGitOpsSyncTroubleshootResponse(
+          run.extensionName ?? "unknown",
+          run.namespace,
+          run.attentionSummary ?? "",
+        );
+      }
+    } else if (chatContext.startsWith("ols-gitops-rollout-diagnose:")) {
+      const runId = chatContext.split(":")[1];
+      const run = runId ? getStoredUpdatePlan(runId) : undefined;
+      if (run) {
+        report = getGitOpsRolloutDiagnoseResponse(
+          run.extensionName ?? "unknown",
+          run.namespace,
+          run.attentionSummary ?? "",
+        );
+      }
+    } else if (chatContext === "ols-gitops-fleet-assess") {
+      report = getGitOpsFleetAssessmentResponse(3, 12);
     }
 
     if (!report) return undefined;
@@ -250,7 +275,9 @@ export default function LightSpeedPanel({ isOpen, onClose, dockTop = null }: Lig
     if (lowerSuggestion.includes("open agentic run")) {
       const runId =
         chatContext.startsWith("ols-cluster-extension-precheck:") ||
-        chatContext.startsWith("ols-cluster-extension-troubleshoot:")
+        chatContext.startsWith("ols-cluster-extension-troubleshoot:") ||
+        chatContext.startsWith("ols-gitops-sync-troubleshoot:") ||
+        chatContext.startsWith("ols-gitops-rollout-diagnose:")
           ? chatContext.split(":")[1]
           : undefined;
       if (runId) {

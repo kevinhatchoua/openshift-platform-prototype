@@ -204,6 +204,98 @@ export function getGitOpsHealthRemediationResponse(applicationName: string, name
   };
 }
 
+export function getGitOpsSyncTroubleshootResponse(applicationName: string, namespace: string, errorSummary: string): {
+  content: string;
+  suggestions: string[];
+  tools?: string[];
+} {
+  return {
+    content:
+      `**GitOps sync failure analysis for ${namespace}/${applicationName}**\n\n` +
+      `**Sync status:** OutOfSync\n` +
+      `**Error summary:** ${errorSummary || "Live manifest differs from desired revision"}\n\n` +
+      `**Root cause analysis**\n` +
+      `OpenShift Lightspeed inspected the ArgoCD application diff and cluster resource state:\n\n` +
+      `1. **Manifest drift detected** — the live Deployment spec has been modified outside of Git (likely a manual \`kubectl edit\` or HPA scaling event)\n` +
+      `2. **Image tag mismatch** — live container image \`quay.io/demo/${applicationName}:1.4.1\` differs from desired \`quay.io/demo/${applicationName}:1.4.0\` in Git\n` +
+      `3. **Resource quotas** — namespace \`${namespace}\` has 82% memory utilization; a sync may trigger OOMKill if new pods request more memory\n\n` +
+      `**Recommended remediation**\n` +
+      `• **Option A (update Git):** Commit the live image tag to the Git repo to reconcile drift forward\n` +
+      `• **Option B (force sync):** Run \`argocd app sync ${applicationName} --force\` to restore Git state (will restart pods)\n` +
+      `• **Option C (selective sync):** Sync only the non-image resources first, then coordinate the image rollback\n\n` +
+      `**Risk assessment:** Low — no dependent services will be affected by a re-sync\n\n` +
+      `Always review AI-generated content prior to use.`,
+    tools: [`argocd app diff ${applicationName}`, `kubectl get deploy -n ${namespace}`, `argocd app sync ${applicationName}`],
+    suggestions: [
+      "Show the full manifest diff",
+      "Which resources were manually changed?",
+      "Run a safe re-sync sequence",
+      "Open agentic run details",
+    ],
+  };
+}
+
+export function getGitOpsRolloutDiagnoseResponse(rolloutName: string, namespace: string, errorSummary: string): {
+  content: string;
+  suggestions: string[];
+  tools?: string[];
+} {
+  return {
+    content:
+      `**Rollout failure diagnosis for ${namespace}/${rolloutName}**\n\n` +
+      `**Health status:** Degraded\n` +
+      `**Error summary:** ${errorSummary || "Canary analysis failed — pod health check threshold not met"}\n\n` +
+      `**Analysis results**\n` +
+      `OpenShift Lightspeed inspected the Argo Rollout canary analysis and pod telemetry:\n\n` +
+      `1. **Canary analysis failed** — the AnalysisRun \`${rolloutName}-analysis-1\` reported metric \`success-rate\` at **78%**, below the threshold of **95%**\n` +
+      `2. **Pod health** — canary ReplicaSet has **0/2 pods ready**; pods are crash-looping with \`Error: connection refused on port 8080\`\n` +
+      `3. **Baseline comparison** — stable ReplicaSet is healthy (3/3 pods), serving traffic normally\n` +
+      `4. **Root cause** — new container image includes a config change that expects environment variable \`DATABASE_URL\` which is not set in the canary pod spec\n\n` +
+      `**Recommended actions**\n` +
+      `• **Abort the rollout** — the canary is unhealthy and should not receive more traffic\n` +
+      `• **Fix the manifest** — add the missing \`DATABASE_URL\` env var to the pod spec in Git\n` +
+      `• **Re-promote** — after fixing, trigger a new rollout with \`kubectl argo rollouts retry ${rolloutName}\`\n\n` +
+      `**Impact:** No production traffic is affected — the canary had 0% traffic weight when analysis failed\n\n` +
+      `Always review AI-generated content prior to use.`,
+    tools: [`kubectl argo rollouts status ${rolloutName} -n ${namespace}`, `kubectl get analysisrun -n ${namespace}`, `kubectl argo rollouts abort ${rolloutName}`],
+    suggestions: [
+      "Show the analysis run metrics",
+      "What environment variables are missing?",
+      "Abort and rollback safely",
+      "Open agentic run details",
+    ],
+  };
+}
+
+export function getGitOpsFleetAssessmentResponse(needsAttentionCount: number, totalApps: number): {
+  content: string;
+  suggestions: string[];
+  tools?: string[];
+} {
+  return {
+    content:
+      `**GitOps fleet health assessment**\n\n` +
+      `**Fleet summary:** ${totalApps} applications across all ArgoCD instances\n` +
+      `**Needs attention:** ${needsAttentionCount} applications\n\n` +
+      `**Priority triage order**\n\n` +
+      `1. **payments-api** (argocd) — **OutOfSync + Progressing**\n` +
+      `   Live manifest drift detected on Deployment image tag. A re-sync or Git commit is needed.\n\n` +
+      `2. **legacy-batch-processor** (openshift-gitops) — **Synced + Degraded**\n` +
+      `   Application reports healthy sync but health probe is failing. Check pod readiness and liveness probes.\n\n` +
+      `3. **auth-service** (payments) — **OutOfSync + Aborting**\n` +
+      `   Sync operation was aborted mid-deploy. Resources may be in a partial state. Review and re-sync.\n\n` +
+      `**No cascading failures detected** — the degraded applications are in separate namespaces with no cross-dependencies.\n\n` +
+      `**Recommendation:** Address payments-api first (highest user impact), then legacy-batch-processor, then auth-service.\n\n` +
+      `Always review AI-generated content prior to use.`,
+    tools: ["argocd app list --status Degraded", "argocd app list --sync-status OutOfSync"],
+    suggestions: [
+      "Troubleshoot payments-api sync failure",
+      "Show health details for legacy-batch-processor",
+      "What caused the auth-service abort?",
+    ],
+  };
+}
+
 // Comprehensive AI response handler for OpenShift LightSpeed
 export function getAIResponse(userInput: string, currentPath?: string): { 
   content: string; 

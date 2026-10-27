@@ -4,6 +4,8 @@ import {
   AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION,
   AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION_TROUBLESHOOT,
   AGENTIC_RUN_TRIGGER_DOMAIN,
+  AGENTIC_RUN_TRIGGER_GITOPS_SYNC,
+  AGENTIC_RUN_TRIGGER_GITOPS_ROLLOUT,
   AGENTIC_UPDATE_RUNS,
   analysisLogLines,
   clusterExtensionReadinessJson,
@@ -354,4 +356,120 @@ export function useUpdatePlans(): AgenticUpdateRun[] {
   }, []);
 
   return runs;
+}
+
+/* ── GitOps agentic runs ──────────────────────────────────────────────── */
+
+export type GitOpsSyncTroubleshootInput = {
+  applicationName: string;
+  namespace: string;
+  syncStatus: string;
+  healthStatus: string;
+  errorSummary: string;
+};
+
+export function startGitOpsSyncTroubleshootRun(input: GitOpsSyncTroubleshootInput): AgenticUpdateRun {
+  const now = new Date();
+  const generatedAt = formatTimestamp(now);
+  const slug = input.applicationName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const run: AgenticUpdateRun = {
+    id: `gitops-sync-${slug}-${now.getTime()}`,
+    targetVersion: "",
+    updateType: "Patch",
+    phase: "Analyzing",
+    status: "In progress",
+    age: generatedAt,
+    generatedAt,
+    created: "Just now",
+    sandbox: `ls-analysis-gitops-${slug}`,
+    channel: "",
+    updatePath: "GitOps sync troubleshoot",
+    otherRecommended: "",
+    selectedOption: "Analyzing sync failure",
+    namespace: input.namespace,
+    triggerDomain: AGENTIC_RUN_TRIGGER_GITOPS_SYNC,
+    tokensConsumed: "-",
+    recommendation: null,
+    extensionName: input.applicationName,
+    extensionNamespace: input.namespace,
+    attentionSummary: input.errorSummary,
+  };
+  writeUpdatePlans([run, ...readUpdatePlans()]);
+  return run;
+}
+
+export function finishGitOpsSyncTroubleshootRun(id: string, outcome: TroubleshootOutcome) {
+  const plans = readUpdatePlans();
+  const current = plans.find((run) => run.id === id);
+  if (!current || current.triggerDomain !== AGENTIC_RUN_TRIGGER_GITOPS_SYNC) return;
+  if (current.phase !== "Analyzing") return;
+  const next: AgenticUpdateRun = {
+    ...current,
+    phase: outcome === "cancelled" ? "Cancelled" : "Analysed",
+    status: outcome === "cancelled" ? "Cancelled" : "Completed",
+    selectedOption:
+      outcome === "cancelled"
+        ? "Analysis cancelled"
+        : "Sync failure root cause identified — see recommendations",
+    tokensConsumed: outcome === "cancelled" ? "-" : "1,240",
+  };
+  writeUpdatePlans(plans.map((run) => (run.id === id ? next : run)));
+  notify(PRECHECK_FINISHED_EVENT);
+}
+
+export type GitOpsRolloutDiagnoseInput = {
+  rolloutName: string;
+  namespace: string;
+  healthStatus: string;
+  strategy: string;
+  errorSummary: string;
+};
+
+export function startGitOpsRolloutDiagnoseRun(input: GitOpsRolloutDiagnoseInput): AgenticUpdateRun {
+  const now = new Date();
+  const generatedAt = formatTimestamp(now);
+  const slug = input.rolloutName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "");
+  const run: AgenticUpdateRun = {
+    id: `gitops-rollout-${slug}-${now.getTime()}`,
+    targetVersion: "",
+    updateType: "Patch",
+    phase: "Analyzing",
+    status: "In progress",
+    age: generatedAt,
+    generatedAt,
+    created: "Just now",
+    sandbox: `ls-analysis-gitops-rollout-${slug}`,
+    channel: "",
+    updatePath: "GitOps rollout diagnosis",
+    otherRecommended: "",
+    selectedOption: "Diagnosing rollout failure",
+    namespace: input.namespace,
+    triggerDomain: AGENTIC_RUN_TRIGGER_GITOPS_ROLLOUT,
+    tokensConsumed: "-",
+    recommendation: null,
+    extensionName: input.rolloutName,
+    extensionNamespace: input.namespace,
+    attentionSummary: input.errorSummary,
+  };
+  writeUpdatePlans([run, ...readUpdatePlans()]);
+  return run;
+}
+
+export function finishGitOpsRolloutDiagnoseRun(id: string, outcome: TroubleshootOutcome) {
+  const plans = readUpdatePlans();
+  const current = plans.find((run) => run.id === id);
+  if (!current || current.triggerDomain !== AGENTIC_RUN_TRIGGER_GITOPS_ROLLOUT) return;
+  if (current.phase !== "Analyzing") return;
+  const next: AgenticUpdateRun = {
+    ...current,
+    phase: outcome === "cancelled" ? "Cancelled" : "Analysed",
+    status: outcome === "cancelled" ? "Cancelled" : "Completed",
+    selectedOption:
+      outcome === "cancelled"
+        ? "Analysis cancelled"
+        : "Rollout failure diagnosed — see remediation steps",
+    tokensConsumed: outcome === "cancelled" ? "-" : "980",
+  };
+  writeUpdatePlans(plans.map((run) => (run.id === id ? next : run)));
+  notify(PRECHECK_FINISHED_EVENT);
 }

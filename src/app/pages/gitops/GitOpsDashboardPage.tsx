@@ -1,4 +1,4 @@
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Alert,
@@ -45,6 +45,10 @@ import {
   recentOperationsForInstance,
 } from "./gitopsData";
 import { HealthStatus, ResourceName } from "./gitopsShared";
+import { useChat } from "../../contexts/ChatContext";
+import { Sparkles } from "@/lib/pfIcons";
+import { AiSparkleLabel } from "../../components/lightspeed/LightspeedLegalCopy";
+import { createGitOpsAiLaunchers } from "../../lib/gitopsAiWorkflow";
 import {
   connectivityLabelColor,
   gitOpsHealthChartColor,
@@ -207,6 +211,16 @@ export default function GitOpsDashboardPage() {
     appMatchesConsoleProject(a.ns, project),
   );
   const metrics = buildDashboardMetrics(apps);
+  const chat = useChat();
+  const gitopsAi = useMemo(
+    () =>
+      createGitOpsAiLaunchers({
+        clearMessages: chat.clearMessages,
+        setContext: chat.setContext,
+        setIsOpen: chat.setIsOpen,
+      }),
+    [chat.clearMessages, chat.setContext, chat.setIsOpen],
+  );
   const appKeys = new Set(apps.map((a) => `${a.ns}/${a.name}`));
   const operations = recentOperationsForInstance(GITOPS_ALL_INSTANCES).filter((op) =>
     appKeys.has(`${op.ns}/${op.name}`),
@@ -465,6 +479,35 @@ export default function GitOpsDashboardPage() {
             </GridItem>
           </Grid>
           )}
+
+          {totalApps > 0 && metrics.needsAttention.length > 0 ? (
+            <Card>
+              <CardTitle>
+                <AiSparkleLabel aria-label="AI Fleet Assessment">AI Fleet Assessment</AiSparkleLabel>
+              </CardTitle>
+              <CardBody>
+                <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
+                  <Content component="p">
+                    OpenShift Lightspeed can assess the health of your GitOps fleet, identify applications needing
+                    attention, and recommend a triage order based on severity and cross-dependencies.
+                  </Content>
+                  <Content component="small" className="pf-v6-u-color-200">
+                    {metrics.needsAttention.length} application{metrics.needsAttention.length !== 1 ? "s" : ""} need
+                    attention across {apps.length} total applications.
+                  </Content>
+                  <Flex>
+                    <Button
+                      variant="secondary"
+                      icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+                      onClick={() => gitopsAi.launchFleetAssessment()}
+                    >
+                      Assess fleet with AI
+                    </Button>
+                  </Flex>
+                </Flex>
+              </CardBody>
+            </Card>
+          ) : null}
 
           {totalApps > 0 && metrics.needsAttention.length > 0 ? (
             <Card>

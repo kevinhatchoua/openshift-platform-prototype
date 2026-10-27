@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useParams } from "react-router";
 import {
   Alert,
@@ -41,6 +41,9 @@ import {
 import { useToast } from "../../contexts/ToastContext";
 import GitOpsYamlUnifiedDiff from "./GitOpsYamlUnifiedDiff";
 import { useGitOpsInstance } from "./GitOpsInstancePicker";
+import { useChat } from "../../contexts/ChatContext";
+import { Sparkles } from "@/lib/pfIcons";
+import { createGitOpsAiLaunchers, applicationNeedsAiTroubleshoot } from "../../lib/gitopsAiWorkflow";
 
 function liveYaml(rec: ApplicationRecord) {
   const image =
@@ -115,6 +118,17 @@ export default function GitOpsApplicationDetailRich() {
   const syncError = rec ? applicationSyncError(rec) : null;
   const { instance } = useGitOpsInstance();
   const instanceScoped = rec ? rec.instanceKey === instance || instance === GITOPS_ALL_INSTANCES : true;
+  const chat = useChat();
+  const gitopsAi = useMemo(
+    () =>
+      createGitOpsAiLaunchers({
+        clearMessages: chat.clearMessages,
+        setContext: chat.setContext,
+        setIsOpen: chat.setIsOpen,
+      }),
+    [chat.clearMessages, chat.setContext, chat.setIsOpen],
+  );
+  const showAiTroubleshoot = rec ? applicationNeedsAiTroubleshoot(rec) : false;
 
   if (!rec) {
     return <GitOpsNotFound listPath="/gitops/applications" listTitle="Applications" />;
@@ -129,7 +143,31 @@ export default function GitOpsApplicationDetailRich() {
           <GitOpsDetailPageHeader kind="Application" name={rec.name} href={href} menuKind="Application" />
 
           {syncError ? (
-            <Alert variant="warning" isInline title={syncError.title}>
+            <Alert
+              variant="warning"
+              isInline
+              title={syncError.title}
+              actionLinks={
+                showAiTroubleshoot ? (
+                  <Button
+                    variant="link"
+                    isInline
+                    icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+                    onClick={() =>
+                      gitopsAi.launchSyncTroubleshoot({
+                        name: rec.name,
+                        ns: rec.ns,
+                        sync: rec.sync,
+                        health: rec.health,
+                        errorSummary: syncError.title,
+                      })
+                    }
+                  >
+                    Troubleshoot with AI
+                  </Button>
+                ) : undefined
+              }
+            >
               {syncError.detail}
               {syncError.agentHint ? (
                 <Content component="p" className="pf-v6-u-mt-sm">

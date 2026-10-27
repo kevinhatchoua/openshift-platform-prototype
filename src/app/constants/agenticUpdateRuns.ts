@@ -13,6 +13,8 @@ export const AGENTIC_RUN_NAMESPACE = "openshift-lightspeed";
 export const AGENTIC_RUN_TRIGGER_DOMAIN = "cluster-version-operator";
 export const AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION = "cluster-extension";
 export const AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION_TROUBLESHOOT = "cluster-extension-troubleshoot";
+export const AGENTIC_RUN_TRIGGER_GITOPS_SYNC = "gitops-sync-troubleshoot";
+export const AGENTIC_RUN_TRIGGER_GITOPS_ROLLOUT = "gitops-rollout-diagnose";
 
 export type AgenticAnalysisPhase = "Analyzing" | "Analysed" | "Failed" | "Cancelled";
 export type AgenticRunStatus = "Completed" | "Failed" | "Cancelled" | "In progress";

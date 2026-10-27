@@ -68,6 +68,9 @@ import {
 import { HealthStatus, InfoLabel, ManagedByCell, ResourceName } from "./gitopsShared";
 import RolloutActionsKebab from "./RolloutActionsKebab";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
+import { useChat } from "../../contexts/ChatContext";
+import { Sparkles } from "@/lib/pfIcons";
+import { createGitOpsAiLaunchers, rolloutNeedsAiDiagnose } from "../../lib/gitopsAiWorkflow";
 
 type RevisionRow = {
   rev: number;
@@ -275,6 +278,16 @@ export default function GitOpsRolloutDetailPage() {
   const [activeTab, setActiveTab] = useState("revisions");
   const [expanded, setExpanded] = useState<Record<number, boolean>>({ 8: true, 7: true });
   const [toast, setToast] = useState<string | null>(null);
+  const chat = useChat();
+  const gitopsAi = useMemo(
+    () =>
+      createGitOpsAiLaunchers({
+        clearMessages: chat.clearMessages,
+        setContext: chat.setContext,
+        setIsOpen: chat.setIsOpen,
+      }),
+    [chat.clearMessages, chat.setContext, chat.setIsOpen],
+  );
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<{ name: string }>({
     filters: { name: "" },
   });
@@ -485,6 +498,24 @@ export default function GitOpsRolloutDetailPage() {
               </Label>
               <HealthStatus status={statusText} />
               {st.message ? <Content component="small">{st.message}</Content> : null}
+              {rolloutNeedsAiDiagnose(statusText) ? (
+                <Button
+                  variant="link"
+                  isInline
+                  icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+                  onClick={() =>
+                    gitopsAi.launchRolloutDiagnose({
+                      name: rolloutName,
+                      ns,
+                      health: statusText,
+                      strategy: seed.strategy,
+                      errorSummary: st.message || `Rollout ${statusText}`,
+                    })
+                  }
+                >
+                  Diagnose with AI
+                </Button>
+              ) : null}
             </Flex>
             <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
               <FavoriteButton name={rolloutName} path={href} />
