@@ -9,8 +9,6 @@ import {
   DescriptionListGroup,
   DescriptionListTerm,
   Flex,
-  Grid,
-  GridItem,
   Label,
   Tab,
   Tabs,
@@ -86,8 +84,6 @@ function OlmV1ExtensionDetailContent({
           { label: operator.name },
         ]}
       >
-        <Grid hasGutter>
-          <GridItem md={9}>
             <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
               <Flex
                 alignItems={{ default: "alignItemsCenter" }}
@@ -200,8 +196,6 @@ function OlmV1ExtensionDetailContent({
                 </>
               ) : null}
             </Flex>
-          </GridItem>
-        </Grid>
       </Breadcrumbs>
       {lifecycleModals}
     </div>
