@@ -41,6 +41,7 @@ import {
   GITOPS_APPLICATION_SETS,
   GITOPS_ROLLOUTS,
   applicationsForInstance,
+  findApplication,
   gitopsDetailPath,
   recentOperationsForInstance,
 } from "./gitopsData";
@@ -48,7 +49,7 @@ import { HealthStatus, ResourceName } from "./gitopsShared";
 import { useChat } from "../../contexts/ChatContext";
 import { Sparkles } from "@/lib/pfIcons";
 import { AiSparkleLabel } from "../../components/lightspeed/LightspeedLegalCopy";
-import { createGitOpsAiLaunchers } from "../../lib/gitopsAiWorkflow";
+import { createGitOpsAiLaunchers, applicationNeedsAiTroubleshoot } from "../../lib/gitopsAiWorkflow";
 import {
   connectivityLabelColor,
   gitOpsHealthChartColor,
@@ -218,9 +219,22 @@ export default function GitOpsDashboardPage() {
         clearMessages: chat.clearMessages,
         setContext: chat.setContext,
         setIsOpen: chat.setIsOpen,
+        navigateToAgenticRun: (path) => navigate(path),
       }),
-    [chat.clearMessages, chat.setContext, chat.setIsOpen],
+    [chat.clearMessages, chat.setContext, chat.setIsOpen, navigate],
   );
+
+  const launchAppInvestigate = (ns: string, name: string, summary: string) => {
+    const app = findApplication(ns, name);
+    if (!app) return;
+    gitopsAi.launchSyncTroubleshoot({
+      name: app.name,
+      ns: app.ns,
+      sync: app.sync,
+      health: app.health,
+      errorSummary: summary,
+    });
+  };
   const appKeys = new Set(apps.map((a) => `${a.ns}/${a.name}`));
   const operations = recentOperationsForInstance(GITOPS_ALL_INSTANCES).filter((op) =>
     appKeys.has(`${op.ns}/${op.name}`),
@@ -480,28 +494,48 @@ export default function GitOpsDashboardPage() {
           </Grid>
           )}
 
-          {totalApps > 0 && metrics.needsAttention.length > 0 ? (
+          {totalApps > 0 ? (
             <Card>
               <CardTitle>
-                <AiSparkleLabel aria-label="AI Fleet Assessment">AI Fleet Assessment</AiSparkleLabel>
+                <AiSparkleLabel aria-label="AI Fleet Assessment">AI-assisted GitOps</AiSparkleLabel>
               </CardTitle>
               <CardBody>
                 <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
                   <Content component="p">
-                    OpenShift Lightspeed can assess the health of your GitOps fleet, identify applications needing
-                    attention, and recommend a triage order based on severity and cross-dependencies.
+                    OpenShift Lightspeed can assess fleet health, investigate unhealthy applications, and surface
+                    agentic runs for sync and health issues.
                   </Content>
-                  <Content component="small" className="pf-v6-u-color-200">
-                    {metrics.needsAttention.length} application{metrics.needsAttention.length !== 1 ? "s" : ""} need
-                    attention across {apps.length} total applications.
-                  </Content>
-                  <Flex>
+                  {metrics.needsAttention.length > 0 ? (
+                    <Content component="small" className="pf-v6-u-color-200">
+                      {metrics.needsAttention.length} application{metrics.needsAttention.length !== 1 ? "s" : ""} need
+                      attention across {apps.length} total applications.
+                    </Content>
+                  ) : (
+                    <Content component="small" className="pf-v6-u-color-200">
+                      No applications currently flagged for attention in this project scope.
+                    </Content>
+                  )}
+                  <Flex gap={{ default: "gapMd" }} wrap="wrap">
                     <Button
                       variant="secondary"
                       icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
                       onClick={() => gitopsAi.launchFleetAssessment()}
                     >
                       Assess fleet with AI
+                    </Button>
+                    <Button
+                      variant="link"
+                      icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+                      onClick={() => navigate("/gitops/applications?attention=1")}
+                    >
+                      Applications needing attention
+                    </Button>
+                    <Button
+                      variant="link"
+                      icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+                      onClick={() => navigate("/agentic-runs")}
+                    >
+                      View agentic runs
                     </Button>
                   </Flex>
                 </Flex>
@@ -525,6 +559,9 @@ export default function GitOpsDashboardPage() {
                       <Th dataLabel="Severity">
                         <PlainTableHeader label="Severity" />
                       </Th>
+                      <Th dataLabel="AI">
+                        <PlainTableHeader label="AI" />
+                      </Th>
                     </Tr>
                   </Thead>
                   <Tbody>
@@ -545,6 +582,19 @@ export default function GitOpsDashboardPage() {
                           <Label color={severityLabelColor(item.severity)} isCompact>
                             {item.severity}
                           </Label>
+                        </Td>
+                        <Td dataLabel="AI" isActionCell>
+                          <Button
+                            variant="link"
+                            isInline
+                            icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              launchAppInvestigate(item.ns, item.name, item.reason);
+                            }}
+                          >
+                            Investigate with AI
+                          </Button>
                         </Td>
                       </Tr>
                     ))}
@@ -574,15 +624,21 @@ export default function GitOpsDashboardPage() {
                   <Th dataLabel="Finished">
                     <PlainTableHeader label="Finished" />
                   </Th>
+                  <Th dataLabel="AI">
+                    <PlainTableHeader label="AI" />
+                  </Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {operations.length === 0 ? (
                   <Tr>
-                    <Td colSpan={4}>No recent operations.</Td>
+                    <Td colSpan={5}>No recent operations.</Td>
                   </Tr>
                 ) : (
-                  operations.map((op) => (
+                  operations.map((op) => {
+                    const opApp = findApplication(op.ns, op.name);
+                    const showOpAi = opApp ? applicationNeedsAiTroubleshoot(opApp) : op.phase === "Failed";
+                    return (
                     <Tr
                       key={`${op.ns}/${op.name}`}
                       onClick={() => navigate(gitopsDetailPath("applications", op.ns, op.name))}
@@ -601,8 +657,28 @@ export default function GitOpsDashboardPage() {
                       </Td>
                       <Td dataLabel="Message">{op.message}</Td>
                       <Td dataLabel="Finished">{op.finished}</Td>
+                      <Td dataLabel="AI" isActionCell>
+                        {showOpAi ? (
+                          <Button
+                            variant="link"
+                            isInline
+                            icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              launchAppInvestigate(op.ns, op.name, op.message);
+                            }}
+                          >
+                            Investigate with AI
+                          </Button>
+                        ) : (
+                          <Content component="span" className="pf-v6-u-color-200">
+                            —
+                          </Content>
+                        )}
+                      </Td>
                     </Tr>
-                  ))
+                    );
+                  })
                 )}
               </Tbody>
             </OcsPrototypeListTable>

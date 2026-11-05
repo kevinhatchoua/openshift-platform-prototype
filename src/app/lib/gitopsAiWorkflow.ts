@@ -1,4 +1,5 @@
 import type { ApplicationRecord, GitOpsHealth } from "../pages/gitops/gitopsData";
+import { agenticRunPath } from "../constants/agenticUpdateRuns";
 import {
   finishGitOpsRolloutDiagnoseRun,
   finishGitOpsSyncTroubleshootRun,
@@ -19,6 +20,8 @@ export function createGitOpsAiLaunchers(deps: {
   clearMessages: () => void;
   setContext: (ctx: string) => void;
   setIsOpen: (open: boolean) => void;
+  /** 5.0 handoff: navigate to shared Agentic Runs detail (console-core deep link). */
+  navigateToAgenticRun?: (path: string) => void;
 }): GitOpsAiLaunchers {
   const activeSyncRef = { current: null as string | null };
   const activeRolloutRef = { current: null as string | null };
@@ -36,7 +39,12 @@ export function createGitOpsAiLaunchers(deps: {
     });
     activeSyncRef.current = run.id;
     deps.setContext(`ols-gitops-sync-troubleshoot:${run.id}`);
-    deps.setIsOpen(true);
+    const runPath = agenticRunPath(run.id);
+    if (deps.navigateToAgenticRun) {
+      deps.navigateToAgenticRun(runPath);
+    } else {
+      deps.setIsOpen(true);
+    }
     if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current);
     syncTimerRef.current = window.setTimeout(() => {
       if (activeSyncRef.current !== run.id) return;
@@ -57,7 +65,12 @@ export function createGitOpsAiLaunchers(deps: {
     });
     activeRolloutRef.current = run.id;
     deps.setContext(`ols-gitops-rollout-diagnose:${run.id}`);
-    deps.setIsOpen(true);
+    const runPath = agenticRunPath(run.id);
+    if (deps.navigateToAgenticRun) {
+      deps.navigateToAgenticRun(runPath);
+    } else {
+      deps.setIsOpen(true);
+    }
     if (rolloutTimerRef.current) window.clearTimeout(rolloutTimerRef.current);
     rolloutTimerRef.current = window.setTimeout(() => {
       if (activeRolloutRef.current !== run.id) return;

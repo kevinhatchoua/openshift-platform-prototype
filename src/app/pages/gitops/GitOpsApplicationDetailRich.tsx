@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useParams } from "react-router";
+import { useNavigate, useParams } from "react-router";
 import {
   Alert,
   Button,
@@ -25,7 +25,7 @@ import {
   findApplication,
   findAppProject,
   gitopsDetailPath,
-  applicationSyncError,
+  applicationTroubleshootAlert,
   GITOPS_ALL_INSTANCES,
   type ApplicationRecord,
 } from "./gitopsData";
@@ -109,13 +109,14 @@ const MOCK_EVENTS = [
 ];
 
 export default function GitOpsApplicationDetailRich() {
+  const navigate = useNavigate();
   const { namespace = "", name = "" } = useParams();
   const ns = decodeURIComponent(namespace);
   const appName = decodeURIComponent(name);
   const rec = findApplication(ns, appName);
   const [activeTab, setActiveTab] = useState("details");
   const { pushToast } = useToast();
-  const syncError = rec ? applicationSyncError(rec) : null;
+  const troubleshootAlert = rec ? applicationTroubleshootAlert(rec) : null;
   const { instance } = useGitOpsInstance();
   const instanceScoped = rec ? rec.instanceKey === instance || instance === GITOPS_ALL_INSTANCES : true;
   const chat = useChat();
@@ -125,8 +126,9 @@ export default function GitOpsApplicationDetailRich() {
         clearMessages: chat.clearMessages,
         setContext: chat.setContext,
         setIsOpen: chat.setIsOpen,
+        navigateToAgenticRun: (path) => navigate(path),
       }),
-    [chat.clearMessages, chat.setContext, chat.setIsOpen],
+    [chat.clearMessages, chat.setContext, chat.setIsOpen, navigate],
   );
   const showAiTroubleshoot = rec ? applicationNeedsAiTroubleshoot(rec) : false;
 
@@ -142,11 +144,11 @@ export default function GitOpsApplicationDetailRich() {
         <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
           <GitOpsDetailPageHeader kind="Application" name={rec.name} href={href} menuKind="Application" />
 
-          {syncError ? (
+          {troubleshootAlert ? (
             <Alert
               variant="warning"
               isInline
-              title={syncError.title}
+              title={troubleshootAlert.title}
               actionLinks={
                 showAiTroubleshoot ? (
                   <Button
@@ -159,19 +161,19 @@ export default function GitOpsApplicationDetailRich() {
                         ns: rec.ns,
                         sync: rec.sync,
                         health: rec.health,
-                        errorSummary: syncError.title,
+                        errorSummary: troubleshootAlert.title,
                       })
                     }
                   >
-                    Troubleshoot with AI
+                    Investigate with AI
                   </Button>
                 ) : undefined
               }
             >
-              {syncError.detail}
-              {syncError.agentHint ? (
+              {troubleshootAlert.detail}
+              {troubleshootAlert.agentHint ? (
                 <Content component="p" className="pf-v6-u-mt-sm">
-                  {syncError.agentHint}
+                  {troubleshootAlert.agentHint}
                 </Content>
               ) : null}
             </Alert>

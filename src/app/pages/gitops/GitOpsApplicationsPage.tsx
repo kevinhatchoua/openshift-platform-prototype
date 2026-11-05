@@ -12,7 +12,6 @@ import ListIcon from "@patternfly/react-icons/dist/esm/icons/list-icon";
 import SyncIcon from "@patternfly/react-icons/dist/esm/icons/sync-icon";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import { useChat } from "../../contexts/ChatContext";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import {
   OCS_PROTOTYPE_DATAVIEW_CLASS,
@@ -21,10 +20,11 @@ import {
   PlainTableHeader,
   useListPagination,
 } from "../../components/dataView/OcsPrototypeListTable";
-import { applicationsForInstance, gitopsDetailPath, type ApplicationRecord } from "./gitopsData";
+import { applicationsForInstance, applicationSyncError, gitopsDetailPath, type ApplicationRecord } from "./gitopsData";
 import GitOpsApplicationDetailRich from "./GitOpsApplicationDetailRich";
 import GitOpsPageHeader, { useGitOpsInstance } from "./GitOpsPageHeader";
 import { GitOpsEditDeleteMenu, HealthStatus, OwnerReferencesCell, ResourceName } from "./gitopsShared";
+import { createGitOpsAiLaunchers, applicationNeedsAiTroubleshoot } from "../../lib/gitopsAiWorkflow";
 
 type ApplicationFilters = {
   name: string;
@@ -69,7 +69,6 @@ function rowMatches(row: ApplicationRecord, filters: ApplicationFilters, attenti
 export default function GitOpsApplicationsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
-  const { clearMessages, setContext, setIsOpen } = useChat();
   const { instance } = useGitOpsInstance();
   const attentionMode = searchParams.get("attention") === "1";
   const urlSyncKey = searchParams.getAll("sync").join("\0");
@@ -119,13 +118,29 @@ export default function GitOpsApplicationsPage() {
     setPage(1);
   }, [filters.name, filters.namespace, filters.sync ?? [], filters.health ?? [], perPage, setPage]);
 
+  const gitopsAi = useMemo(
+    () =>
+      createGitOpsAiLaunchers({
+        clearMessages: () => {},
+        setContext: () => {},
+        setIsOpen: () => {},
+        navigateToAgenticRun: (path) => navigate(path),
+      }),
+    [navigate],
+  );
+
   const openHealthRemediation = useCallback(
     (item: ApplicationRecord) => {
-      clearMessages();
-      setContext(`ols-gitops-health-remediation:${item.ns}:${item.name}`);
-      setIsOpen(true);
+      const syncErr = applicationSyncError(item);
+      gitopsAi.launchSyncTroubleshoot({
+        name: item.name,
+        ns: item.ns,
+        sync: item.sync,
+        health: item.health,
+        errorSummary: syncErr?.title ?? `${item.health} application health`,
+      });
     },
-    [clearMessages, setContext, setIsOpen]
+    [gitopsAi],
   );
 
   return (
@@ -254,7 +269,7 @@ export default function GitOpsApplicationsPage() {
                         <Td dataLabel="Health Status">
                           <HealthStatus
                             status={item.health}
-                            showAiRemediation={item.health === "Degraded"}
+                            showAiRemediation={applicationNeedsAiTroubleshoot(item)}
                             onAiRemediationClick={() => openHealthRemediation(item)}
                           />
                         </Td>

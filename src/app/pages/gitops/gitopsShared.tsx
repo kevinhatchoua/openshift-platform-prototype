@@ -13,6 +13,7 @@ import {
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon";
+import { Sparkles } from "@/lib/pfIcons";
 import HeartBrokenIcon from "@patternfly/react-icons/dist/esm/icons/heart-broken-icon";
 import HeartIcon from "@patternfly/react-icons/dist/esm/icons/heart-icon";
 import InProgressIcon from "@patternfly/react-icons/dist/esm/icons/in-progress-icon";
@@ -279,12 +280,13 @@ export function HealthStatus({
             variant="link"
             isInline
             className="ocs-gitops-health-remediation-link"
+            icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
             onClick={(event) => {
               event.stopPropagation();
               onAiRemediationClick?.(event);
             }}
           >
-            View AI remediation
+            View agentic run
           </Button>
         ) : null}
       </Flex>

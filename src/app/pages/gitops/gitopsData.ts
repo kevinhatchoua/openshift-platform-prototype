@@ -985,6 +985,28 @@ export function applicationSyncError(app: ApplicationRecord) {
   };
 }
 
+/** Sync or health alert copy for Application detail + AI troubleshoot entry (HPUX-2260). */
+export function applicationTroubleshootAlert(app: ApplicationRecord) {
+  const syncErr = applicationSyncError(app);
+  if (syncErr) return syncErr;
+  if (app.health === "Degraded") {
+    return {
+      title: "Application health is degraded",
+      detail:
+        app.name === "legacy-batch"
+          ? "Job legacy-batch-worker is failing liveness probes. Review workload events and the Git revision before retrying sync."
+          : "One or more managed resources reported Degraded health. Review resource events and sync status.",
+    };
+  }
+  if (app.health === "Aborting") {
+    return {
+      title: "Application sync is aborting",
+      detail: "An in-progress sync operation is aborting. Wait for completion or review the sync operation history.",
+    };
+  }
+  return null;
+}
+
 export type RecentOperation = {
   name: string;
   ns: string;
