@@ -45,9 +45,9 @@ import {
   gitopsDetailPath,
   recentOperationsForInstance,
 } from "./gitopsData";
-import { HealthStatus, ResourceName } from "./gitopsShared";
+import { GitOpsEditDeleteMenu, HealthStatus, ResourceName, ViewAgenticRunButton } from "./gitopsShared";
 import { useChat } from "../../contexts/ChatContext";
-import { Sparkles } from "@/lib/pfIcons";
+import { RhAiExperienceIcon } from "@/components/icons/RhAiExperienceIcon";
 import { AiSparkleLabel } from "../../components/lightspeed/LightspeedLegalCopy";
 import { createGitOpsAiLaunchers, applicationNeedsAiTroubleshoot } from "../../lib/gitopsAiWorkflow";
 import {
@@ -518,24 +518,24 @@ export default function GitOpsDashboardPage() {
                   <Flex gap={{ default: "gapMd" }} wrap="wrap">
                     <Button
                       variant="secondary"
-                      icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+                      icon={<RhAiExperienceIcon aria-hidden />}
                       onClick={() => gitopsAi.launchFleetAssessment()}
                     >
                       Assess fleet with AI
                     </Button>
                     <Button
                       variant="link"
-                      icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+                      icon={<RhAiExperienceIcon aria-hidden />}
                       onClick={() => navigate("/gitops/applications?attention=1")}
                     >
                       Applications needing attention
                     </Button>
                     <Button
                       variant="link"
-                      icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+                      icon={<RhAiExperienceIcon aria-hidden />}
                       onClick={() => navigate("/agentic-runs")}
                     >
-                      View agentic runs
+                      View Agentic Runs
                     </Button>
                   </Flex>
                 </Flex>
@@ -547,59 +547,102 @@ export default function GitOpsDashboardPage() {
             <Card>
               <CardTitle>Needs attention</CardTitle>
               <CardBody>
-                <OcsPrototypeListTable ariaLabel="Applications needing attention">
-                  <Thead>
-                    <Tr>
-                      <Th dataLabel="Application">
-                        <PlainTableHeader label="Application" />
-                      </Th>
-                      <Th dataLabel="Reason">
-                        <PlainTableHeader label="Reason" />
-                      </Th>
-                      <Th dataLabel="Severity">
-                        <PlainTableHeader label="Severity" />
-                      </Th>
-                      <Th dataLabel="AI">
-                        <PlainTableHeader label="AI" />
-                      </Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {metrics.needsAttention.map((item) => (
-                      <Tr
-                        key={`${item.ns}/${item.name}`}
-                        onClick={() => navigate(gitopsDetailPath("applications", item.ns, item.name))}
-                      >
-                        <Td dataLabel="Application">
-                          <ResourceName
-                            kind="Application"
-                            name={item.name}
-                            to={gitopsDetailPath("applications", item.ns, item.name)}
-                          />
-                        </Td>
-                        <Td dataLabel="Reason">{item.reason}</Td>
-                        <Td dataLabel="Severity">
-                          <Label color={severityLabelColor(item.severity)} isCompact>
-                            {item.severity}
-                          </Label>
-                        </Td>
-                        <Td dataLabel="AI" isActionCell>
-                          <Button
-                            variant="link"
-                            isInline
-                            icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              launchAppInvestigate(item.ns, item.name, item.reason);
-                            }}
-                          >
-                            Investigate with AI
-                          </Button>
-                        </Td>
+                <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
+                  <Alert variant="info" isInline title="AI-assisted investigations">
+                    Applications below have an active or available AgenticRun. Use{" "}
+                    <strong>View Agentic Run</strong> under status to open the shared details page (not Lightspeed
+                    chat).
+                  </Alert>
+                  <OcsPrototypeListTable ariaLabel="Applications needing attention">
+                    <Thead>
+                      <Tr>
+                        <Th dataLabel="Application">
+                          <PlainTableHeader label="Application" />
+                        </Th>
+                        <Th dataLabel="Reason">
+                          <PlainTableHeader label="Reason" />
+                        </Th>
+                        <Th dataLabel="Status">
+                          <PlainTableHeader label="Status" />
+                        </Th>
+                        <Th modifier="fitContent" dataLabel="Actions">
+                          <PlainTableHeader label="Actions" />
+                        </Th>
                       </Tr>
-                    ))}
-                  </Tbody>
-                </OcsPrototypeListTable>
+                    </Thead>
+                    <Tbody>
+                      {metrics.needsAttention.map((item) => {
+                        const app = findApplication(item.ns, item.name);
+                        const statusKey = app?.health === "Degraded" || app?.health === "Aborting" ? app.health : app?.sync ?? "OutOfSync";
+                        const showRun = app ? applicationNeedsAiTroubleshoot(app) : true;
+                        return (
+                          <Tr
+                            key={`${item.ns}/${item.name}`}
+                            onClick={() => navigate(gitopsDetailPath("applications", item.ns, item.name))}
+                          >
+                            <Td dataLabel="Application">
+                              <ResourceName
+                                kind="Application"
+                                name={item.name}
+                                to={gitopsDetailPath("applications", item.ns, item.name)}
+                              />
+                            </Td>
+                            <Td dataLabel="Reason">{item.reason}</Td>
+                            <Td dataLabel="Status">
+                              {app ? (
+                                <HealthStatus
+                                  status={statusKey}
+                                  showAiRemediation={showRun}
+                                  onAiRemediationClick={(event) => {
+                                    event.stopPropagation();
+                                    launchAppInvestigate(item.ns, item.name, item.reason);
+                                  }}
+                                />
+                              ) : showRun ? (
+                                <ViewAgenticRunButton
+                                  onClick={(event) => {
+                                    event.stopPropagation();
+                                    launchAppInvestigate(item.ns, item.name, item.reason);
+                                  }}
+                                />
+                              ) : (
+                                <Label color={severityLabelColor(item.severity)} isCompact>
+                                  {item.severity}
+                                </Label>
+                              )}
+                            </Td>
+                            <Td dataLabel="Actions" isActionCell hasAction>
+                              {showRun ? (
+                                <GitOpsEditDeleteMenu
+                                  kind="Application"
+                                  name={item.name}
+                                  showResourceActions={false}
+                                  extraItems={[
+                                    {
+                                      id: "open-application",
+                                      label: "View application",
+                                      prototypeOnly: true,
+                                    },
+                                  ]}
+                                  onItemSelect={(actionId) => {
+                                    if (actionId === "open-application") {
+                                      navigate(gitopsDetailPath("applications", item.ns, item.name));
+                                    }
+                                  }}
+                                  agenticOnSelect={() => launchAppInvestigate(item.ns, item.name, item.reason)}
+                                />
+                              ) : (
+                                <Content component="span" className="pf-v6-u-color-200">
+                                  —
+                                </Content>
+                              )}
+                            </Td>
+                          </Tr>
+                        );
+                      })}
+                    </Tbody>
+                  </OcsPrototypeListTable>
+                </Flex>
               </CardBody>
             </Card>
           ) : null}
@@ -624,15 +667,12 @@ export default function GitOpsDashboardPage() {
                   <Th dataLabel="Finished">
                     <PlainTableHeader label="Finished" />
                   </Th>
-                  <Th dataLabel="AI">
-                    <PlainTableHeader label="AI" />
-                  </Th>
                 </Tr>
               </Thead>
               <Tbody>
                 {operations.length === 0 ? (
                   <Tr>
-                    <Td colSpan={5}>No recent operations.</Td>
+                    <Td colSpan={4}>No recent operations.</Td>
                   </Tr>
                 ) : (
                   operations.map((op) => {
@@ -651,31 +691,22 @@ export default function GitOpsDashboardPage() {
                         />
                       </Td>
                       <Td dataLabel="Phase">
-                        <Label color={operationPhaseLabelColor(op.phase)} isCompact>
-                          {op.phase}
-                        </Label>
+                        <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} alignItems={{ default: "alignItemsFlexStart" }}>
+                          <Label color={operationPhaseLabelColor(op.phase)} isCompact>
+                            {op.phase}
+                          </Label>
+                          {showOpAi && opApp ? (
+                            <ViewAgenticRunButton
+                              onClick={(event) => {
+                                event.stopPropagation();
+                                launchAppInvestigate(op.ns, op.name, op.message);
+                              }}
+                            />
+                          ) : null}
+                        </Flex>
                       </Td>
                       <Td dataLabel="Message">{op.message}</Td>
                       <Td dataLabel="Finished">{op.finished}</Td>
-                      <Td dataLabel="AI" isActionCell>
-                        {showOpAi ? (
-                          <Button
-                            variant="link"
-                            isInline
-                            icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
-                            onClick={(event) => {
-                              event.stopPropagation();
-                              launchAppInvestigate(op.ns, op.name, op.message);
-                            }}
-                          >
-                            Investigate with AI
-                          </Button>
-                        ) : (
-                          <Content component="span" className="pf-v6-u-color-200">
-                            —
-                          </Content>
-                        )}
-                      </Td>
                     </Tr>
                     );
                   })

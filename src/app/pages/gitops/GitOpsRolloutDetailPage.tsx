@@ -526,6 +526,18 @@ export default function GitOpsRolloutDetailPage() {
                 onAction={runAction}
                 variant="secondary"
                 ariaLabel="Rollout actions"
+                agenticOnSelect={
+                  rolloutNeedsAiDiagnose(statusText)
+                    ? () =>
+                        gitopsAi.launchRolloutDiagnose({
+                          name: rolloutName,
+                          ns,
+                          health: statusText,
+                          strategy: seed.strategy,
+                          errorSummary: st.message || `Rollout ${statusText}`,
+                        })
+                    : undefined
+                }
               />
             </Flex>
           </Flex>

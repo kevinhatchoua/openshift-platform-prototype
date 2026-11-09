@@ -264,7 +264,13 @@ export default function GitOpsApplicationsPage() {
                         </Td>
                         <Td dataLabel="AppProject">{item.project}</Td>
                         <Td dataLabel="Sync status">
-                          <HealthStatus status={item.sync} />
+                          <HealthStatus
+                            status={item.sync}
+                            showAiRemediation={
+                              applicationNeedsAiTroubleshoot(item) && item.sync === "OutOfSync"
+                            }
+                            onAiRemediationClick={() => openHealthRemediation(item)}
+                          />
                         </Td>
                         <Td dataLabel="Health Status">
                           <HealthStatus
@@ -278,7 +284,15 @@ export default function GitOpsApplicationsPage() {
                         </Td>
                         <Td dataLabel="Age">{item.age}</Td>
                         <Td dataLabel="Actions" isActionCell hasAction>
-                          <GitOpsEditDeleteMenu kind="Application" name={item.name} />
+                          <GitOpsEditDeleteMenu
+                            kind="Application"
+                            name={item.name}
+                            agenticOnSelect={
+                              applicationNeedsAiTroubleshoot(item)
+                                ? () => openHealthRemediation(item)
+                                : undefined
+                            }
+                          />
                         </Td>
                       </Tr>
                     );

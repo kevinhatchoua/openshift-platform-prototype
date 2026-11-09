@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import {
   Alert,
@@ -50,6 +50,7 @@ import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import { HealthStatus, ResourceName } from "./gitopsShared";
 import RolloutActionsKebab from "./RolloutActionsKebab";
 import { useGitOpsInstance } from "./GitOpsPageHeader";
+import { createGitOpsAiLaunchers, rolloutNeedsAiDiagnose } from "../../lib/gitopsAiWorkflow";
 import GitOpsInstancePicker from "./GitOpsInstancePicker";
 
 type Filters = { name: string; namespace: string };
@@ -73,6 +74,30 @@ export default function GitOpsRolloutsPage() {
   });
   const { instance, setInstance } = useGitOpsInstance();
   const { sortColumn, sortDirection, toggleSort } = useTableSort<SortColumn>("name");
+
+  const gitopsAi = useMemo(
+    () =>
+      createGitOpsAiLaunchers({
+        clearMessages: () => {},
+        setContext: () => {},
+        setIsOpen: () => {},
+        navigateToAgenticRun: (path) => navigate(path),
+      }),
+    [navigate],
+  );
+
+  const openRolloutAgenticRun = useCallback(
+    (r: RolloutRecord, status: string) => {
+      gitopsAi.launchRolloutDiagnose({
+        name: r.name,
+        ns: r.ns,
+        health: status,
+        strategy: r.strategy,
+        errorSummary: `Rollout ${status}`,
+      });
+    },
+    [gitopsAi],
+  );
 
   useEffect(() => subscribeGitOpsLive(() => setLiveTick((n) => n + 1)), []);
 
@@ -238,7 +263,17 @@ export default function GitOpsRolloutsPage() {
                         </Td>
                         <Td dataLabel="Age">{r.age}</Td>
                         <Td dataLabel="Actions" isActionCell hasAction>
-                          <RolloutActionsKebab ns={r.ns} name={r.name} seedStatus={r.status} onAction={(a) => onAction(r, a)} />
+                          <RolloutActionsKebab
+                            ns={r.ns}
+                            name={r.name}
+                            seedStatus={r.status}
+                            onAction={(a) => onAction(r, a)}
+                            agenticOnSelect={
+                              rolloutNeedsAiDiagnose(status)
+                                ? () => openRolloutAgenticRun(r, status)
+                                : undefined
+                            }
+                          />
                         </Td>
                       </Tr>
                     );

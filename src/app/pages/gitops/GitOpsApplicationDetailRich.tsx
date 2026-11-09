@@ -31,6 +31,7 @@ import {
 } from "./gitopsData";
 import { GitOpsNotFound } from "./GitOpsSimpleDetailPage";
 import {
+  GitOpsAgenticRunEntryBanner,
   GitOpsDetailPageHeader,
   GitOpsLink,
   HealthStatus,
@@ -42,7 +43,6 @@ import { useToast } from "../../contexts/ToastContext";
 import GitOpsYamlUnifiedDiff from "./GitOpsYamlUnifiedDiff";
 import { useGitOpsInstance } from "./GitOpsInstancePicker";
 import { useChat } from "../../contexts/ChatContext";
-import { Sparkles } from "@/lib/pfIcons";
 import { createGitOpsAiLaunchers, applicationNeedsAiTroubleshoot } from "../../lib/gitopsAiWorkflow";
 
 function liveYaml(rec: ApplicationRecord) {
@@ -142,34 +142,41 @@ export default function GitOpsApplicationDetailRich() {
     <div className="ocs-app-page-outer ocs-pod-details-page h-full min-h-0 overflow-y-auto">
       <Breadcrumbs items={gitopsConsoleDetailCrumbs("Applications", "/gitops/applications")}>
         <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-          <GitOpsDetailPageHeader kind="Application" name={rec.name} href={href} menuKind="Application" />
+          <GitOpsDetailPageHeader
+            kind="Application"
+            name={rec.name}
+            href={href}
+            menuKind="Application"
+            agenticOnSelect={
+              showAiTroubleshoot
+                ? () =>
+                    gitopsAi.launchSyncTroubleshoot({
+                      name: rec.name,
+                      ns: rec.ns,
+                      sync: rec.sync,
+                      health: rec.health,
+                      errorSummary: troubleshootAlert?.title ?? "Application needs attention",
+                    })
+                : undefined
+            }
+          />
+
+          {showAiTroubleshoot ? (
+            <GitOpsAgenticRunEntryBanner
+              onViewRun={() =>
+                gitopsAi.launchSyncTroubleshoot({
+                  name: rec.name,
+                  ns: rec.ns,
+                  sync: rec.sync,
+                  health: rec.health,
+                  errorSummary: troubleshootAlert?.title ?? "Application needs attention",
+                })
+              }
+            />
+          ) : null}
 
           {troubleshootAlert ? (
-            <Alert
-              variant="warning"
-              isInline
-              title={troubleshootAlert.title}
-              actionLinks={
-                showAiTroubleshoot ? (
-                  <Button
-                    variant="link"
-                    isInline
-                    icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
-                    onClick={() =>
-                      gitopsAi.launchSyncTroubleshoot({
-                        name: rec.name,
-                        ns: rec.ns,
-                        sync: rec.sync,
-                        health: rec.health,
-                        errorSummary: troubleshootAlert.title,
-                      })
-                    }
-                  >
-                    Investigate with AI
-                  </Button>
-                ) : undefined
-              }
-            >
+            <Alert variant="warning" isInline title={troubleshootAlert.title}>
               {troubleshootAlert.detail}
               {troubleshootAlert.agentHint ? (
                 <Content component="p" className="pf-v6-u-mt-sm">

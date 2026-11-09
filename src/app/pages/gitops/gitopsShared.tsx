@@ -1,6 +1,7 @@
 import { type MouseEvent, type ReactNode, useState } from "react";
 import { Link } from "react-router";
 import {
+  Alert,
   Button,
   Dropdown,
   DropdownItem,
@@ -13,7 +14,7 @@ import {
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon";
-import { Sparkles } from "@/lib/pfIcons";
+import { RhAiExperienceIcon } from "@/components/icons/RhAiExperienceIcon";
 import HeartBrokenIcon from "@patternfly/react-icons/dist/esm/icons/heart-broken-icon";
 import HeartIcon from "@patternfly/react-icons/dist/esm/icons/heart-icon";
 import InProgressIcon from "@patternfly/react-icons/dist/esm/icons/in-progress-icon";
@@ -25,10 +26,14 @@ import FavoriteButton from "../../components/FavoriteButton";
 import { useToast } from "../../contexts/ToastContext";
 import { gitOpsHealthLabelColor, gitOpsSyncLabelColor } from "../../lib/pfSemanticColors";
 
+export const GITOPS_VIEW_AGENTIC_RUN_ID = "view-agentic-run";
+
 export type GitOpsActionItem = {
   id: string;
   label: string;
   isDanger?: boolean;
+  /** When true, selection is handled via onItemSelect only (no prototype edit/delete toast). */
+  prototypeOnly?: boolean;
 };
 
 export type GitOpsBreadcrumbItem = { label: string; path?: string };
@@ -47,6 +52,42 @@ export function gitopsConsoleDetailCrumbs(
   return [{ label: listLabel, path: listPath }, { label: detailLabel }];
 }
 
+/** Primary CTA for GITOPS-11005 — deep link to shared AgenticRun details (not chat). */
+export function ViewAgenticRunButton({
+  onClick,
+  className,
+}: {
+  onClick: (event: MouseEvent<HTMLButtonElement>) => void;
+  className?: string;
+}) {
+  return (
+    <Button
+      variant="link"
+      isInline
+      className={className ?? "ocs-gitops-health-remediation-link"}
+      icon={<RhAiExperienceIcon aria-hidden />}
+      onClick={onClick}
+    >
+      View Agentic Run
+    </Button>
+  );
+}
+
+/** Application detail banner when an AgenticRun is available (Peter / HPUX-2260). */
+export function GitOpsAgenticRunEntryBanner({ onViewRun }: { onViewRun: () => void }) {
+  return (
+    <Alert
+      variant="info"
+      isInline
+      title="AI-assisted investigation available"
+      actionLinks={<ViewAgenticRunButton onClick={() => onViewRun()} />}
+    >
+      Open the AgenticRun for this application to review evidence and proposed remediation on the shared Agentic Run
+      details page. This does not open Lightspeed chat. Always review AI-generated content prior to use.
+    </Alert>
+  );
+}
+
 export function GitOpsTechPreviewBadge() {
   return (
     <Label color="orange" isCompact>
@@ -60,11 +101,14 @@ export function GitOpsDetailPageHeader({
   name,
   href,
   menuKind,
+  agenticOnSelect,
 }: {
   kind: string;
   name: string;
   href: string;
   menuKind: string;
+  /** When set, kebab includes View Agentic Run (GITOPS-11005). */
+  agenticOnSelect?: () => void;
 }) {
   return (
     <Flex
@@ -79,7 +123,7 @@ export function GitOpsDetailPageHeader({
       </Flex>
       <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }}>
         <FavoriteButton name={name} path={href} />
-        <GitOpsEditDeleteMenu kind={menuKind} name={name} variant="secondary" />
+        <GitOpsEditDeleteMenu kind={menuKind} name={name} variant="secondary" agenticOnSelect={agenticOnSelect} />
       </Flex>
     </Flex>
   );
@@ -258,11 +302,21 @@ export function HealthStatus({
   }
   if (status === "OutOfSync") {
     return (
-      <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-        <Icon status="warning" aria-hidden>
-          <SyncIcon />
-        </Icon>
-        <span>{status}</span>
+      <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} alignItems={{ default: "alignItemsFlexStart" }}>
+        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+          <Icon status="warning" aria-hidden>
+            <SyncIcon />
+          </Icon>
+          <span>{status}</span>
+        </Flex>
+        {showAiRemediation ? (
+          <ViewAgenticRunButton
+            onClick={(event) => {
+              event.stopPropagation();
+              onAiRemediationClick?.(event);
+            }}
+          />
+        ) : null}
       </Flex>
     );
   }
@@ -276,29 +330,33 @@ export function HealthStatus({
           <span>{status}</span>
         </Flex>
         {showAiRemediation ? (
-          <Button
-            variant="link"
-            isInline
-            className="ocs-gitops-health-remediation-link"
-            icon={<Sparkles aria-hidden className="ocs-ai-sparkle-cta-icon" />}
+          <ViewAgenticRunButton
             onClick={(event) => {
               event.stopPropagation();
               onAiRemediationClick?.(event);
             }}
-          >
-            View agentic run
-          </Button>
+          />
         ) : null}
       </Flex>
     );
   }
   if (status === "Aborting") {
     return (
-      <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-        <Icon status="danger" aria-hidden>
-          <ExclamationCircleIcon />
-        </Icon>
-        <span>{status}</span>
+      <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }} alignItems={{ default: "alignItemsFlexStart" }}>
+        <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+          <Icon status="danger" aria-hidden>
+            <ExclamationCircleIcon />
+          </Icon>
+          <span>{status}</span>
+        </Flex>
+        {showAiRemediation ? (
+          <ViewAgenticRunButton
+            onClick={(event) => {
+              event.stopPropagation();
+              onAiRemediationClick?.(event);
+            }}
+          />
+        ) : null}
       </Flex>
     );
   }
@@ -327,20 +385,35 @@ export function GitOpsEditDeleteMenu({
   variant = "plain",
   extraItems = [],
   onItemSelect,
+  agenticOnSelect,
+  showResourceActions = true,
 }: {
   kind: string;
   name: string;
   variant?: "plain" | "secondary";
   extraItems?: GitOpsActionItem[];
   onItemSelect?: (actionId: string) => void;
+  agenticOnSelect?: () => void;
+  /** When false, kebab is contextual actions only (e.g. dashboard row). */
+  showResourceActions?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const { pushToast } = useToast();
   const items: GitOpsActionItem[] = [
+  ...(agenticOnSelect
+    ? [{ id: GITOPS_VIEW_AGENTIC_RUN_ID, label: "View Agentic Run", prototypeOnly: true as const }]
+    : []),
     ...extraItems,
-    { id: "edit", label: `Edit ${kind}` },
-    { id: "delete", label: `Delete ${kind}`, isDanger: true },
+    ...(showResourceActions
+      ? [
+          { id: "edit", label: `Edit ${kind}` },
+          { id: "delete", label: `Delete ${kind}`, isDanger: true as const },
+        ]
+      : []),
   ];
+  if (items.length === 0) {
+    return null;
+  }
   return (
     <Dropdown
       isOpen={open}
@@ -370,14 +443,29 @@ export function GitOpsEditDeleteMenu({
             isDanger={item.isDanger}
             onClick={(e) => {
               e.stopPropagation();
+              setOpen(false);
+              if (item.id === GITOPS_VIEW_AGENTIC_RUN_ID) {
+                agenticOnSelect?.();
+                return;
+              }
               onItemSelect?.(item.id);
+              if (item.prototypeOnly) {
+                return;
+              }
               pushToast({
                 variant: item.isDanger ? "danger" : "success",
                 title: `${item.label}: ${name}`,
               });
             }}
           >
-            {item.label}
+            {item.id === GITOPS_VIEW_AGENTIC_RUN_ID ? (
+              <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                <RhAiExperienceIcon aria-hidden />
+                <span>{item.label}</span>
+              </Flex>
+            ) : (
+              item.label
+            )}
           </DropdownItem>
         ))}
       </DropdownList>

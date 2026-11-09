@@ -4,9 +4,11 @@ import {
   Dropdown,
   DropdownItem,
   DropdownList,
+  Flex,
   MenuToggle,
 } from "@patternfly/react-core";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
+import { RhAiExperienceIcon } from "@/components/icons/RhAiExperienceIcon";
 import type { DomainAction, GitOpsHealth } from "./gitopsData";
 import { actionStateFor } from "./gitopsData";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
@@ -18,6 +20,7 @@ type RolloutActionsKebabProps = {
   onAction: (action: DomainAction) => void;
   ariaLabel?: string;
   variant?: "plain" | "secondary";
+  agenticOnSelect?: () => void;
 };
 
 export default function RolloutActionsKebab({
@@ -27,6 +30,7 @@ export default function RolloutActionsKebab({
   onAction,
   ariaLabel,
   variant = "plain",
+  agenticOnSelect,
 }: RolloutActionsKebabProps) {
   const { permission } = usePrototypeDemo();
   const [open, setOpen] = useState(false);
@@ -59,6 +63,24 @@ export default function RolloutActionsKebab({
       )}
     >
       <DropdownList>
+        {agenticOnSelect ? (
+          <>
+            <DropdownItem
+              itemId="view-agentic-run"
+              onClick={(e) => {
+                e.stopPropagation();
+                setOpen(false);
+                agenticOnSelect();
+              }}
+            >
+              <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
+                <RhAiExperienceIcon aria-hidden />
+                <span>View Agentic Run</span>
+              </Flex>
+            </DropdownItem>
+            <Divider component="li" />
+          </>
+        ) : null}
         <DropdownItem itemId="Promote" isDisabled={!st.promote} onClick={run("Promote", st.promote)}>
           Promote
         </DropdownItem>
