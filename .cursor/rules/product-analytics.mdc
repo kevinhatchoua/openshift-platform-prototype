@@ -1,5 +1,5 @@
 ---
-description: Product analytics — use project skill for Dataverse, Amplitude, and Jira routing.
+description: Product analytics — use project skill for Dataverse and Amplitude routing.
 globs:
 alwaysApply: true
 ---
@@ -9,5 +9,5 @@ alwaysApply: true
 When quantitative product or fleet questions come up in this repo:
 
 1. Read `.cursor/skills/product-analytics/SKILL.md` (or `~/.cursor/skills/product-analytics/SKILL.md` if not present).
-2. For Dataverse SQL, also load `~/.cursor/skills/dataverse-query/SKILL.md`.
+2. For Dataverse SQL, also load the synced **`dataverse-query`** skill (same directory as other Lola skills after `tailwind lola sync`, often `~/.cursor/skills/dataverse-query/SKILL.md`).
 3. Never fabricate metrics; report access blockers with Dataverse console links.

@@ -1,24 +1,23 @@
 # Product Analytics — setup
 
-Routes quantitative product questions to **Dataverse**, **Amplitude**, **Jira**, and related approved sources. Fleet/telemetry SQL always delegates to Tailwind PM **`dataverse-query`** (install via `tailwind lola sync`).
+This skill **routes quantitative product questions** to approved sources (primarily **Dataverse** for fleet and **Amplitude** for in-product behavior) and **blocks fabricated metrics**. It does **not** cover Jira or delivery backlogs.
 
-## Team playbook (read this first)
+## Team playbook
 
-**[Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit)** — formatted team playbook: **Part 1** for humans, **Part 2** for Cursor, **Part 3** for Claude Code.
-
-To hand off setup, paste the copy-paste prompt in **Part 2** (Cursor) or **Part 3** (Claude) of that Doc.
+**[Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit)** — intentional shared UXD context for onboarding and agent-specific setup notes.
 
 ## First-time setup (short)
 
-1. Follow the playbook **Phase 0–5** (Tailwind Domain 0, Dataverse access, this skill, Jira token, verification).
-2. Copy this folder to `~/.cursor/skills/product-analytics/` (or use your project's `.cursor/skills/product-analytics/`).
-3. Optional: add `product-analytics.mdc` under `~/.cursor/rules/` (see playbook Phase 3).
+1. VPN to Red Hat GitLab.
+2. Install [Tailwind Domain 0](https://gitlab.cee.redhat.com/tailwind/tailwind-domain0) and run `tailwind lola sync` so **`dataverse-query`** is available next to this skill.
+3. Copy this folder to your agent’s skills directory (see [main UXD repo README](https://gitlab.cee.redhat.com/uxd/uxd-productivity-skills)): e.g. `.cursor/skills/`, Claude Code path from installer output, or `~/.codex/skills/`.
+4. Register **Dataverse MCP** and **Amplitude MCP** for your host (installer helps; verify with `tailwind mcp list` or host docs).
+5. Request **Dataverse consumer** access if `shortlist_tables` returns access errors.
 
 ## Triggers
 
-- "How many users/customers/clusters …"
-- "Product analytics", "adoption", "fleet telemetry", "Amplitude funnel"
-- `/tailwind-pm:dataverse-query` for fleet-only SQL (still load this skill first for routing)
+- "How many users / clusters / customers …"
+- "Product analytics", "adoption", "fleet", "telemetry", "Amplitude"
 
 ## References
 

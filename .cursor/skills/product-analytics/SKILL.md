@@ -1,11 +1,11 @@
 ---
 name: product-analytics
 description: >
-  Answer product analytics questions using approved Red Hat data sources (Dataverse/Snowflake,
-  Amplitude, Jira, support cases, Google Workspace exports). Routes each prompt to the
-  correct endpoint, enforces access checks, responsible-use and PII rules, and delegates
-  fleet/telemetry SQL to dataverse-query. Use when the user asks how many users/clusters/
-  customers do X, adoption, usage trends, funnel metrics, or any quantitative product question.
+  Answer quantitative product questions using approved Red Hat sources: fleet and telemetry
+  via Dataverse, in-product behavior via Amplitude, and supporting evidence via support cases,
+  curated Drive artifacts, and PM evidence skills. Routes each prompt to the right source,
+  blocks fabricated numbers, and delegates fleet SQL to Tailwind PM dataverse-query. Use when
+  the user asks adoption, usage, funnels, fleet counts, telemetry, or "how many" product questions.
 author: "khatchou"
 triggers:
   - "product analytics"
@@ -17,16 +17,20 @@ triggers:
   - "dataverse"
 metadata:
   user-invocable: "true"
-allowed-tools: Bash, Read, Write
+  allowed-tools: "Bash, Read, Write"
 ---
 
 # Product Analytics
 
-Quantitative product questions at Red Hat must use **approved tools and skills**, not guessed
-APIs or fabricated numbers. This skill is the router and quality gate; specialized skills
-handle execution.
+## Why this skill exists
 
-**Setup:** [Team Playbook (Google Doc)](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit) — humans read **Part 1**; Cursor agents follow **Part 2**; Claude Code agents follow **Part 3**. **Sources:** [references/informing-sources.md](references/informing-sources.md).
+Product and UX decisions need **real numbers**, not plausible guesses. Fleet data, product usage, and behavioral analytics each live in different **approved** systems with different access rules and freshness. Without a single router, agents invent metrics, run unreviewed SQL, or cite the wrong source.
+
+This skill gives agents a **stable workflow**: pick the right source, refuse to fabricate when access fails, keep humans in the loop for SQL and interpretation, and align with the team playbook below.
+
+**Team playbook (shared UXD context):** [Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit). This Doc is **intentional team context** (setup, phases, Cursor vs Claude sections). Contributors and maintainers assume readers with Red Hat SSO can access it. If you cannot open it, request access through your manager or the playbook owner.
+
+**Deeper link lists:** [references/informing-sources.md](references/informing-sources.md), [references/team-enablement-links.md](references/team-enablement-links.md).
 
 ## When to use
 
@@ -34,110 +38,121 @@ Trigger when the user asks (in any wording):
 
 - How many **users**, **customers**, **clusters**, **accounts**, or **orgs** do or use X
 - **Adoption**, **reach**, **penetration**, **trends**, **cohorts**, **funnels**
-- **Production vs eval**, **support level**, **fleet** or **telemetry** counts
+- **Production vs eval**, **fleet** or **telemetry** counts
 - Compare metrics across **time**, **version**, **segment**, or **product**
-- "Product analytics", "Dataverse", "telemetry", "Amplitude", or `/dataverse-query`
+- "Product analytics", "Dataverse", "telemetry", "Amplitude", or fleet SQL topics
 
-Do **not** use for pure UX design, code changes, or general knowledge without data retrieval.
+Do **not** use for pure UX design, code changes, or opinions without data retrieval.
 
 ## Mandatory behavior
 
-1. **Never invent metrics** — if data cannot be fetched, say what blocked access and how to fix it.
-2. **Human in the loop** — treat SQL and charts as drafts; state assumptions and date of data.
-3. **PII and policy** — follow org MCP policy; do not paste secrets, tokens, or customer-identifying
-   exports into tickets or public channels without approval.
-4. **Print SQL before run** — for Dataverse, always follow `dataverse-query` checklist (load that skill).
-5. **Pick one primary source** per question (table below); use secondary sources only to enrich context.
+1. **Never invent metrics** — if data cannot be fetched, state the blocker and how to fix it (access, VPN, wrong project).
+2. **Human in the loop** — treat SQL, charts, and interpretations as drafts; call out assumptions and snapshot dates.
+3. **PII and policy** — follow org MCP policy; do not paste secrets or customer-identifying exports into public channels.
+4. **Fleet SQL** — always load **`dataverse-query`** first; print and review SQL before execution (no shortcuts).
+5. **One primary source** per answer; add secondary sources only to add context, not to mix incompatible definitions.
+
+## MCP servers and skills (required vs optional)
+
+| Required for | Capability | Notes |
+|--------------|------------|--------|
+| Fleet / SQL | **Dataverse MCP** (from Tailwind Domain 0) | `identify_dataproducts` → `shortlist_tables` → `get_sql` → `execute_sql` |
+| Fleet / SQL | **`dataverse-query`** (Tailwind PM skill) | Schema discovery, date rules, responsible use; install via `tailwind lola sync` |
+| Fleet / SQL | **Tailwind CLI + Domain 0** | VPN; installer unlocks MCP and Lola skill sync |
+| Behavioral | **Amplitude MCP** | Discover projects and event names; never assume event strings |
+| This router | **This skill** (`product-analytics`) | Source routing and safeguards |
+
+| Optional | Capability | When to load |
+|----------|------------|--------------|
+| Support themes | **`redhat-support-cases`** | Questions about case volume, themes, or field trends |
+| PM evidence bundles | **`productization-decision`** | Structured productization workflows that pull Dataverse + cases together |
+| Curated exports | **Google Workspace (`gws`)** | Reading team Sheets/Docs that already contain agreed metrics |
+
+Routing is intentionally narrow: **Jira and delivery backlogs are out of scope** for this skill (use PM or delivery skills instead).
+
+## Install paths by agent (agent-neutral)
+
+| Host | Where to copy this skill | MCP registration |
+|------|-------------------------|------------------|
+| **Cursor** | Project `.cursor/skills/product-analytics/` or `~/.cursor/skills/product-analytics/` | Cursor Settings → MCP, or generated config under `~/.cursor/mcp.json` after Domain 0 bootstrap |
+| **Claude Code** | Follow [Tailwind Domain 0](https://gitlab.cee.redhat.com/tailwind/tailwind-domain0) skill paths for Claude | Same installer; MCP list in host output of `tailwind mcp list` |
+| **Codex** | e.g. `~/.codex/skills/product-analytics/` (see [uxd-productivity-skills README](https://gitlab.cee.redhat.com/uxd/uxd-productivity-skills/-/blob/main/README.md) “How to use a skill”) | Configure MCP per Codex docs; Dataverse and Amplitude must still be registered |
+
+**Tailwind bootstrap (any agent):** `bash installer/bootstrap.sh --agent <cursor|claude|codex>` from [tailwind-domain0](https://gitlab.cee.redhat.com/tailwind/tailwind-domain0). Then `tailwind lola sync` so **`dataverse-query`** appears next to this skill.
+
+**Resolve `dataverse-query` location:** after sync, open the file from your host skills directory (for example `.cursor/skills/dataverse-query/SKILL.md` or the path `tailwind lola status` prints). Do not hardcode a single absolute path in answers.
 
 ## Data source router
 
-| Question type | Primary source | Tool / skill | Notes |
-|---------------|----------------|--------------|-------|
-| OpenShift fleet, operators, CRDs, cluster/customer counts | Dataverse (openshift / telesense / telemetry products) | Dataverse MCP: `identify_dataproducts` → `shortlist_tables` → `get_sql` → `execute_sql` + **`dataverse-query`** | Requires consumer access; ~1 day lag common |
-| Console or app **behavioral** events (clicks, flows, funnels) | Amplitude | Amplitude MCP (`get_amplitude_context`, chart/query tools) + **`use_amp_skill`** when needed | Project ID required; event names are project-specific |
-| Delivery, backlog, story status | Jira | `scripts/jira-api.sh` or approved Jira REST | issues.redhat.com |
-| Support volume, case themes | RH support cases | **`redhat-support-cases`** skill | Evidence for PM decisions |
-| Docs, sheets, decks already curated | Google Drive / Docs | **`gws`** CLI skills | Commenter-shared team artifacts |
-| PM evidence bundle | Tailwind PM | **`productization-decision`**, **`dataverse-query`**, **`redhat-support-cases`** | Structured decision workflow |
+| Question type | Primary source | Tool / skill |
+|---------------|----------------|--------------|
+| OpenShift fleet, operators, CRDs, cluster/customer counts | Dataverse (openshift / telesense / telemetry products) | Dataverse MCP + **`dataverse-query`** |
+| Console or app **behavior** (clicks, flows, funnels) | Amplitude | Amplitude MCP; discover event names per project |
+| Support volume, case themes | Red Hat support cases | **`redhat-support-cases`** (optional) |
+| PM evidence bundle | Tailwind PM | **`productization-decision`** + Dataverse + optional cases (optional) |
+| Curated team metrics in Drive/Sheets | Google Drive | **`gws`** when the artifact is already the source of truth (optional) |
 
-If routing is ambiguous, ask one clarifying question (fleet telemetry vs in-product analytics vs Jira).
+If routing is ambiguous, ask one question (fleet vs in-product behavior vs support evidence).
 
-## Prerequisites (verify before querying)
-
-Run or infer from `tailwind status`:
+## Prerequisites (verify before answering)
 
 | Check | Pass criteria |
 |-------|----------------|
 | VPN | `gitlab.cee.redhat.com` reachable |
-| Tailwind CLI | `tailwind` on PATH; `tailwind lola status` shows modules |
-| Cursor MCP | Settings → MCP: **Dataverse** (and Jira if used) present in `~/.cursor/mcp.json` |
-| Snowflake consumer roles | `shortlist_tables` does not return `Require access to …` |
-| Amplitude | `get_amplitude_context` returns org/projects user can access |
+| Tailwind | `tailwind` on PATH; `tailwind lola status` shows modules |
+| MCP | Dataverse and (if needed) Amplitude show as registered for your host |
+| Dataverse | `shortlist_tables` does not return `Require access to …` for the target product |
+| Amplitude | `get_amplitude_context` lists projects you can use |
 
-**Access requests (Dataverse):** [Dataverse Console — consumer access](https://ludo-ddis-asteroid--ludo.apps.int.spoke.prod.us-east-1.aws.paas.redhat.com/access-request/consumer-access)
+**Dataverse access:** [Dataverse consumer access console](https://ludo-ddis-asteroid--ludo.apps.int.spoke.prod.us-east-1.aws.paas.redhat.com/access-request/consumer-access) — **OpenShift telemetry:** add product filter if marts require it.
 
-**OpenShift telemetry product:** [openshifttelemetry access](https://ludo-ddis-asteroid--ludo.apps.int.spoke.prod.us-east-1.aws.paas.redhat.com/access-request/consumer-access?products=openshifttelemetry)
+## Dataverse workflow (fleet / SQL)
 
-**Tailwind Domain 0 install:** [tailwind-domain0](https://gitlab.cee.redhat.com/tailwind/tailwind-domain0) — `bash installer/bootstrap.sh --agent cursor`
+1. Read **`dataverse-query`** from your synced skills directory.
+2. Run the MCP pipeline; review SQL against that skill checklist; then execute.
+3. On `Require access to PRODUCT` — stop; name the product and link the access console; do not guess numbers.
+4. On empty results — follow `dataverse-query` date/lag rules and say so in the answer.
 
-## Dataverse workflow (required for fleet / SQL)
+## Amplitude workflow (behavioral)
 
-1. Read and follow **`~/.cursor/skills/dataverse-query/SKILL.md`** (from Tailwind PM via `tailwind lola sync`; no shortcuts).
-2. MCP pipeline:
-   - `identify_dataproducts` with the user question + date + filters stated in plain language
-   - `shortlist_tables` for the selected data product
-   - `get_sql` with the same context
-   - Review SQL against the checklist; edit if business rules are missing
-   - `execute_sql` only after review
-3. On `Require access to PRODUCT` — stop; list the product name and link the access console; do not guess numbers.
-4. On empty results — decrement snapshot date per `dataverse-query` date rules; note lag in the answer.
-
-## Amplitude workflow (required for behavioral analytics)
-
-1. Call `get_amplitude_context` (no projectId first) to list accessible projects.
-2. Discover **event and property names** for the target project; never assume event strings.
-3. Prefer saved charts/search when the question matches an existing definition; otherwise build and run a validated query.
-4. Present chart link or table + definition summary + date range.
-
-## Jira / support workflows
-
-- Jira search: workspace `scripts/jira-api.sh` when present; POST `search/jql` per team rules.
-- Support cases: load **`redhat-support-cases`** for case search and stats.
+1. `get_amplitude_context` (discover projects).
+2. Discover **event and property names** for the target project.
+3. Prefer saved charts when they match the question; otherwise build a validated query.
+4. Respond with chart link or table, definition summary, and date range.
 
 ## Response format
 
 Always include:
 
-1. **Answer** — number or trend with units (clusters, customers, users, events)
+1. **Answer** — number or trend with units
 2. **As-of date** or range
-3. **Filters** — production vs eval, internal exclusion, dedup strategy
-4. **Source** — data product, Amplitude project, or Jira JQL summary
-5. **Confidence** — access OK / partial data / blocked
-6. **Reproduce** — SQL snippet, chart ID, or JQL (no tokens)
+3. **Filters** — prod vs eval, segments, dedup strategy if known
+4. **Source** — data product or Amplitude project
+5. **Confidence** — access OK / partial / blocked
+6. **Reproduce** — SQL snippet or chart id as appropriate (no secrets)
 
 ## Example prompts
 
 ```
 How many production clusters run OpenShift Virtualization as of yesterday?
-What is monthly active users for console feature X in Amplitude project Y?
-How many HPUX stories shipped networking in Q3?
+What is monthly actives for console feature X in Amplitude project Y?
 ```
 
-## Related skills and commands
+## Related skills
 
 | Artifact | Location |
 |----------|----------|
-| This skill (UXD repo) | `skills/product-analytics/SKILL.md` in [uxd-productivity-skills](https://gitlab.cee.redhat.com/uxd/uxd-productivity-skills) |
 | Dataverse SQL rules | [tailwind-pm dataverse-query](https://gitlab.cee.redhat.com/tailwind/tailwind-pm/-/blob/main/skills/dataverse-query/SKILL.md) |
-| Slash command | `/tailwind-pm:dataverse-query` (fleet SQL only) |
-| Team setup guide | [Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit) |
+| Slash command (fleet SQL helper) | `/tailwind-pm:dataverse-query` (still load this skill first for routing) |
 
-## Escalation
+## Escalation (optional)
 
-| Topic | Channel / contact |
-|-------|-------------------|
+Slack links below are **common support paths** as of skill publication; channels may change. Prefer the Dataverse console and Tailwind docs first.
+
+| Topic | Channel |
+|-------|---------|
 | Dataverse access, pipelines | [#help-dataverse-platform](https://redhat.enterprise.slack.com/archives/C08BLE5BKTQ) |
-| OpenShift telemetry marts | [#forum-observability-intelligence](https://redhat.enterprise.slack.com/archives/CLABA9CHY) (`@obsint-dataverse`) |
-| Tailwind installer / Lola | [tailwind-domain0](https://gitlab.cee.redhat.com/tailwind/tailwind-domain0) |
+| OpenShift telemetry marts | [#forum-observability-intelligence](https://redhat.enterprise.slack.com/archives/CLABA9CHY) |
+| Tailwind installer | [tailwind-domain0](https://gitlab.cee.redhat.com/tailwind/tailwind-domain0) |
 
-See [references/team-enablement-links.md](references/team-enablement-links.md) and [references/informing-sources.md](references/informing-sources.md).
+See [references/team-enablement-links.md](references/team-enablement-links.md).

@@ -4,7 +4,7 @@ Use these as the canonical references when extending or reviewing `product-analy
 
 ## Team playbook
 
-- [Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit) (setup process for Cursor / Claude)
+- [Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit) (**intentional shared UXD context**; Cursor / Claude setup sections)
 
 ## Tailwind Domain 0 (installer, MCP, Lola)
 
@@ -28,19 +28,14 @@ Use these as the canonical references when extending or reviewing `product-analy
 ## UXD productivity skills (contribution pattern)
 
 - [uxd-productivity-skills](https://gitlab.cee.redhat.com/uxd/uxd-productivity-skills)
-- [skills/product-analytics](https://gitlab.cee.redhat.com/uxd/uxd-productivity-skills/-/tree/main/skills/product-analytics) (this skill; MR !55)
+- [skills/product-analytics](https://gitlab.cee.redhat.com/uxd/uxd-productivity-skills/-/tree/main/skills/product-analytics)
 - [skills/contribution-review/SKILL.md](https://gitlab.cee.redhat.com/uxd/uxd-productivity-skills/-/blob/main/skills/contribution-review/SKILL.md)
 
 ## Public mirror (GitHub)
 
 - [kevinhatchoua/product-analytics-skill](https://github.com/kevinhatchoua/product-analytics-skill)
 
-## Jira
-
-- [issues.redhat.com](https://issues.redhat.com)
-- [Atlassian API tokens](https://id.atlassian.com/manage-profile/security/api-tokens)
-
-## Slack (support)
+## Slack (support; verify channels stay current)
 
 - [#help-dataverse-platform](https://redhat.enterprise.slack.com/archives/C08BLE5BKTQ)
 - [#forum-observability-intelligence](https://redhat.enterprise.slack.com/archives/CLABA9CHY)
