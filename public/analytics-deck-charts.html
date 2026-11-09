@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>OpenShift console — Amplitude demo charts</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.6/dist/chart.umd.min.js"></script>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: "Red Hat Text", "Helvetica Neue", Arial, sans-serif;
+      background: #151515;
+      color: #f0f0f0;
+      margin: 0;
+      padding: 24px;
+      max-width: 1200px;
+      margin-left: auto;
+      margin-right: auto;
+    }
+    h1 { font-size: 1.25rem; font-weight: 600; margin: 0 0 8px; }
+    .sub {
+      font-size: 0.85rem;
+      color: #b8bbbe;
+      margin-bottom: 28px;
+      line-height: 1.45;
+    }
+    .grid {
+      display: grid;
+      gap: 28px;
+      grid-template-columns: 1fr;
+    }
+    @media (min-width: 900px) {
+      .grid.two { grid-template-columns: 1fr 1fr; }
+    }
+    .card {
+      background: #1f1f1f;
+      border: 1px solid #3c3f42;
+      border-radius: 8px;
+      padding: 20px;
+    }
+    .card h2 { font-size: 1rem; margin: 0 0 4px; }
+    .card .caption {
+      font-size: 0.75rem;
+      color: #8b8d8f;
+      margin-bottom: 16px;
+    }
+    canvas { max-height: 320px; }
+    .footer {
+      margin-top: 24px;
+      font-size: 0.7rem;
+      color: #6a6e73;
+    }
+  </style>
+</head>
+<body>
+  <h1>OpenShift console — sample charts for your deck</h1>
+  <p class="sub">
+    Real Amplitude data · Project <strong>console.redhat.com/openshift</strong> (399659) · Range <strong>Last 12 Weeks</strong> · Weekly buckets.
+    Open this file in a browser, full-screen the window, and screenshot for Prezi or export from Amplitude (chart ids <code>9wnao5dk</code>, <code>ap68lbsh</code>).
+  </p>
+
+  <div class="grid two">
+    <div class="card">
+      <h2>Weekly unique active users</h2>
+      <p class="caption">Event _active · uniques · User · line chart</p>
+      <canvas id="chartWau" aria-label="Line chart WAU"></canvas>
+    </div>
+    <div class="card">
+      <h2>Weekly page view volume</h2>
+      <p class="caption">Event Page Viewed · totals · column chart</p>
+      <canvas id="chartPv" aria-label="Bar chart page views"></canvas>
+    </div>
+  </div>
+
+  <div class="grid" style="margin-top: 28px;">
+    <div class="card">
+      <h2>Page views by month (rollup)</h2>
+      <p class="caption">
+        Same weekly data summed by calendar month. November is partial (one week in range).
+      </p>
+      <canvas id="chartPie" aria-label="Pie chart by month"></canvas>
+    </div>
+  </div>
+
+  <p class="footer">
+    Do not sum weekly unique users across weeks for a “total people”; deduplication is across the full range. Use Amplitude overall or one interval. Pie uses summed totals only for page views.
+  </p>
+
+  <script>
+    const labels = [
+      "Aug 10", "Aug 17", "Aug 24", "Aug 31",
+      "Sep 7", "Sep 14", "Sep 21", "Sep 28",
+      "Oct 5", "Oct 12", "Oct 19", "Oct 26",
+      "Nov 2"
+    ];
+    const wau = [20839, 20897, 20649, 20982, 20979, 21009, 21012, 21061, 21201, 21130, 21047, 21072, 19596];
+    const pageViews = [92499, 97757, 89315, 96253, 89125, 93319, 94400, 90255, 94907, 90819, 83807, 86057, 58511];
+
+    const pfRed = "#ee0000";
+    const pfBlue = "#06c";
+    const pfMagenta = "#f531e8";
+    const gridColor = "#3c3f42";
+
+    const commonOptions = {
+      responsive: true,
+      maintainAspectRatio: true,
+      plugins: {
+        legend: { labels: { color: "#e0e0e0" } }
+      },
+      scales: {
+        x: {
+          ticks: { color: "#b8bbbe", maxRotation: 45, minRotation: 45, font: { size: 10 } },
+          grid: { color: gridColor }
+        },
+        y: {
+          ticks: { color: "#b8bbbe" },
+          grid: { color: gridColor }
+        }
+      }
+    };
+
+    new Chart(document.getElementById("chartWau"), {
+      type: "line",
+      data: {
+        labels,
+        datasets: [{
+          label: "Unique active users",
+          data: wau,
+          borderColor: pfRed,
+          backgroundColor: "rgba(238, 0, 0, 0.15)",
+          fill: true,
+          tension: 0.25,
+          pointRadius: 4,
+          pointHoverRadius: 6
+        }]
+      },
+      options: {
+        ...commonOptions,
+        plugins: { ...commonOptions.plugins, title: { display: false } }
+      }
+    });
+
+    new Chart(document.getElementById("chartPv"), {
+      type: "bar",
+      data: {
+        labels,
+        datasets: [{
+          label: "Page views",
+          data: pageViews,
+          backgroundColor: pfBlue,
+          borderColor: "#004080",
+          borderWidth: 1
+        }]
+      },
+      options: {
+        ...commonOptions,
+        scales: {
+          ...commonOptions.scales,
+          y: { ...commonOptions.scales.y, beginAtZero: true }
+        }
+      }
+    });
+
+    const aug = pageViews[0] + pageViews[1] + pageViews[2] + pageViews[3];
+    const sep = pageViews[4] + pageViews[5] + pageViews[6] + pageViews[7];
+    const oct = pageViews[8] + pageViews[9] + pageViews[10] + pageViews[11];
+    const nov = pageViews[12];
+
+    new Chart(document.getElementById("chartPie"), {
+      type: "pie",
+      data: {
+        labels: ["August", "September", "October", "November (partial)"],
+        datasets: [{
+          data: [aug, sep, oct, nov],
+          backgroundColor: [pfRed, pfBlue, "#2b9af3", pfMagenta],
+          borderColor: "#151515",
+          borderWidth: 2
+        }]
+      },
+      options: {
+        responsive: true,
+        plugins: {
+          legend: {
+            position: "right",
+            labels: { color: "#e0e0e0", padding: 16 }
+          },
+          tooltip: {
+            callbacks: {
+              label(ctx) {
+                const v = ctx.raw;
+                const sum = aug + sep + oct + nov;
+                const pct = ((v / sum) * 100).toFixed(1);
+                return `${ctx.label}: ${v.toLocaleString()} (${pct}%)`;
+              }
+            }
+          }
+        }
+      }
+    });
+  </script>
+</body>
+</html>
