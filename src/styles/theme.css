@@ -1217,11 +1217,6 @@ html.pf-v6-theme-glass.pf-v6-theme-dark .ocs-console-notification-drawer.pf-v6-c
  * the same glass primary surface as `main-container` (rgba + blur). Do not use opaque gray-80.
  */
 :where(.pf-v6-theme-glass):not(.no-glass) .ocs-console-page.pf-v6-c-page {
-  --pf-v6-c-page__sidebar-main--MarginInlineStart--glass: 0;
-  --pf-v6-c-page__sidebar-main--MarginInlineEnd--glass: 0;
-  --pf-v6-c-page__sidebar-main--xl--MarginInlineStart--glass: 0;
-  --pf-v6-c-page__sidebar-main--xl--MarginInlineEnd--glass: 0;
-
   --pf-v6-c-page__sidebar-main--BackgroundColor--glass: var(
     --pf-t--global--background--color--glass--primary--default,
     var(--pf-t--global--background--color--primary--default)
@@ -1239,8 +1234,6 @@ html.pf-v6-theme-glass.pf-v6-theme-dark .ocs-console-notification-drawer.pf-v6-c
   flex: 1 1 auto;
   align-self: stretch;
   min-height: 0;
-  margin-inline-start: 0 !important;
-  margin-inline-end: 0 !important;
   background-color: var(
     --pf-t--global--background--color--glass--primary--default,
     var(--pf-t--global--background--color--primary--default)
@@ -1488,6 +1481,19 @@ html.dark .ocs-io-operator-table .ocs-operator-table-sort.pf-v6-c-button.pf-m-pl
  */
 .pf-v6-c-popover__content .ocs-io-lifecycle-popover-body {
   --pf-t--global--background--color--primary--default: var(--pf-v6-c-popover__content--BackgroundColor);
+}
+
+/** GitOps dashboard agentic hints: inline link actions on one row (avoid full-width stacked links). */
+.pf-v6-c-popover__content .ocs-gitops-popover-actions {
+  flex-direction: row;
+  align-items: center;
+}
+
+.pf-v6-c-popover__content .ocs-gitops-popover-actions .pf-v6-c-button.pf-m-link {
+  width: fit-content;
+  max-width: 100%;
+  flex: 0 0 auto;
+  justify-content: flex-start;
 }
 
 .ocs-io-floating-panel-inline-alert.pf-v6-c-alert.pf-m-inline {

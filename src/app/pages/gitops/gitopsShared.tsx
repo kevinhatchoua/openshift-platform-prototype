@@ -73,21 +73,6 @@ export function ViewAgenticRunButton({
   );
 }
 
-/** Application detail banner when an AgenticRun is available (Peter / HPUX-2260). */
-export function GitOpsAgenticRunEntryBanner({ onViewRun }: { onViewRun: () => void }) {
-  return (
-    <Alert
-      variant="info"
-      isInline
-      title="AI-assisted investigation available"
-      actionLinks={<ViewAgenticRunButton onClick={() => onViewRun()} />}
-    >
-      Open the AgenticRun for this application to review evidence and proposed remediation on the shared Agentic Run
-      details page. This does not open Lightspeed chat. Always review AI-generated content prior to use.
-    </Alert>
-  );
-}
-
 export function GitOpsTechPreviewBadge() {
   return (
     <Label color="orange" isCompact>

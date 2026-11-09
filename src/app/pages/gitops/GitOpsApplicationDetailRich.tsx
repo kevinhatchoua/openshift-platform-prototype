@@ -31,12 +31,12 @@ import {
 } from "./gitopsData";
 import { GitOpsNotFound } from "./GitOpsSimpleDetailPage";
 import {
-  GitOpsAgenticRunEntryBanner,
   GitOpsDetailPageHeader,
   GitOpsLink,
   HealthStatus,
   OwnerReferencesCell,
   ResourceName,
+  ViewAgenticRunButton,
   gitopsConsoleDetailCrumbs,
 } from "./gitopsShared";
 import { useToast } from "../../contexts/ToastContext";
@@ -131,6 +131,16 @@ export default function GitOpsApplicationDetailRich() {
     [chat.clearMessages, chat.setContext, chat.setIsOpen, navigate],
   );
   const showAiTroubleshoot = rec ? applicationNeedsAiTroubleshoot(rec) : false;
+  const openAgenticRun = () => {
+    if (!rec) return;
+    gitopsAi.launchSyncTroubleshoot({
+      name: rec.name,
+      ns: rec.ns,
+      sync: rec.sync,
+      health: rec.health,
+      errorSummary: troubleshootAlert?.title ?? "Application needs attention",
+    });
+  };
 
   if (!rec) {
     return <GitOpsNotFound listPath="/gitops/applications" listTitle="Applications" />;
@@ -147,36 +157,18 @@ export default function GitOpsApplicationDetailRich() {
             name={rec.name}
             href={href}
             menuKind="Application"
-            agenticOnSelect={
-              showAiTroubleshoot
-                ? () =>
-                    gitopsAi.launchSyncTroubleshoot({
-                      name: rec.name,
-                      ns: rec.ns,
-                      sync: rec.sync,
-                      health: rec.health,
-                      errorSummary: troubleshootAlert?.title ?? "Application needs attention",
-                    })
-                : undefined
-            }
+            agenticOnSelect={showAiTroubleshoot ? openAgenticRun : undefined}
           />
 
-          {showAiTroubleshoot ? (
-            <GitOpsAgenticRunEntryBanner
-              onViewRun={() =>
-                gitopsAi.launchSyncTroubleshoot({
-                  name: rec.name,
-                  ns: rec.ns,
-                  sync: rec.sync,
-                  health: rec.health,
-                  errorSummary: troubleshootAlert?.title ?? "Application needs attention",
-                })
-              }
-            />
-          ) : null}
-
           {troubleshootAlert ? (
-            <Alert variant="warning" isInline title={troubleshootAlert.title}>
+            <Alert
+              variant="warning"
+              isInline
+              title={troubleshootAlert.title}
+              actionLinks={
+                showAiTroubleshoot ? <ViewAgenticRunButton onClick={() => openAgenticRun()} /> : undefined
+              }
+            >
               {troubleshootAlert.detail}
               {troubleshootAlert.agentHint ? (
                 <Content component="p" className="pf-v6-u-mt-sm">
