@@ -123,6 +123,10 @@
   text-underline-offset: 0.15em;
 }
 
+.ocs-gitops-agentic-run-link-wrap {
+  display: inline-block;
+}
+
 .ocs-gitops-stat-link {
   text-decoration: none;
   color: inherit;

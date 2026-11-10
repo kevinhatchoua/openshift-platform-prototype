@@ -10,6 +10,7 @@ import {
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
 import { RhAiExperienceIcon } from "@/components/icons/RhAiExperienceIcon";
 import type { DomainAction, GitOpsHealth } from "./gitopsData";
+import { GITOPS_VIEW_AGENTIC_RUN_LABEL } from "./gitopsAgenticCopy";
 import { actionStateFor } from "./gitopsData";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 
@@ -75,7 +76,7 @@ export default function RolloutActionsKebab({
             >
               <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
                 <RhAiExperienceIcon aria-hidden />
-                <span>View Agentic Run</span>
+                <span>{GITOPS_VIEW_AGENTIC_RUN_LABEL}</span>
               </Flex>
             </DropdownItem>
             <Divider component="li" />

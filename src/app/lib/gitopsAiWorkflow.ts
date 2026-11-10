@@ -29,7 +29,6 @@ export function createGitOpsAiLaunchers(deps: {
   const rolloutTimerRef = { current: undefined as number | undefined };
 
   const launchSyncTroubleshoot: GitOpsAiLaunchers["launchSyncTroubleshoot"] = (app) => {
-    deps.clearMessages();
     const run = startGitOpsSyncTroubleshootRun({
       applicationName: app.name,
       namespace: app.ns,
@@ -38,11 +37,13 @@ export function createGitOpsAiLaunchers(deps: {
       errorSummary: app.errorSummary,
     });
     activeSyncRef.current = run.id;
-    deps.setContext(`ols-gitops-sync-troubleshoot:${run.id}`);
     const runPath = agenticRunPath(run.id);
     if (deps.navigateToAgenticRun) {
+      // Crawl phase / HPUX-2287: interim handoff is Agentic Run details only (not Lightspeed chat).
       deps.navigateToAgenticRun(runPath);
     } else {
+      deps.clearMessages();
+      deps.setContext(`ols-gitops-sync-troubleshoot:${run.id}`);
       deps.setIsOpen(true);
     }
     if (syncTimerRef.current) window.clearTimeout(syncTimerRef.current);
@@ -55,7 +56,6 @@ export function createGitOpsAiLaunchers(deps: {
   };
 
   const launchRolloutDiagnose: GitOpsAiLaunchers["launchRolloutDiagnose"] = (rollout) => {
-    deps.clearMessages();
     const run = startGitOpsRolloutDiagnoseRun({
       rolloutName: rollout.name,
       namespace: rollout.ns,
@@ -64,11 +64,12 @@ export function createGitOpsAiLaunchers(deps: {
       errorSummary: rollout.errorSummary,
     });
     activeRolloutRef.current = run.id;
-    deps.setContext(`ols-gitops-rollout-diagnose:${run.id}`);
     const runPath = agenticRunPath(run.id);
     if (deps.navigateToAgenticRun) {
       deps.navigateToAgenticRun(runPath);
     } else {
+      deps.clearMessages();
+      deps.setContext(`ols-gitops-rollout-diagnose:${run.id}`);
       deps.setIsOpen(true);
     }
     if (rolloutTimerRef.current) window.clearTimeout(rolloutTimerRef.current);

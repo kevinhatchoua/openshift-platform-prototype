@@ -26,6 +26,8 @@ import {
   AGENTIC_RUNS_LIST_PATH,
   AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION,
   AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION_TROUBLESHOOT,
+  AGENTIC_RUN_TRIGGER_GITOPS_ROLLOUT,
+  AGENTIC_RUN_TRIGGER_GITOPS_SYNC,
   clusterExtensionTroubleshootRequestPrompt,
   agenticRunPath,
   analysisLogLines,
@@ -38,6 +40,7 @@ import {
 } from "../../constants/agenticUpdateRuns";
 import { CLUSTER_CURRENT_VERSION } from "../../constants/clusterVersionDemo";
 import { downloadUpdatePlanReport } from "../../lib/updatePlansStore";
+import { GitOpsAgenticRunDetailActions } from "../gitops/GitOpsAgenticRunDetailActions";
 
 function downloadPlan(run: AgenticUpdateRun) {
   downloadUpdatePlanReport(run);
@@ -260,7 +263,13 @@ export default function AgenticRunDetailPage() {
               </Flex>
               <Content component="p">Created {run.created}</Content>
             </Flex>
-            <FavoriteButton name={run.id} path={detailPath} />
+            <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }} flexWrap={{ default: "wrap" }}>
+              {run.triggerDomain === AGENTIC_RUN_TRIGGER_GITOPS_SYNC ||
+              run.triggerDomain === AGENTIC_RUN_TRIGGER_GITOPS_ROLLOUT ? (
+                <GitOpsAgenticRunDetailActions runId={run.id} />
+              ) : null}
+              <FavoriteButton name={run.id} path={detailPath} />
+            </Flex>
           </Flex>
 
           <Tabs

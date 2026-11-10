@@ -88,6 +88,50 @@ export const AGENTIC_UPDATE_RUNS: AgenticUpdateRun[] = [
     selectedOption:
       "Block upgrade to 5.1.0 until the cloud credential secret is restored and operator compatibility is confirmed",
   },
+  {
+    id: "gitops-sync-payments-api-seed",
+    targetVersion: "",
+    updateType: "Patch",
+    phase: "Analysed",
+    status: "Completed",
+    age: "20m ago",
+    generatedAt: "Nov 9, 2026, 9:45 AM",
+    created: "20m ago",
+    sandbox: "ls-analysis-gitops-payments-api",
+    channel: "",
+    updatePath: "GitOps sync troubleshoot",
+    otherRecommended: "",
+    namespace: AGENTIC_RUN_NAMESPACE,
+    triggerDomain: AGENTIC_RUN_TRIGGER_GITOPS_SYNC,
+    tokensConsumed: "1,240",
+    recommendation: null,
+    extensionName: "payments-api",
+    extensionNamespace: "argocd",
+    attentionSummary: "Application is out of sync — image tag drift on Deployment/payments-api",
+    selectedOption: "Update Deployment image to release-1.4.2 and reconcile; verify sync policy",
+  },
+  {
+    id: "gitops-sync-legacy-batch-seed",
+    targetVersion: "",
+    updateType: "Patch",
+    phase: "Analysed",
+    status: "Completed",
+    age: "1h ago",
+    generatedAt: "Nov 9, 2026, 8:30 AM",
+    created: "1h ago",
+    sandbox: "ls-analysis-gitops-legacy-batch",
+    channel: "",
+    updatePath: "GitOps sync troubleshoot",
+    otherRecommended: "",
+    namespace: AGENTIC_RUN_NAMESPACE,
+    triggerDomain: AGENTIC_RUN_TRIGGER_GITOPS_SYNC,
+    tokensConsumed: "980",
+    recommendation: null,
+    extensionName: "legacy-batch",
+    extensionNamespace: "openshift-gitops",
+    attentionSummary: "Application health is degraded — failing liveness probes on batch worker",
+    selectedOption: "Rollback Job revision or fix probe thresholds; re-sync from Git",
+  },
 ];
 
 export type ReadinessCheckStatus = "fail" | "warn" | "pass";
@@ -246,6 +290,20 @@ export function clusterReadinessJson(run: AgenticUpdateRun): string {
 }
 
 export function analysisLogLines(run: AgenticUpdateRun): string {
+  if (
+    run.triggerDomain === AGENTIC_RUN_TRIGGER_GITOPS_SYNC ||
+    run.triggerDomain === AGENTIC_RUN_TRIGGER_GITOPS_ROLLOUT
+  ) {
+    return [
+      `[gitops] sandbox=${run.sandbox}`,
+      "[gitops] loading Argo CD Application status and resource diff",
+      `[gitops] application=${run.extensionName ?? "unknown"} namespace=${run.extensionNamespace ?? "argocd"}`,
+      `[gitops] attention=${run.attentionSummary ?? "condition requires review"}`,
+      "[gitops] correlating live vs desired manifests",
+      "[gitops] drafting remediation options",
+      "[gitops] writing agentic run record",
+    ].join("\n");
+  }
   if (run.triggerDomain === AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION_TROUBLESHOOT) {
     return [
       `[troubleshoot] sandbox=${run.sandbox}`,

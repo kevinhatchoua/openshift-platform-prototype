@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from "react";
+import { type ReactNode, useState } from "react";
 import { useNavigate } from "react-router";
 import {
   Alert,
@@ -15,7 +15,6 @@ import {
   Grid,
   GridItem,
   Label,
-  Popover,
   Title,
 } from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
@@ -47,9 +46,12 @@ import {
   recentOperationsForInstance,
 } from "./gitopsData";
 import { GitOpsEditDeleteMenu, HealthStatus, ResourceName, ViewAgenticRunButton } from "./gitopsShared";
-import { useChat } from "../../contexts/ChatContext";
-import { RhAiExperienceIcon } from "@/components/icons/RhAiExperienceIcon";
-import { createGitOpsAiLaunchers, applicationNeedsAiTroubleshoot } from "../../lib/gitopsAiWorkflow";
+import { applicationHasAgenticRemediation } from "./gitopsAgenticContract";
+import { openGitOpsAgenticRunForApplication } from "./openGitOpsAgenticRun";
+import {
+  GITOPS_AGENTIC_RUN_DASHBOARD_ATTENTION_HINT,
+  GITOPS_VIEW_AGENTIC_RUN_LABEL,
+} from "./gitopsAgenticCopy";
 import {
   connectivityLabelColor,
   gitOpsHealthChartColor,
@@ -80,20 +82,16 @@ const SEGMENT_COLORS = {
   aborting: gitOpsHealthChartColor("Aborting"),
 };
 
-const AGENTIC_HINT_SEGMENT_KEYS = new Set(["outOfSync", "degraded", "aborting"]);
-
 function MultiSegmentDonut({
   title,
   segments,
   total,
   onSegmentClick,
-  onOpenAgenticAttention,
 }: {
   title: string;
   segments: DonutSegment[];
   total: number;
   onSegmentClick: (segment: DonutSegment) => void;
-  onOpenAgenticAttention?: () => void;
 }) {
   const r = 36;
   const c = 2 * Math.PI * r;
@@ -170,7 +168,7 @@ function MultiSegmentDonut({
         {segments.map((segment) => {
           const pct = Math.round((segment.count / safeTotal) * 100);
           const isEmpty = segment.count === 0;
-          const legendControl = (
+          return (
             <Button
               key={segment.key}
               variant="link"
@@ -191,58 +189,6 @@ function MultiSegmentDonut({
               </Flex>
             </Button>
           );
-
-          if (!isEmpty && AGENTIC_HINT_SEGMENT_KEYS.has(segment.key) && onOpenAgenticAttention) {
-            return (
-              <Popover
-                key={segment.key}
-                triggerAction="hover"
-                headerContent={segment.label}
-                bodyContent={(hide) => (
-                  <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                    <Content component="p">
-                      {segment.count} application{segment.count === 1 ? "" : "s"} in this state. Open an
-                      AgenticRun to review evidence and proposed remediation (not Lightspeed chat).
-                    </Content>
-                    <Flex
-                      className="ocs-gitops-popover-actions"
-                      gap={{ default: "gapMd" }}
-                      alignItems={{ default: "alignItemsCenter" }}
-                      flexWrap={{ default: "wrap" }}
-                    >
-                      <Button
-                        variant="link"
-                        isInline
-                        icon={<RhAiExperienceIcon aria-hidden />}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          hide();
-                          onOpenAgenticAttention();
-                        }}
-                      >
-                        View Agentic Run
-                      </Button>
-                      <Button
-                        variant="link"
-                        isInline
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          hide();
-                          onSegmentClick(segment);
-                        }}
-                      >
-                        Filter applications
-                      </Button>
-                    </Flex>
-                  </Flex>
-                )}
-              >
-                {legendControl}
-              </Popover>
-            );
-          }
-
-          return legendControl;
         })}
       </Flex>
     </Flex>
@@ -268,28 +214,10 @@ export default function GitOpsDashboardPage() {
     appMatchesConsoleProject(a.ns, project),
   );
   const metrics = buildDashboardMetrics(apps);
-  const chat = useChat();
-  const gitopsAi = useMemo(
-    () =>
-      createGitOpsAiLaunchers({
-        clearMessages: chat.clearMessages,
-        setContext: chat.setContext,
-        setIsOpen: chat.setIsOpen,
-        navigateToAgenticRun: (path) => navigate(path),
-      }),
-    [chat.clearMessages, chat.setContext, chat.setIsOpen, navigate],
-  );
-
-  const launchAppInvestigate = (ns: string, name: string, summary: string) => {
+  const launchAppInvestigate = (ns: string, name: string) => {
     const app = findApplication(ns, name);
-    if (!app) return;
-    gitopsAi.launchSyncTroubleshoot({
-      name: app.name,
-      ns: app.ns,
-      sync: app.sync,
-      health: app.health,
-      errorSummary: summary,
-    });
+    if (!app || !applicationHasAgenticRemediation(app)) return;
+    openGitOpsAgenticRunForApplication(app, (path) => navigate(path));
   };
   const appKeys = new Set(apps.map((a) => `${a.ns}/${a.name}`));
   const operations = recentOperationsForInstance(GITOPS_ALL_INSTANCES).filter((op) =>
@@ -373,10 +301,6 @@ export default function GitOpsDashboardPage() {
     navigate(buildGitOpsAppsUrl(GITOPS_ALL_INSTANCES, filters));
   };
 
-  const openAgenticAttention = () => {
-    navigate("/gitops/applications?attention=1");
-  };
-
   const openMetrics = (metric: "sync" | "reconcile") => {
     if (!canAccessMetrics) {
       setMetricsDenied(
@@ -444,7 +368,6 @@ export default function GitOpsDashboardPage() {
                     segments={syncSegments}
                     total={totalApps}
                     onSegmentClick={navigateToFilteredApps}
-                    onOpenAgenticAttention={openAgenticAttention}
                   />
                 </CardBody>
               </Card>
@@ -458,7 +381,6 @@ export default function GitOpsDashboardPage() {
                     segments={healthSegments}
                     total={totalApps}
                     onSegmentClick={navigateToFilteredApps}
-                    onOpenAgenticAttention={openAgenticAttention}
                   />
                 </CardBody>
               </Card>
@@ -472,30 +394,11 @@ export default function GitOpsDashboardPage() {
                       label="Sync success rate"
                       value={`${syncedPct}%`}
                       tone={syncedPct >= 90 ? "good" : "warning"}
-                      agenticHint={
-                        syncedPct < 90 && metrics.needsAttention.length > 0
-                          ? {
-                              title: "Sync success rate",
-                              detail: `${metrics.outOfSync} application(s) out of sync. Use View Agentic Run on those applications or open the attention list.`,
-                              onAction: openAgenticAttention,
-                            }
-                          : undefined
-                      }
                     />
                     <MetricRow
                       label="Failed syncs (24h)"
                       value={String(failedSyncs24h)}
                       tone={toneForCount(failedSyncs24h)}
-                      agenticHint={
-                        failedSyncs24h > 0
-                          ? {
-                              title: "Failed syncs",
-                              detail:
-                                "Review failed sync operations and open AgenticRun details for related applications.",
-                              onAction: openAgenticAttention,
-                            }
-                          : undefined
-                      }
                     />
                     <MetricRow
                       label="Reconciliations (1h)"
@@ -518,16 +421,6 @@ export default function GitOpsDashboardPage() {
                       label="Git fetch failures (24h)"
                       value={String(metrics.gitFetchFailures)}
                       tone={toneForCount(metrics.gitFetchFailures)}
-                      agenticHint={
-                        metrics.gitFetchFailures > 0
-                          ? {
-                              title: "Git fetch failures",
-                              detail:
-                                "Repository fetch errors can block sync. Investigate affected applications with AgenticRun.",
-                              onAction: () => navigate("/gitops/applications?attention=1"),
-                            }
-                          : undefined
-                      }
                     />
                   </Flex>
                 </CardBody>
@@ -547,42 +440,11 @@ export default function GitOpsDashboardPage() {
                       No sync operations in the last 24 hours. Open metrics for historical sync activity.
                     </Content>
                   ) : (
-                    <Popover
-                      triggerAction="hover"
-                      headerContent="Out of sync"
-                      bodyContent={(hide) => (
-                        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-                          <Content component="p">
-                            {metrics.outOfSync} application{metrics.outOfSync === 1 ? "" : "s"} currently out of
-                            sync. Open AgenticRun details from the application list or details page.
-                          </Content>
-                          <Flex
-                            className="ocs-gitops-popover-actions"
-                            gap={{ default: "gapMd" }}
-                            alignItems={{ default: "alignItemsCenter" }}
-                            flexWrap={{ default: "wrap" }}
-                          >
-                            <Button
-                              variant="link"
-                              isInline
-                              icon={<RhAiExperienceIcon aria-hidden />}
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                hide();
-                                openAgenticAttention();
-                              }}
-                            >
-                              View Agentic Run
-                            </Button>
-                          </Flex>
-                        </Flex>
-                      )}
-                    >
-                      <Content component="p" tabIndex={0}>
-                        {metrics.outOfSync} application{metrics.outOfSync === 1 ? "" : "s"} currently out of sync.
-                        Hover for Agentic Run. Click card for Observe | Metrics.
-                      </Content>
-                    </Popover>
+                    <Content component="p">
+                      {metrics.outOfSync} application{metrics.outOfSync === 1 ? "" : "s"} currently out of sync.
+                      Open an application from <strong>Needs attention</strong> to use {GITOPS_VIEW_AGENTIC_RUN_LABEL}.
+                      Click card for Observe | Metrics.
+                    </Content>
                   )}
                 </CardBody>
               </Card>
@@ -622,8 +484,15 @@ export default function GitOpsDashboardPage() {
                 <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
                   <Content component="small" className="pf-v6-u-color-200">
                     {metrics.needsAttention.length} application{metrics.needsAttention.length !== 1 ? "s" : ""} need
-                    attention. Hover problem metrics above or use <strong>View Agentic Run</strong> below.
+                    attention. {GITOPS_AGENTIC_RUN_DASHBOARD_ATTENTION_HINT}
                   </Content>
+                  <Button
+                    variant="link"
+                    isInline
+                    onClick={() => navigate(buildGitOpsAppsUrl(GITOPS_ALL_INSTANCES, undefined, { remediation: true }))}
+                  >
+                    Show applications with AI remediation
+                  </Button>
                   <OcsPrototypeListTable ariaLabel="Applications needing attention">
                     <Thead>
                       <Tr>
@@ -645,7 +514,7 @@ export default function GitOpsDashboardPage() {
                       {metrics.needsAttention.map((item) => {
                         const app = findApplication(item.ns, item.name);
                         const statusKey = app?.health === "Degraded" || app?.health === "Aborting" ? app.health : app?.sync ?? "OutOfSync";
-                        const showRun = app ? applicationNeedsAiTroubleshoot(app) : true;
+                        const showRun = app ? applicationHasAgenticRemediation(app) : false;
                         return (
                           <Tr
                             key={`${item.ns}/${item.name}`}
@@ -666,14 +535,14 @@ export default function GitOpsDashboardPage() {
                                   showAiRemediation={showRun}
                                   onAiRemediationClick={(event) => {
                                     event.stopPropagation();
-                                    launchAppInvestigate(item.ns, item.name, item.reason);
+                                    launchAppInvestigate(item.ns, item.name);
                                   }}
                                 />
                               ) : showRun ? (
                                 <ViewAgenticRunButton
                                   onClick={(event) => {
                                     event.stopPropagation();
-                                    launchAppInvestigate(item.ns, item.name, item.reason);
+                                    launchAppInvestigate(item.ns, item.name);
                                   }}
                                 />
                               ) : (
@@ -700,7 +569,7 @@ export default function GitOpsDashboardPage() {
                                       navigate(gitopsDetailPath("applications", item.ns, item.name));
                                     }
                                   }}
-                                  agenticOnSelect={() => launchAppInvestigate(item.ns, item.name, item.reason)}
+                                  agenticOnSelect={() => launchAppInvestigate(item.ns, item.name)}
                                 />
                               ) : (
                                 <Content component="span" className="pf-v6-u-color-200">
@@ -748,7 +617,7 @@ export default function GitOpsDashboardPage() {
                 ) : (
                   operations.map((op) => {
                     const opApp = findApplication(op.ns, op.name);
-                    const showOpAi = opApp ? applicationNeedsAiTroubleshoot(opApp) : op.phase === "Failed";
+                    const showOpAi = opApp ? applicationHasAgenticRemediation(opApp) : false;
                     return (
                     <Tr
                       key={`${op.ns}/${op.name}`}
@@ -770,7 +639,7 @@ export default function GitOpsDashboardPage() {
                             <ViewAgenticRunButton
                               onClick={(event) => {
                                 event.stopPropagation();
-                                launchAppInvestigate(op.ns, op.name, op.message);
+                                launchAppInvestigate(op.ns, op.name);
                               }}
                             />
                           ) : null}
@@ -831,16 +700,10 @@ function MetricRow({
   label,
   value,
   tone,
-  agenticHint,
 }: {
   label: string;
   value: ReactNode;
   tone?: "good" | "info" | "informational" | "warning" | "critical" | "neutral";
-  agenticHint?: {
-    title: string;
-    detail: string;
-    onAction: () => void;
-  };
 }) {
   const iconColor =
     tone === "good"
@@ -873,42 +736,5 @@ function MetricRow({
     </Flex>
   );
 
-  if (!agenticHint) {
-    return row;
-  }
-
-  return (
-    <Popover
-      triggerAction="hover"
-      headerContent={agenticHint.title}
-      bodyContent={(hide) => (
-        <Flex direction={{ default: "column" }} gap={{ default: "gapSm" }}>
-          <Content component="p">{agenticHint.detail}</Content>
-          <Flex
-            className="ocs-gitops-popover-actions"
-            gap={{ default: "gapMd" }}
-            alignItems={{ default: "alignItemsCenter" }}
-            flexWrap={{ default: "wrap" }}
-          >
-            <Button
-              variant="link"
-              isInline
-              icon={<RhAiExperienceIcon aria-hidden />}
-              onClick={(e) => {
-                e.stopPropagation();
-                hide();
-                agenticHint.onAction();
-              }}
-            >
-              View Agentic Run
-            </Button>
-          </Flex>
-        </Flex>
-      )}
-    >
-      <div className="ocs-gitops-metric-hint" tabIndex={0} role="group" aria-label={`${label}, hover for Agentic Run`}>
-        {row}
-      </div>
-    </Popover>
-  );
+  return row;
 }

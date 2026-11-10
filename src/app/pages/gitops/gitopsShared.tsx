@@ -10,6 +10,7 @@ import {
   Icon,
   Label,
   MenuToggle,
+  Tooltip,
 } from "@patternfly/react-core";
 import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle-icon";
 import EllipsisVIcon from "@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon";
@@ -25,6 +26,10 @@ import { GITOPS_APPLICATION_SETS, gitopsDetailPath } from "./gitopsData";
 import FavoriteButton from "../../components/FavoriteButton";
 import { useToast } from "../../contexts/ToastContext";
 import { gitOpsHealthLabelColor, gitOpsSyncLabelColor } from "../../lib/pfSemanticColors";
+import {
+  GITOPS_VIEW_AGENTIC_RUN_LABEL,
+  GITOPS_VIEW_AGENTIC_RUN_TOOLTIP,
+} from "./gitopsAgenticCopy";
 
 export const GITOPS_VIEW_AGENTIC_RUN_ID = "view-agentic-run";
 
@@ -60,7 +65,7 @@ export function ViewAgenticRunButton({
   onClick: (event: MouseEvent<HTMLButtonElement>) => void;
   className?: string;
 }) {
-  return (
+  const link = (
     <Button
       variant="link"
       isInline
@@ -68,8 +73,14 @@ export function ViewAgenticRunButton({
       icon={<RhAiExperienceIcon aria-hidden />}
       onClick={onClick}
     >
-      View Agentic Run
+      {GITOPS_VIEW_AGENTIC_RUN_LABEL}
     </Button>
+  );
+
+  return (
+    <Tooltip content={GITOPS_VIEW_AGENTIC_RUN_TOOLTIP}>
+      <span className="ocs-gitops-agentic-run-link-wrap">{link}</span>
+    </Tooltip>
   );
 }
 
@@ -386,7 +397,7 @@ export function GitOpsEditDeleteMenu({
   const { pushToast } = useToast();
   const items: GitOpsActionItem[] = [
   ...(agenticOnSelect
-    ? [{ id: GITOPS_VIEW_AGENTIC_RUN_ID, label: "View Agentic Run", prototypeOnly: true as const }]
+    ? [{ id: GITOPS_VIEW_AGENTIC_RUN_ID, label: GITOPS_VIEW_AGENTIC_RUN_LABEL, prototypeOnly: true as const }]
     : []),
     ...extraItems,
     ...(showResourceActions

@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   Alert,
@@ -42,8 +42,9 @@ import {
 import { useToast } from "../../contexts/ToastContext";
 import GitOpsYamlUnifiedDiff from "./GitOpsYamlUnifiedDiff";
 import { useGitOpsInstance } from "./GitOpsInstancePicker";
-import { useChat } from "../../contexts/ChatContext";
-import { createGitOpsAiLaunchers, applicationNeedsAiTroubleshoot } from "../../lib/gitopsAiWorkflow";
+import { applicationHasAgenticRemediation, formatAgenticAnnotations } from "./gitopsAgenticContract";
+import { GITOPS_AGENTIC_RUN_ALERT_ACTION_HINT } from "./gitopsAgenticCopy";
+import { openGitOpsAgenticRunForApplication } from "./openGitOpsAgenticRun";
 
 function liveYaml(rec: ApplicationRecord) {
   const image =
@@ -119,28 +120,12 @@ export default function GitOpsApplicationDetailRich() {
   const troubleshootAlert = rec ? applicationTroubleshootAlert(rec) : null;
   const { instance } = useGitOpsInstance();
   const instanceScoped = rec ? rec.instanceKey === instance || instance === GITOPS_ALL_INSTANCES : true;
-  const chat = useChat();
-  const gitopsAi = useMemo(
-    () =>
-      createGitOpsAiLaunchers({
-        clearMessages: chat.clearMessages,
-        setContext: chat.setContext,
-        setIsOpen: chat.setIsOpen,
-        navigateToAgenticRun: (path) => navigate(path),
-      }),
-    [chat.clearMessages, chat.setContext, chat.setIsOpen, navigate],
-  );
-  const showAiTroubleshoot = rec ? applicationNeedsAiTroubleshoot(rec) : false;
+  const showAgenticRunLink = rec ? applicationHasAgenticRemediation(rec) : false;
   const openAgenticRun = () => {
     if (!rec) return;
-    gitopsAi.launchSyncTroubleshoot({
-      name: rec.name,
-      ns: rec.ns,
-      sync: rec.sync,
-      health: rec.health,
-      errorSummary: troubleshootAlert?.title ?? "Application needs attention",
-    });
+    openGitOpsAgenticRunForApplication(rec, (path) => navigate(path));
   };
+  const agenticAnnotationLines = rec ? formatAgenticAnnotations(rec) : [];
 
   if (!rec) {
     return <GitOpsNotFound listPath="/gitops/applications" listTitle="Applications" />;
@@ -157,7 +142,7 @@ export default function GitOpsApplicationDetailRich() {
             name={rec.name}
             href={href}
             menuKind="Application"
-            agenticOnSelect={showAiTroubleshoot ? openAgenticRun : undefined}
+            agenticOnSelect={showAgenticRunLink ? openAgenticRun : undefined}
           />
 
           {troubleshootAlert ? (
@@ -166,10 +151,15 @@ export default function GitOpsApplicationDetailRich() {
               isInline
               title={troubleshootAlert.title}
               actionLinks={
-                showAiTroubleshoot ? <ViewAgenticRunButton onClick={() => openAgenticRun()} /> : undefined
+                showAgenticRunLink ? <ViewAgenticRunButton onClick={() => openAgenticRun()} /> : undefined
               }
             >
               {troubleshootAlert.detail}
+              {showAgenticRunLink ? (
+                <Content component="p" className="pf-v6-u-mt-sm">
+                  {GITOPS_AGENTIC_RUN_ALERT_ACTION_HINT}
+                </Content>
+              ) : null}
               {troubleshootAlert.agentHint ? (
                 <Content component="p" className="pf-v6-u-mt-sm">
                   {troubleshootAlert.agentHint}
@@ -230,9 +220,26 @@ export default function GitOpsApplicationDetailRich() {
                     <DescriptionListGroup>
                       <DescriptionListTerm>Annotations</DescriptionListTerm>
                       <DescriptionListDescription>
-                        <Button variant="link" isInline onClick={() => pushToast({ variant: "info", title: "Edit annotations" })}>
-                          0 Annotations
-                        </Button>
+                        {agenticAnnotationLines.length > 0 ? (
+                          <Flex direction={{ default: "column" }} gap={{ default: "gapXs" }}>
+                            {agenticAnnotationLines.map((line) => (
+                              <Content key={line} component="small">
+                                <code>{line}</code>
+                              </Content>
+                            ))}
+                            <Button
+                              variant="link"
+                              isInline
+                              onClick={() => pushToast({ variant: "info", title: "Edit annotations" })}
+                            >
+                              Edit annotations
+                            </Button>
+                          </Flex>
+                        ) : (
+                          <Button variant="link" isInline onClick={() => pushToast({ variant: "info", title: "Edit annotations" })}>
+                            0 Annotations
+                          </Button>
+                        )}
                       </DescriptionListDescription>
                     </DescriptionListGroup>
                     <DescriptionListGroup>

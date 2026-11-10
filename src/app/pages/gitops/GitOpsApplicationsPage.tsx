@@ -1,6 +1,15 @@
 import { useCallback, useEffect, useMemo } from "react";
 import { useNavigate, useSearchParams } from "react-router";
-import { Button, Content, Flex, Pagination, PaginationVariant, ToolbarGroup, ToolbarItem } from "@patternfly/react-core";
+import {
+  Button,
+  Content,
+  Flex,
+  Label,
+  Pagination,
+  PaginationVariant,
+  ToolbarGroup,
+  ToolbarItem,
+} from "@patternfly/react-core";
 import {
   DataView,
   DataViewCheckboxFilter,
@@ -20,11 +29,12 @@ import {
   PlainTableHeader,
   useListPagination,
 } from "../../components/dataView/OcsPrototypeListTable";
-import { applicationsForInstance, applicationSyncError, gitopsDetailPath, type ApplicationRecord } from "./gitopsData";
+import { applicationsForInstance, gitopsDetailPath, type ApplicationRecord } from "./gitopsData";
 import GitOpsApplicationDetailRich from "./GitOpsApplicationDetailRich";
 import GitOpsPageHeader, { useGitOpsInstance } from "./GitOpsPageHeader";
+import { applicationHasAgenticRemediation } from "./gitopsAgenticContract";
+import { openGitOpsAgenticRunForApplication } from "./openGitOpsAgenticRun";
 import { GitOpsEditDeleteMenu, HealthStatus, OwnerReferencesCell, ResourceName } from "./gitopsShared";
-import { createGitOpsAiLaunchers, applicationNeedsAiTroubleshoot } from "../../lib/gitopsAiWorkflow";
 
 type ApplicationFilters = {
   name: string;
@@ -46,7 +56,13 @@ const HEALTH_OPTIONS = [
   { value: "Aborting", label: "Aborting" },
 ];
 
-function rowMatches(row: ApplicationRecord, filters: ApplicationFilters, attentionMode: boolean) {
+function rowMatches(
+  row: ApplicationRecord,
+  filters: ApplicationFilters,
+  attentionMode: boolean,
+  remediationMode: boolean,
+) {
+  if (remediationMode && !applicationHasAgenticRemediation(row)) return false;
   if (attentionMode) {
     return (
       row.sync === "OutOfSync" ||
@@ -71,6 +87,7 @@ export default function GitOpsApplicationsPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const { instance } = useGitOpsInstance();
   const attentionMode = searchParams.get("attention") === "1";
+  const remediationMode = searchParams.get("remediation") === "1";
   const urlSyncKey = searchParams.getAll("sync").join("\0");
   const urlHealthKey = searchParams.getAll("health").join("\0");
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<ApplicationFilters>({
@@ -109,8 +126,8 @@ export default function GitOpsApplicationsPage() {
 
   const items = applicationsForInstance(instance);
   const filtered = useMemo(
-    () => items.filter((row) => rowMatches(row, filters, attentionMode)),
-    [items, filters, attentionMode]
+    () => items.filter((row) => rowMatches(row, filters, attentionMode, remediationMode)),
+    [items, filters, attentionMode, remediationMode]
   );
   const { page, setPage, perPage, setPerPage, paginated, itemCount } = useListPagination(filtered, [filters], 10);
 
@@ -118,29 +135,26 @@ export default function GitOpsApplicationsPage() {
     setPage(1);
   }, [filters.name, filters.namespace, filters.sync ?? [], filters.health ?? [], perPage, setPage]);
 
-  const gitopsAi = useMemo(
-    () =>
-      createGitOpsAiLaunchers({
-        clearMessages: () => {},
-        setContext: () => {},
-        setIsOpen: () => {},
-        navigateToAgenticRun: (path) => navigate(path),
-      }),
-    [navigate],
-  );
+  const toggleRemediationFilter = useCallback(() => {
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev);
+        if (next.get("remediation") === "1") {
+          next.delete("remediation");
+        } else {
+          next.set("remediation", "1");
+        }
+        return next;
+      },
+      { replace: true },
+    );
+  }, [setSearchParams]);
 
   const openHealthRemediation = useCallback(
     (item: ApplicationRecord) => {
-      const syncErr = applicationSyncError(item);
-      gitopsAi.launchSyncTroubleshoot({
-        name: item.name,
-        ns: item.ns,
-        sync: item.sync,
-        health: item.health,
-        errorSummary: syncErr?.title ?? `${item.health} application health`,
-      });
+      openGitOpsAgenticRunForApplication(item, (path) => navigate(path));
     },
-    [gitopsAi],
+    [navigate],
   );
 
   return (
@@ -177,6 +191,14 @@ export default function GitOpsApplicationsPage() {
                   breakpoint="xl"
                   midContent={
                     <ToolbarGroup variant="action-group" gap={{ default: "gapSm" }}>
+                      <ToolbarItem>
+                        <Button
+                          variant={remediationMode ? "primary" : "secondary"}
+                          onClick={toggleRemediationFilter}
+                        >
+                          AI remediation available
+                        </Button>
+                      </ToolbarItem>
                       <ToolbarItem>
                         <Button variant="plain" aria-label="List view" isAriaPressed icon={<ListIcon />} />
                       </ToolbarItem>
@@ -231,6 +253,9 @@ export default function GitOpsApplicationsPage() {
                   <Th dataLabel="Health Status">
                     <PlainTableHeader label="Health Status" />
                   </Th>
+                  <Th dataLabel="AI remediation">
+                    <PlainTableHeader label="AI remediation" />
+                  </Th>
                   <Th dataLabel="Managed by">
                     <PlainTableHeader label="Managed by" />
                   </Th>
@@ -245,7 +270,7 @@ export default function GitOpsApplicationsPage() {
               <Tbody>
                 {paginated.length === 0 ? (
                   <Tr>
-                    <Td colSpan={8}>
+                    <Td colSpan={9}>
                       <Content component="p" className="pf-v6-u-text-align-center pf-v6-u-py-lg">
                         No applications match your filters.
                       </Content>
@@ -266,18 +291,27 @@ export default function GitOpsApplicationsPage() {
                         <Td dataLabel="Sync status">
                           <HealthStatus
                             status={item.sync}
-                            showAiRemediation={
-                              applicationNeedsAiTroubleshoot(item) && item.sync === "OutOfSync"
-                            }
+                            showAiRemediation={applicationHasAgenticRemediation(item) && item.sync === "OutOfSync"}
                             onAiRemediationClick={() => openHealthRemediation(item)}
                           />
                         </Td>
                         <Td dataLabel="Health Status">
                           <HealthStatus
                             status={item.health}
-                            showAiRemediation={applicationNeedsAiTroubleshoot(item)}
+                            showAiRemediation={applicationHasAgenticRemediation(item)}
                             onAiRemediationClick={() => openHealthRemediation(item)}
                           />
+                        </Td>
+                        <Td dataLabel="AI remediation">
+                          {applicationHasAgenticRemediation(item) ? (
+                            <Label color="purple" isCompact>
+                              Available
+                            </Label>
+                          ) : (
+                            <Content component="span" className="pf-v6-u-color-200">
+                              —
+                            </Content>
+                          )}
                         </Td>
                         <Td dataLabel="Managed by">
                           <OwnerReferencesCell refs={item.ownerReferences} ns={item.ns} />
@@ -288,7 +322,7 @@ export default function GitOpsApplicationsPage() {
                             kind="Application"
                             name={item.name}
                             agenticOnSelect={
-                              applicationNeedsAiTroubleshoot(item)
+                              applicationHasAgenticRemediation(item)
                                 ? () => openHealthRemediation(item)
                                 : undefined
                             }

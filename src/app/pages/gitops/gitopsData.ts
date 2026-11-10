@@ -1,4 +1,10 @@
 import { findPrototypeApplicationSet } from "./prototypeGitopsStore";
+import {
+  GITOPS_AGENTIC_ANNOTATION_RUN_ID,
+  GITOPS_AGENTIC_ANNOTATION_RUN_NAMESPACE,
+  GITOPS_SEED_RUN_LEGACY_BATCH,
+  GITOPS_SEED_RUN_PAYMENTS_API,
+} from "./gitopsAgenticContract";
 
 export type GitOpsHealth = "Healthy" | "Paused" | "Progressing" | "Degraded" | "Aborting" | "Unknown";
 
@@ -66,6 +72,8 @@ export type ApplicationRecord = {
   ownerReferences: OwnerReference[];
   instanceKey: string;
   lastReconciled: string;
+  /** Application CR annotations (controller sets agentic remediation refs). */
+  annotations?: Record<string, string>;
 };
 
 export type ApplicationSetGeneratorNode = {
@@ -356,6 +364,10 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
     ownerReferences: [],
     instanceKey: "payments/payments-gitops",
     lastReconciled: "21m ago",
+    annotations: {
+      [GITOPS_AGENTIC_ANNOTATION_RUN_ID]: GITOPS_SEED_RUN_PAYMENTS_API,
+      [GITOPS_AGENTIC_ANNOTATION_RUN_NAMESPACE]: "openshift-lightspeed",
+    },
   },
   {
     name: "frontend-canary",
@@ -415,6 +427,25 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
     ownerReferences: [],
     instanceKey: "openshift-gitops/openshift-gitops",
     lastReconciled: "1h ago",
+    annotations: {
+      [GITOPS_AGENTIC_ANNOTATION_RUN_ID]: GITOPS_SEED_RUN_LEGACY_BATCH,
+      [GITOPS_AGENTIC_ANNOTATION_RUN_NAMESPACE]: "openshift-lightspeed",
+    },
+  },
+  {
+    name: "tenant-config",
+    ns: "team-b-gitops",
+    project: "default",
+    sync: "OutOfSync",
+    health: "Healthy",
+    age: "4d",
+    repo: "https://github.com/example/tenant-config.git",
+    path: "env/prod",
+    revision: "main",
+    destination: "team-b-apps",
+    ownerReferences: [],
+    instanceKey: "team-b-gitops/team-b",
+    lastReconciled: "18m ago",
   },
   {
     name: "feature-flags",
@@ -773,7 +804,7 @@ export function dashboardMetricsForInstance(key: string) {
 export function buildGitOpsAppsUrl(
   instance: string,
   filters?: { sync?: string[]; health?: string[] },
-  options?: { attention?: boolean }
+  options?: { attention?: boolean; remediation?: boolean }
 ): string {
   const params = new URLSearchParams();
   if (instance && instance !== GITOPS_ALL_INSTANCES) {
@@ -781,6 +812,9 @@ export function buildGitOpsAppsUrl(
   }
   if (options?.attention) {
     params.set("attention", "1");
+  }
+  if (options?.remediation) {
+    params.set("remediation", "1");
   }
   filters?.sync?.forEach((value) => params.append("sync", value));
   filters?.health?.forEach((value) => params.append("health", value));

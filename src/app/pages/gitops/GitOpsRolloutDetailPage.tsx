@@ -68,7 +68,6 @@ import {
 import { HealthStatus, InfoLabel, ManagedByCell, ResourceName } from "./gitopsShared";
 import RolloutActionsKebab from "./RolloutActionsKebab";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
-import { useChat } from "../../contexts/ChatContext";
 import { Sparkles } from "@/lib/pfIcons";
 import { createGitOpsAiLaunchers, rolloutNeedsAiDiagnose } from "../../lib/gitopsAiWorkflow";
 
@@ -278,15 +277,15 @@ export default function GitOpsRolloutDetailPage() {
   const [activeTab, setActiveTab] = useState("revisions");
   const [expanded, setExpanded] = useState<Record<number, boolean>>({ 8: true, 7: true });
   const [toast, setToast] = useState<string | null>(null);
-  const chat = useChat();
   const gitopsAi = useMemo(
     () =>
       createGitOpsAiLaunchers({
-        clearMessages: chat.clearMessages,
-        setContext: chat.setContext,
-        setIsOpen: chat.setIsOpen,
+        clearMessages: () => {},
+        setContext: () => {},
+        setIsOpen: () => {},
+        navigateToAgenticRun: (path) => navigate(path),
       }),
-    [chat.clearMessages, chat.setContext, chat.setIsOpen],
+    [navigate],
   );
   const { filters, onSetFilters, clearAllFilters } = useDataViewFilters<{ name: string }>({
     filters: { name: "" },
