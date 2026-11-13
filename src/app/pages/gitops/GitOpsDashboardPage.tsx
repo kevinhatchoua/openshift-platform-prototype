@@ -29,17 +29,18 @@ import {
   YAxis,
 } from "recharts";
 import Breadcrumbs from "../../components/Breadcrumbs";
-import FavoriteButton from "../../components/FavoriteButton";
+import GitOpsPageHeader, { useGitOpsInstance } from "./GitOpsPageHeader";
 import { useConsoleProject, appMatchesConsoleProject } from "../../contexts/ConsoleProjectContext";
 import { OcsPrototypeListTable, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import {
-  ARGO_INSTANCES,
+  argoInstancesForInstance,
   buildDashboardMetrics,
   buildGitOpsAppsUrl,
   GITOPS_ALL_INSTANCES,
-  GITOPS_APPLICATION_SETS,
-  GITOPS_ROLLOUTS,
+  instanceKeyOf,
+  applicationSetsForInstance,
+  rolloutsForInstance,
   applicationsForInstance,
   findApplication,
   gitopsDetailPath,
@@ -209,8 +210,9 @@ export default function GitOpsDashboardPage() {
   const navigate = useNavigate();
   const { permission } = usePrototypeDemo();
   const { project } = useConsoleProject();
+  const { instance } = useGitOpsInstance();
   const [metricsDenied, setMetricsDenied] = useState<string | null>(null);
-  const apps = applicationsForInstance(GITOPS_ALL_INSTANCES).filter((a) =>
+  const apps = applicationsForInstance(instance).filter((a) =>
     appMatchesConsoleProject(a.ns, project),
   );
   const metrics = buildDashboardMetrics(apps);
@@ -220,10 +222,13 @@ export default function GitOpsDashboardPage() {
     openGitOpsAgenticRunForApplication(app, (path) => navigate(path));
   };
   const appKeys = new Set(apps.map((a) => `${a.ns}/${a.name}`));
-  const operations = recentOperationsForInstance(GITOPS_ALL_INSTANCES).filter((op) =>
+  const operations = recentOperationsForInstance(instance).filter((op) =>
     appKeys.has(`${op.ns}/${op.name}`),
   );
-  const instances = ARGO_INSTANCES;
+  const instances = argoInstancesForInstance(instance);
+  const selectedInstance = instances.length === 1 ? instances[0] : undefined;
+  const scopedRollouts = rolloutsForInstance(instance);
+  const scopedSets = applicationSetsForInstance(instance);
   const totalApps = apps.length;
   const syncedPct = totalApps === 0 ? 100 : metrics.syncSuccessRate;
   const connected = instances.filter((i) => i.clusterConnectivity.startsWith("1")).length;
@@ -298,7 +303,7 @@ export default function GitOpsDashboardPage() {
       segment.filterType === "sync"
         ? { sync: [segment.filterValue] }
         : { health: [segment.filterValue] };
-    navigate(buildGitOpsAppsUrl(GITOPS_ALL_INSTANCES, filters));
+    navigate(buildGitOpsAppsUrl(instance, filters));
   };
 
   const openMetrics = (metric: "sync" | "reconcile") => {
@@ -308,7 +313,10 @@ export default function GitOpsDashboardPage() {
       );
       return;
     }
-    navigate(`/observe/metrics?query=argocd_app_${metric === "sync" ? "sync" : "reconcile"}_total`);
+    const metricName = metric === "sync" ? "sync" : "reconcile";
+    const namespace = instance === GITOPS_ALL_INSTANCES ? "" : instance.split("/")[0];
+    const selector = namespace ? `{namespace="${namespace}"}` : "";
+    navigate(`/observe/metrics?query=${encodeURIComponent(`argocd_app_${metricName}_total${selector}`)}`);
   };
 
   return (
@@ -321,19 +329,7 @@ export default function GitOpsDashboardPage() {
         ]}
       >
         <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-          <Flex
-            alignItems={{ default: "alignItemsCenter" }}
-            justifyContent={{ default: "justifyContentSpaceBetween" }}
-            flexWrap={{ default: "wrap" }}
-            gap={{ default: "gapMd" }}
-          >
-            <Flex alignItems={{ default: "alignItemsCenter" }} gap={{ default: "gapSm" }}>
-              <Title headingLevel="h1" size="2xl">
-                GitOps Overview
-              </Title>
-              <FavoriteButton name="GitOps Overview" path="/gitops/overview" />
-            </Flex>
-          </Flex>
+          <GitOpsPageHeader title="GitOps Overview" path="/gitops/overview" />
 
           {metricsDenied ? (
             <Alert
@@ -349,9 +345,8 @@ export default function GitOpsDashboardPage() {
           {totalApps === 0 ? (
             <EmptyState titleText="No GitOps applications in this project">
               <EmptyStateBody>
-                Switch <strong>Project</strong> to <strong>All projects</strong> or choose a namespace that
-                contains Argo CD Applications. Create an application from the Applications list when you are
-                ready.
+                Switch <strong>Project</strong> or the Argo CD instance picker. This overview follows both
+                scopes. Create an application from the Applications list when you are ready.
               </EmptyStateBody>
               <Button variant="primary" onClick={() => navigate("/gitops/applications")}>
                 Go to Applications
@@ -489,7 +484,7 @@ export default function GitOpsDashboardPage() {
                   <Button
                     variant="link"
                     isInline
-                    onClick={() => navigate(buildGitOpsAppsUrl(GITOPS_ALL_INSTANCES, undefined, { remediation: true }))}
+                    onClick={() => navigate(buildGitOpsAppsUrl(instance, undefined, { remediation: true }))}
                   >
                     Show applications with AI remediation
                   </Button>
@@ -661,31 +656,56 @@ export default function GitOpsDashboardPage() {
           </Title>
           <Gallery hasGutter minWidths={{ default: "220px" }}>
             <GalleryItem>
-              <Card isClickable onClick={() => navigate("/gitops/settings")}>
-                <CardTitle>GitOps Operator</CardTitle>
+              <Card
+                isClickable
+                onClick={() =>
+                  navigate(
+                    selectedInstance
+                      ? gitopsDetailPath("argocd", selectedInstance.ns, selectedInstance.name)
+                      : "/gitops/argocd",
+                  )
+                }
+              >
+                <CardTitle>{selectedInstance ? "Selected Argo CD" : "Argo CD instances"}</CardTitle>
                 <CardBody>
                   <Label color={labelColorForTone("good")} isCompact>
-                    Available
+                    {selectedInstance ? selectedInstance.status : "Available"}
                   </Label>
                   <Content component="p" className="pf-v6-u-mt-sm">
-                    {ARGO_INSTANCES.length} instances registered. Open Settings.
+                    {selectedInstance
+                      ? `${instanceKeyOf(selectedInstance)}. Open instance details.`
+                      : `${instances.length} instances on this cluster. Open the instance list.`}
                   </Content>
                 </CardBody>
               </Card>
             </GalleryItem>
             <GalleryItem>
-              <Card isClickable onClick={() => navigate("/gitops/rollouts")}>
+              <Card
+                isClickable
+                onClick={() =>
+                  navigate(instance === GITOPS_ALL_INSTANCES ? "/gitops/rollouts" : `/gitops/rollouts?instance=${encodeURIComponent(instance)}`)
+                }
+              >
                 <CardTitle>Rollout Managers</CardTitle>
                 <CardBody>
-                  <Content component="p">{GITOPS_ROLLOUTS.length} rollouts across this cluster.</Content>
+                  <Content component="p">{scopedRollouts.length} rollouts in this instance scope.</Content>
                 </CardBody>
               </Card>
             </GalleryItem>
             <GalleryItem>
-              <Card isClickable onClick={() => navigate("/gitops/applicationsets")}>
+              <Card
+                isClickable
+                onClick={() =>
+                  navigate(
+                    instance === GITOPS_ALL_INSTANCES
+                      ? "/gitops/applicationsets"
+                      : `/gitops/applicationsets?instance=${encodeURIComponent(instance)}`,
+                  )
+                }
+              >
                 <CardTitle>ApplicationSets</CardTitle>
                 <CardBody>
-                  <Content component="p">{GITOPS_APPLICATION_SETS.length} generators managing tenant apps.</Content>
+                  <Content component="p">{scopedSets.length} generators in this instance scope.</Content>
                 </CardBody>
               </Card>
             </GalleryItem>

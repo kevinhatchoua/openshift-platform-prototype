@@ -38,6 +38,7 @@ import {
 import GitOpsSimpleDetailPage, { GitOpsNotFound } from "./GitOpsSimpleDetailPage";
 import {
   argoInstancesForInstance,
+  buildGitOpsAppsUrl,
   findArgoCd,
   gitopsDetailPath,
   instanceKeyOf,
@@ -335,9 +336,12 @@ function InstanceCard({ inst, onOpen }: { inst: ArgoCdRecord; onOpen: () => void
 }
 
 export function GitOpsArgoCdDetailPage() {
+  const navigate = useNavigate();
   const { namespace = "", name = "" } = useParams();
   const rec = findArgoCd(decodeURIComponent(namespace), decodeURIComponent(name));
   if (!rec) return <GitOpsNotFound listPath="/gitops/argocd" listTitle="ArgoCD Instances" />;
+  const key = instanceKeyOf(rec);
+  const sso = rec.components.sso === "Healthy" ? "Dex / OpenShift OAuth" : "SSO degraded";
   return (
     <GitOpsSimpleDetailPage
       kindLabel="Argo CD"
@@ -349,27 +353,46 @@ export function GitOpsArgoCdDetailPage() {
       ns={rec.ns}
       status={rec.status}
       extraActions={[
-        { id: "sync", label: "Refresh" },
-        { id: "open-ui", label: "Open Argo CD UI" },
+        { id: "apps", label: "View applications", prototypeOnly: true },
+        { id: "overview", label: "Scope overview", prototypeOnly: true },
+        { id: "open-ui", label: "Open Argo CD UI", prototypeOnly: true },
       ]}
+      onExtraAction={(actionId) => {
+        if (actionId === "apps") navigate(buildGitOpsAppsUrl(key));
+        if (actionId === "overview") navigate(`/gitops/overview?instance=${encodeURIComponent(key)}`);
+      }}
       fields={[
         { term: "Name", value: rec.name },
         { term: "Namespace", value: rec.ns },
         { term: "Server", value: rec.server },
         { term: "Version", value: rec.version },
         { term: "Applications", value: rec.applications },
+        { term: "SSO", value: sso },
+        { term: "RBAC", value: "argocd-rbac-cm" },
+        { term: "Notifications", value: "argocd-notifications-cm" },
         { term: "CPU", value: rec.cpu },
         { term: "Memory", value: rec.memory },
         { term: "Cluster connectivity", value: rec.clusterConnectivity },
         { term: "Created", value: rec.created },
       ]}
-      footnote={
-        <Content component="small">
-          Component health:{" "}
-          {(Object.keys(rec.components) as Array<keyof typeof rec.components>)
-            .map((c) => `${c}=${rec.components[c]}`)
-            .join(" · ")}
-        </Content>
+      extraContent={
+        <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
+          <Title headingLevel="h2" size="lg">
+            Managed components
+          </Title>
+          <DescriptionList isHorizontal>
+            {(Object.keys(rec.components) as Array<keyof typeof rec.components>).map((component) => (
+              <DescriptionListGroup key={component}>
+                <DescriptionListTerm>{component}</DescriptionListTerm>
+                <DescriptionListDescription>{rec.components[component]}</DescriptionListDescription>
+              </DescriptionListGroup>
+            ))}
+          </DescriptionList>
+          <Content component="p">
+            Same-cluster instance only. Lists, overview metrics, and rollouts follow the instance picker when this
+            instance is selected.
+          </Content>
+        </Flex>
       }
     />
   );
