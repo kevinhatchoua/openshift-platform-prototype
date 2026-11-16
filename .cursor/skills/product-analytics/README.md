@@ -6,6 +6,12 @@ This skill **routes quantitative product questions** to approved sources (primar
 
 **[Product Analytics AI Enablement — Team Playbook](https://docs.google.com/document/d/1bT1Z5lylU9TSNcFZdCJUbVItuMNvLT7okPRaxVwBgiQ/edit)** — intentional shared UXD context for onboarding and agent-specific setup notes.
 
+## Setup
+
+No user-specific placeholders to fill in. Setup is environment-level: configure the required MCP servers and supporting skills listed below.
+
+No placeholders to fill in. This skill works as-is once those environment tools are configured.
+
 ## First-time setup (short)
 
 1. VPN to Red Hat GitLab.

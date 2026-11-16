@@ -7,6 +7,7 @@ description: >
   blocks fabricated numbers, and delegates fleet SQL to Tailwind PM dataverse-query. Use when
   the user asks adoption, usage, funnels, fleet counts, telemetry, or "how many" product questions.
 author: "khatchou"
+adapted_from: "Tailwind Domain 0; Tailwind PM dataverse-query; UXD Product Analytics AI Enablement Team Playbook"
 triggers:
   - "product analytics"
   - "how many users"
@@ -51,6 +52,12 @@ Do **not** use for pure UX design, code changes, or opinions without data retrie
 3. **PII and policy** — follow org MCP policy; do not paste secrets or customer-identifying exports into public channels.
 4. **Fleet SQL** — always load **`dataverse-query`** first; print and review SQL before execution (no shortcuts).
 5. **One primary source** per answer; add secondary sources only to add context, not to mix incompatible definitions.
+
+## Setup
+
+No user-specific placeholders to fill in. Setup is environment-level: configure the required MCP servers and supporting skills listed below.
+
+No placeholders to fill in. This skill works as-is once those environment tools are configured.
 
 ## MCP servers and skills (required vs optional)
 
@@ -144,6 +151,13 @@ What is monthly actives for console feature X in Amplitude project Y?
 |----------|----------|
 | Dataverse SQL rules | [tailwind-pm dataverse-query](https://gitlab.cee.redhat.com/tailwind/tailwind-pm/-/blob/main/skills/dataverse-query/SKILL.md) |
 | Slash command (fleet SQL helper) | `/tailwind-pm:dataverse-query` (still load this skill first for routing) |
+
+## Troubleshooting
+
+- **`Require access to PRODUCT`** from `shortlist_tables`: stop. Name the product and link the Dataverse consumer access console. Do not substitute a guessed count.
+- **SQL returns 0 rows and `MAX(collected_on)` is null** on a mart that should be populated: treat this as an entitlement or snapshot gap, not a real fleet of zero. Say so.
+- **Amplitude has no matching project or event**: discover names first. If discovery is empty, report blocked access for that project.
+- **VPN or `tailwind` missing**: stop before SQL. Point at Domain 0 bootstrap for the host in use (Cursor, Claude Code, or Codex).
 
 ## Escalation (optional)
 
