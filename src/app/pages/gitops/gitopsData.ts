@@ -85,6 +85,8 @@ export type ApplicationSetGeneratorNode = {
 export type ApplicationSetRecord = {
   name: string;
   ns: string;
+  /** Argo CD instance that reconciles this set. The set namespace can differ from the instance namespace. */
+  instanceKey: string;
   generators: string;
   generatorTree: ApplicationSetGeneratorNode[];
   apps: string;
@@ -280,7 +282,7 @@ export const ARGO_INSTANCES: ArgoCdRecord[] = [
   },
   {
     name: "platform-addons",
-    ns: "openshift-gitops",
+    ns: "platform-addons",
     server: "https://platform-addons.apps.demo.example.com",
     status: "Healthy",
     version: "v2.14.3",
@@ -410,7 +412,7 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
         uid: "e5f6g7h8-cluster-addons",
       },
     ],
-    instanceKey: "openshift-gitops/platform-addons",
+    instanceKey: "platform-addons/platform-addons",
     lastReconciled: "12m ago",
   },
   {
@@ -483,6 +485,7 @@ export const GITOPS_APPLICATION_SETS: ApplicationSetRecord[] = [
   {
     name: "myappset",
     ns: "openshift-gitops-operator",
+    instanceKey: "openshift-gitops/openshift-gitops",
     generators: "list",
     generatorTree: [{ type: "list", label: "List — elements: myapp" }],
     apps: "1",
@@ -494,6 +497,7 @@ export const GITOPS_APPLICATION_SETS: ApplicationSetRecord[] = [
   {
     name: "cluster-addons",
     ns: "openshift-gitops",
+    instanceKey: "platform-addons/platform-addons",
     generators: "cluster",
     generatorTree: [
       {
@@ -510,6 +514,7 @@ export const GITOPS_APPLICATION_SETS: ApplicationSetRecord[] = [
   {
     name: "tenant-workloads",
     ns: "argocd",
+    instanceKey: "openshift-gitops/openshift-gitops",
     generators: "git, list",
     generatorTree: [
       {
@@ -544,15 +549,74 @@ export type AppProjectRecord = {
   age: string;
 };
 
+export type ImageUpdaterCheckStatus = "up-to-date" | "update-available" | "held-back" | "error";
+
+export type ImageUpdaterUpdateStrategy = "semver" | "newest-build" | "digest" | "alphabetical";
+
+export type ImageUpdaterCondition = {
+  type: "Ready" | "Reconciling" | "Error";
+  status: "True" | "False" | "Unknown";
+  reason: string;
+  message: string;
+  lastTransitionTime: string;
+};
+
+export type ImageUpdaterTrackedImage = {
+  alias: string;
+  imageName: string;
+  updateStrategy: ImageUpdaterUpdateStrategy;
+  semverConstraint?: string;
+  allowTags?: string;
+  ignoreTags?: string;
+  writeBackMethod: string;
+  writeBackTarget?: string;
+  applications: { name: string; ns: string }[];
+  checkStatus: ImageUpdaterCheckStatus;
+  statusDetail?: string;
+  deployedTag?: string;
+  candidateTag?: string;
+};
+
+export type ImageUpdaterRecentUpdate = {
+  updatedAt: string;
+  updatedAtIso: string;
+  image: string;
+  alias: string;
+  newVersion: string;
+  applicationsUpdated: number;
+  message: string;
+};
+
+export type ImageUpdaterApplicationRef = {
+  namePattern: string;
+  images: ImageUpdaterTrackedImage[];
+};
+
 export type ImageUpdaterRecord = {
   name: string;
   ns: string;
-  images: string;
-  strategy: string;
-  status: "Healthy" | "Degraded";
-  lastUpdate: string;
   age: string;
+  createdAt: string;
+  status: "Healthy" | "Degraded";
+  applicationsMatched: number;
+  imagesManaged: number;
+  lastCheckedAt: string;
+  lastCheckedAtIso: string;
+  lastUpdatedAt?: string;
+  lastUpdatedAtIso?: string;
+  conditions: ImageUpdaterCondition[];
+  applicationRefs: ImageUpdaterApplicationRef[];
+  trackedImages: ImageUpdaterTrackedImage[];
+  recentUpdates: ImageUpdaterRecentUpdate[];
 };
+
+export function imageUpdaterReadyCondition(rec: ImageUpdaterRecord): ImageUpdaterCondition | undefined {
+  return rec.conditions.find((c) => c.type === "Ready");
+}
+
+export function imageUpdaterIsReady(rec: ImageUpdaterRecord): boolean {
+  return imageUpdaterReadyCondition(rec)?.status === "True";
+}
 
 /** Status/health only — never include jwt/tls/credential fields. */
 export type AgentSpokeRecord = {
@@ -657,24 +721,168 @@ export const GITOPS_APP_PROJECTS: AppProjectRecord[] = [
   },
 ];
 
+const PAYMENT_API_TRACKED: ImageUpdaterTrackedImage[] = [
+  {
+    alias: "api",
+    imageName: "quay.io/ace/payment-api",
+    updateStrategy: "semver",
+    semverConstraint: "~1.4",
+    allowTags: "regexp:^v?1\\.",
+    ignoreTags: "latest",
+    writeBackMethod: "git:secret:argocd/git-credentials",
+    writeBackTarget: "kustomization:./apps/payment-api/overlays/production",
+    applications: [{ name: "payment-api", ns: "argocd" }],
+    checkStatus: "update-available",
+    deployedTag: "v1.4.2",
+    candidateTag: "v1.4.7",
+    statusDetail:
+      "Running v1.4.2; v1.4.7 is the highest tag matching ~1.4. Tag v1.5.8 exists in the registry but is outside the constraint.",
+  },
+  {
+    alias: "s2i",
+    imageName: "registry.redhat.io/openshift4/ose-s2i-oauth-proxy",
+    updateStrategy: "digest",
+    allowTags: "regexp:^[0-9]+$",
+    writeBackMethod: "argocd",
+    applications: [{ name: "payment-api", ns: "argocd" }],
+    checkStatus: "up-to-date",
+    deployedTag: "sha256:abc123…",
+    statusDetail: "Digest matches registry; no change since last check.",
+  },
+  {
+    alias: "worker",
+    imageName: "quay.io/ace/payment-worker",
+    updateStrategy: "semver",
+    semverConstraint: "~2.0",
+    writeBackMethod: "git",
+    writeBackTarget: "helmvalues:./charts/payment-worker/values.yaml",
+    applications: [{ name: "payment-worker", ns: "argocd" }],
+    checkStatus: "held-back",
+    deployedTag: "v2.0.8",
+    candidateTag: "v3.0.1",
+    statusDetail: "v2.0.8 is the newest tag allowed by ~2.0. v3.0.1 is excluded by the constraint.",
+  },
+  {
+    alias: "cache",
+    imageName: "quay.io/ace/redis-tuned",
+    updateStrategy: "newest-build",
+    allowTags: "regexp:^prod-",
+    writeBackMethod: "argocd",
+    applications: [{ name: "payment-cache", ns: "argocd" }],
+    checkStatus: "error",
+    statusDetail: "Registry authentication failed: pull secret payment-registry was not found in namespace argocd.",
+  },
+];
+
 export const GITOPS_IMAGE_UPDATERS: ImageUpdaterRecord[] = [
   {
-    name: "payments-api-updater",
+    name: "payment-api-updater",
     ns: "argocd",
-    images: "quay.io/demo/payments-api",
-    strategy: "semver",
-    status: "Healthy",
-    lastUpdate: "2h ago",
     age: "12d",
+    createdAt: "Nov 5, 2026, 9:14 AM",
+    status: "Healthy",
+    applicationsMatched: 3,
+    imagesManaged: 4,
+    lastCheckedAt: "3 minutes ago",
+    lastCheckedAtIso: "2026-11-17T14:07:00Z",
+    lastUpdatedAt: "2 hours ago",
+    lastUpdatedAtIso: "2026-11-17T12:10:00Z",
+    conditions: [
+      {
+        type: "Ready",
+        status: "True",
+        reason: "ReconciliationSucceeded",
+        message: "Image Updater is operating normally",
+        lastTransitionTime: "2026-11-17T14:00:00Z",
+      },
+      {
+        type: "Reconciling",
+        status: "True",
+        reason: "ProcessingUpdates",
+        message: "Actively processing image updates",
+        lastTransitionTime: "2026-11-17T14:07:00Z",
+      },
+    ],
+    applicationRefs: [{ namePattern: "payment-*", images: PAYMENT_API_TRACKED }],
+    trackedImages: PAYMENT_API_TRACKED,
+    recentUpdates: [
+      {
+        updatedAt: "2 hours ago",
+        updatedAtIso: "2026-11-17T12:10:00Z",
+        image: "quay.io/ace/payment-api",
+        alias: "api",
+        newVersion: "v1.4.7",
+        applicationsUpdated: 1,
+        message: "Updated Argo CD Application source parameters via Git write-back.",
+      },
+      {
+        updatedAt: "3 days ago",
+        updatedAtIso: "2026-11-14T08:22:00Z",
+        image: "registry.redhat.io/openshift4/ose-s2i-oauth-proxy",
+        alias: "s2i",
+        newVersion: "sha256:abc123…",
+        applicationsUpdated: 1,
+        message: "Digest unchanged after registry check.",
+      },
+    ],
   },
   {
     name: "frontend-canary-updater",
     ns: "demo-workloads",
-    images: "argoproj/rollouts-demo",
-    strategy: "newest-build",
-    status: "Degraded",
-    lastUpdate: "1d ago",
     age: "8d",
+    createdAt: "Nov 9, 2026, 10:37 AM",
+    status: "Degraded",
+    applicationsMatched: 1,
+    imagesManaged: 1,
+    lastCheckedAt: "1 day ago",
+    lastCheckedAtIso: "2026-11-16T09:00:00Z",
+    lastUpdatedAtIso: "2026-11-15T18:00:00Z",
+    conditions: [
+      {
+        type: "Ready",
+        status: "False",
+        reason: "ReconciliationFailed",
+        message: "Registry error on alias rollouts-demo: connection refused",
+        lastTransitionTime: "2026-11-16T09:00:00Z",
+      },
+      {
+        type: "Error",
+        status: "True",
+        reason: "RegistryError",
+        message: "Failed to list tags for argoproj/rollouts-demo",
+        lastTransitionTime: "2026-11-16T09:00:00Z",
+      },
+    ],
+    applicationRefs: [
+      {
+        namePattern: "frontend-canary",
+        images: [
+          {
+            alias: "rollouts-demo",
+            imageName: "argoproj/rollouts-demo",
+            updateStrategy: "newest-build",
+            allowTags: "regexp:^(blue|yellow|green)$",
+            writeBackMethod: "argocd",
+            applications: [{ name: "frontend-canary", ns: "demo-workloads" }],
+            checkStatus: "error",
+            statusDetail: "Failed to list tags in registry (last attempt 1 day ago).",
+          },
+        ],
+      },
+    ],
+    trackedImages: [
+      {
+        alias: "rollouts-demo",
+        imageName: "argoproj/rollouts-demo",
+        updateStrategy: "newest-build",
+        allowTags: "regexp:^(blue|yellow|green)$",
+        writeBackMethod: "argocd",
+        applications: [{ name: "frontend-canary", ns: "demo-workloads" }],
+        checkStatus: "error",
+        statusDetail: "Failed to list tags in registry (last attempt 1 day ago).",
+      },
+    ],
+    recentUpdates: [],
   },
 ];
 
@@ -703,7 +911,7 @@ export const GITOPS_AGENT_SPOKES: AgentSpokeRecord[] = [
     name: "edge-lab-agent",
     ns: "edge-lab",
     cluster: "edge-lab",
-    instanceKey: "openshift-gitops/platform-addons",
+    instanceKey: "platform-addons/platform-addons",
     connection: "Disconnected",
     syncMode: "Managed",
     lastHeartbeat: "3h ago",
@@ -840,8 +1048,15 @@ export function appProjectsForInstance(key: string) {
 
 export function applicationSetsForInstance(key: string) {
   if (!key || key === GITOPS_ALL_INSTANCES) return GITOPS_APPLICATION_SETS;
-  const ns = key.split("/")[0];
-  return GITOPS_APPLICATION_SETS.filter((s) => s.ns === ns);
+  return GITOPS_APPLICATION_SETS.filter((s) => s.instanceKey === key);
+}
+
+/** Namespaces where this instance's Applications and ApplicationSets live. Not the install namespace alone. */
+export function managedNamespacesForInstance(key: string): string[] {
+  const namespaces = new Set<string>();
+  applicationsForInstance(key).forEach((app) => namespaces.add(app.ns));
+  applicationSetsForInstance(key).forEach((set) => namespaces.add(set.ns));
+  return [...namespaces].sort();
 }
 
 export function rolloutsForInstance(key: string) {

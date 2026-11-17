@@ -11,6 +11,7 @@ import {
 import { useToast } from "../../contexts/ToastContext";
 import {
   gitopsDetailPath,
+  imageUpdaterIsReady,
   imageUpdatersForInstance,
   settingsAnalysisTemplatesForInstance,
   settingsClustersForInstance,
@@ -336,11 +337,17 @@ export default function GitOpsSettingsPage() {
                   <Th dataLabel="Namespace">
                     <PlainTableHeader label="Namespace" />
                   </Th>
-                  <Th dataLabel="Images">
-                    <PlainTableHeader label="Images" />
+                  <Th dataLabel="Applications matched">
+                    <PlainTableHeader label="Applications matched" />
                   </Th>
-                  <Th dataLabel="Status">
-                    <PlainTableHeader label="Status" />
+                  <Th dataLabel="Images managed">
+                    <PlainTableHeader label="Images managed" />
+                  </Th>
+                  <Th dataLabel="Last checked">
+                    <PlainTableHeader label="Last checked" />
+                  </Th>
+                  <Th dataLabel="Ready">
+                    <PlainTableHeader label="Ready" />
                   </Th>
                   <Th modifier="fitContent" dataLabel="Actions">
                     <PlainTableHeader label="Actions" />
@@ -358,9 +365,13 @@ export default function GitOpsSettingsPage() {
                       <Td dataLabel="Namespace">
                         <ResourceName kind="Namespace" name={item.ns} />
                       </Td>
-                      <Td dataLabel="Images">{item.images}</Td>
-                      <Td dataLabel="Status">
-                        <HealthStatus status={item.status} />
+                      <Td dataLabel="Applications matched">{item.applicationsMatched}</Td>
+                      <Td dataLabel="Images managed">{item.imagesManaged}</Td>
+                      <Td dataLabel="Last checked">{item.lastCheckedAt}</Td>
+                      <Td dataLabel="Ready">
+                        <Label color={imageUpdaterIsReady(item) ? "green" : "red"} isCompact>
+                          {imageUpdaterIsReady(item) ? "True" : "False"}
+                        </Label>
                       </Td>
                       <Td dataLabel="Actions" isActionCell hasAction>
                         <GitOpsEditDeleteMenu kind="ImageUpdater" name={item.name} />

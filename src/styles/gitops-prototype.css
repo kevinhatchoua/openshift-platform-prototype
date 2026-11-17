@@ -155,6 +155,16 @@
   cursor: pointer;
 }
 
+.ocs-image-updater-tracked-card__image-ref {
+  font-family: var(--pf-t--global--font--family--monospace);
+  font-size: var(--pf-t--global--font--size--body--sm);
+  color: var(--pf-t--global--text--color--subtle);
+}
+
+.ocs-image-updater-tracked-card__dl {
+  margin-bottom: 0;
+}
+
 .ocs-gitops-generator-tree {
   list-style: none;
   margin: 0;
