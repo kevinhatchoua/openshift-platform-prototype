@@ -6,6 +6,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
+import type { NetworkingNmstateScenario } from "../constants/networkingNmstate";
 
 export type DemoPermission = "edit" | "view" | "no-access";
 export type GitOpsDesignOption = "option-a" | "option-b";
@@ -20,6 +21,8 @@ export type OlmMigrationScenario =
   | "preview-failed-rollback"
   | "preview-errors";
 
+export type { NetworkingNmstateScenario };
+
 const LS_KEY = "ocs-demo-switcher";
 
 type Stored = {
@@ -27,6 +30,7 @@ type Stored = {
   gitopsOption?: GitOpsDesignOption;
   gitopsScenario?: GitOpsScenario;
   olmMigrationScenario?: OlmMigrationScenario;
+  networkingNmstateScenario?: NetworkingNmstateScenario;
 };
 
 function readStored(): Stored {
@@ -50,10 +54,12 @@ type PrototypeDemoContextValue = {
   gitopsOption: GitOpsDesignOption;
   gitopsScenario: GitOpsScenario;
   olmMigrationScenario: OlmMigrationScenario;
+  networkingNmstateScenario: NetworkingNmstateScenario;
   setPermission: (v: DemoPermission) => void;
   setGitopsOption: (v: GitOpsDesignOption) => void;
   setGitopsScenario: (v: GitOpsScenario) => void;
   setOlmMigrationScenario: (v: OlmMigrationScenario) => void;
+  setNetworkingNmstateScenario: (v: NetworkingNmstateScenario) => void;
 };
 
 const PrototypeDemoContext = createContext<PrototypeDemoContextValue | null>(null);
@@ -65,6 +71,9 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
   const [gitopsScenario, setGitopsScenarioState] = useState<GitOpsScenario>(initial.gitopsScenario ?? "paused");
   const [olmMigrationScenario, setOlmMigrationScenarioState] = useState<OlmMigrationScenario>(
     initial.olmMigrationScenario ?? "interactive",
+  );
+  const [networkingNmstateScenario, setNetworkingNmstateScenarioState] = useState<NetworkingNmstateScenario>(
+    initial.networkingNmstateScenario ?? "installed",
   );
 
   const persist = useCallback((patch: Stored) => {
@@ -117,26 +126,43 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  const setNetworkingNmstateScenario = useCallback(
+    (v: NetworkingNmstateScenario) => {
+      setNetworkingNmstateScenarioState(v);
+      persist({ networkingNmstateScenario: v });
+      document.dispatchEvent(
+        new CustomEvent("demo-switcher-change", {
+          detail: { area: "networking", networkingNmstateScenario: v },
+        })
+      );
+    },
+    [persist]
+  );
+
   const value = useMemo(
     () => ({
       permission,
       gitopsOption,
       gitopsScenario,
       olmMigrationScenario,
+      networkingNmstateScenario,
       setPermission,
       setGitopsOption,
       setGitopsScenario,
       setOlmMigrationScenario,
+      setNetworkingNmstateScenario,
     }),
     [
       permission,
       gitopsOption,
       gitopsScenario,
       olmMigrationScenario,
+      networkingNmstateScenario,
       setPermission,
       setGitopsOption,
       setGitopsScenario,
       setOlmMigrationScenario,
+      setNetworkingNmstateScenario,
     ]
   );
 

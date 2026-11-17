@@ -1,17 +1,28 @@
-import { useParams, Link } from "react-router";
+import { useParams, Link, useLocation } from "react-router";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { OcsNamedResourceDataView, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import { CheckCircle } from "@/lib/pfIcons";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { readOperatorCatalogInstallState } from "./operatorCatalogInstallState";
+
+type InstallReturnState = {
+  returnTo?: string;
+  returnLabel?: string;
+};
 
 export default function OperatorInstalledPage() {
   const { operatorId } = useParams();
+  const location = useLocation();
+  const installState = readOperatorCatalogInstallState(operatorId, location.state);
+  const returnMeta = location.state as InstallReturnState | null;
+  const returnTo = returnMeta?.returnTo;
+  const returnLabel = returnMeta?.returnLabel ?? "previous page";
 
   // Mock operator data
   const operator = {
-    id: operatorId,
-    name: "Business Automation",
-    provider: "Red Hat",
+    id: installState.id,
+    name: installState.name,
+    provider: installState.provider,
   };
 
   const resources = [
@@ -98,7 +109,15 @@ export default function OperatorInstalledPage() {
               </p>
             </div>
 
-            <div className="flex gap-[12px]">
+            <div className="flex gap-[12px] flex-wrap">
+              {returnTo ? (
+                <Link
+                  to={returnTo}
+                  className="px-[16px] py-[10px] bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white rounded-[8px] font-semibold text-[14px] transition-colors"
+                >
+                  Return to {returnLabel}
+                </Link>
+              ) : null}
               <Link
                 to={`/ecosystem/installed-operators/${operator.id}`}
                 className="px-[16px] py-[10px] bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white rounded-[8px] font-semibold text-[14px] transition-colors"

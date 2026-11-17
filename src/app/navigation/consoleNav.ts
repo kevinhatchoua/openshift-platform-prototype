@@ -39,6 +39,7 @@ export const WORKLOADS_SUB: SubNavEntry[] = [
 
 export const NETWORKING_SUB: SubNavEntry[] = [
   { path: "/networking/topology", label: "Topology" },
+  { path: "/networking/checkups", label: "Checkups" },
   { path: "/networking", label: "Services" },
   { path: "/networking/routes", label: "Routes" },
   { path: "/networking/ingresses", label: "Ingresses" },
@@ -180,6 +181,7 @@ export function collectStubPaths(): string[] {
     "/gitops/create",
     "/networking",
     "/networking/topology",
+    "/networking/checkups",
     "/networking/routes",
     "/networking/ingresses",
     "/networking/networkpolicies",

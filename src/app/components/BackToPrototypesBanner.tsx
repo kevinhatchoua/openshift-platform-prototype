@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { useLocation } from "react-router";
 import GitOpsScenarioMenu from "./gitops/GitOpsScenarioMenu";
 import OlmMigrationScenarioMenu from "./ecosystem/OlmMigrationScenarioMenu";
+import NetworkingScenarioMenu from "./networking/NetworkingScenarioMenu";
 
 const HUB_PROTOTYPES_URL =
   import.meta.env.VITE_HUB_PROTOTYPES_URL?.trim() ||
@@ -46,6 +47,7 @@ export default function BackToPrototypesBanner() {
         <span className="ocs-back-to-prototypes-banner__controls">
           <OlmMigrationScenarioMenu />
           <GitOpsScenarioMenu />
+          <NetworkingScenarioMenu />
         </span>
       </div>
     </div>

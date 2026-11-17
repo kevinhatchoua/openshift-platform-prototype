@@ -4731,6 +4731,18 @@ html.dark .ocs-net-topo-panel__canvas {
     );
 }
 
+.ocs-nmstate-blocked {
+  display: flex;
+  justify-content: center;
+  padding: var(--pf-t--global--spacer--2xl) var(--pf-t--global--spacer--lg);
+  min-height: 18rem;
+}
+
+.ocs-nmstate-blocked--compact {
+  min-height: 14rem;
+  padding: var(--pf-t--global--spacer--xl) var(--pf-t--global--spacer--md);
+}
+
 /* Node network configuration — NMState operator graph (distinct from full Topology) */
 .ocs-nnc-stage--graph,
 .ocs-nnc-stage--table {

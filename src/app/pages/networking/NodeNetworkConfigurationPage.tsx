@@ -8,12 +8,15 @@ import { useToast } from "../../contexts/ToastContext";
 import { IoDataViewFiltersWithMidActions } from "../../components/dataView/IoDataViewFiltersWithMidActions";
 import NodeNetworkConfigurationWizard from "./NodeNetworkConfigurationWizard";
 import NodeNmStatePanel from "./NodeNmStatePanel";
+import NmStateOperatorBlockedState from "./NmStateOperatorBlockedState";
 import { NetworkingPageShell } from "./networkingShared";
+import { useNmStateDependencyBlocked } from "./useNmStateDependencyBlocked";
 import { useNodeNetworkConfigurationCreate } from "./useNodeNetworkConfigurationCreate";
 
 type NncFilters = { name: string };
 
 export default function NodeNetworkConfigurationPage() {
+  const nmstateBlocked = useNmStateDependencyBlocked();
   const { filters, onSetFilters } = useDataViewFilters<NncFilters>({
     filters: { name: "" },
   });
@@ -79,7 +82,9 @@ export default function NodeNetworkConfigurationPage() {
           )
         }
       >
-        {showFormWizard ? (
+        {nmstateBlocked ? (
+          <NmStateOperatorBlockedState surfaceName="Node network configuration" compact />
+        ) : showFormWizard ? (
           <NodeNetworkConfigurationWizard
             activeStep={activeStep}
             physicalNetworkName={physicalNetworkName}

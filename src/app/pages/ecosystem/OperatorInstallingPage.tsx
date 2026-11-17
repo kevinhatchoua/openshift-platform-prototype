@@ -3,12 +3,15 @@ import { useParams, Link, useNavigate, useLocation } from "react-router";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { OcsNamedResourceDataView, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import Breadcrumbs from "../../components/Breadcrumbs";
+import { NMSTATE_OPERATOR_CATALOG_ID } from "../../constants/networkingNmstate";
+import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import { readOperatorCatalogInstallState } from "./operatorCatalogInstallState";
 
 export default function OperatorInstallingPage() {
   const { operatorId } = useParams();
   const navigate = useNavigate();
   const location = useLocation();
+  const { setNetworkingNmstateScenario } = usePrototypeDemo();
   const [progress, setProgress] = useState(0);
   const [currentStep, setCurrentStep] = useState("Configuring resource xyz");
   const [timeLeft, setTimeLeft] = useState("About 23 min left");
@@ -72,7 +75,12 @@ export default function OperatorInstallingPage() {
           clearInterval(interval);
           // Navigate to completion page after installation
           setTimeout(() => {
-            navigate(`/ecosystem/software-catalog/${operator.id}/installed`);
+            if (operator.id === NMSTATE_OPERATOR_CATALOG_ID) {
+              setNetworkingNmstateScenario("installed");
+            }
+            navigate(`/ecosystem/software-catalog/${operator.id}/installed`, {
+              state: location.state,
+            });
           }, 1000);
           return 100;
         }
@@ -81,7 +89,7 @@ export default function OperatorInstallingPage() {
     }, 1500);
 
     return () => clearInterval(interval);
-  }, [navigate, operator.id]);
+  }, [navigate, operator.id, location.state, setNetworkingNmstateScenario]);
 
   return (
     <div className="ocs-app-page-outer h-full min-h-0 overflow-y-auto">

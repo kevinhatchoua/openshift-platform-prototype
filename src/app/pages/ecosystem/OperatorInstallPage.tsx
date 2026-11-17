@@ -61,6 +61,9 @@ function recommendedNamespace(operator: OperatorCatalogInstallState): string {
   if (slug.includes("gitops") || name.includes("gitops")) {
     return "openshift-gitops-operator";
   }
+  if (slug.includes("kubernetes-nmstate") || slug.includes("nmstate")) {
+    return "openshift-nmstate";
+  }
   const base = slug.replace(/-operator$/, "") || slug;
   return `${base}-operator`.replace(/^-+/, "").slice(0, 63);
 }

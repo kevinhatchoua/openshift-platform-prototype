@@ -40,6 +40,10 @@ export function readOperatorCatalogInstallState(
     "cert-manager-v1": { name: "cert-manager", provider: "Jetstack" },
     rhacs: { name: "Advanced Cluster Security for Kubernetes", provider: "Red Hat" },
     "advanced-cluster-security": { name: "Advanced Cluster Security for Kubernetes", provider: "Red Hat" },
+    "kubernetes-nmstate-operator": {
+      name: "Kubernetes NMState Operator",
+      provider: "Red Hat",
+    },
   };
 
   const fallback = operatorId ? fallbacks[operatorId] : undefined;

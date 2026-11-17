@@ -30,6 +30,7 @@ import UserDefinedNetworksPage from "./pages/networking/UserDefinedNetworksPage"
 import UdnDetailPage from "./pages/networking/UdnDetailPage";
 import NodeNetworkConfigurationPage from "./pages/networking/NodeNetworkConfigurationPage";
 import NetworkTopologyPage from "./pages/networking/NetworkTopologyPage";
+import NetworkingCheckupsPage from "./pages/networking/NetworkingCheckupsPage";
 import CreateRoutePage from "./pages/networking/CreateRoutePage";
 import CreateServicePage from "./pages/networking/CreateServicePage";
 import CreateIngressPage from "./pages/networking/CreateIngressPage";
@@ -195,6 +196,7 @@ export const router = createBrowserRouter([
           { path: "networking/services/create", Component: CreateServicePage },
           { path: "networking/services/:namespace/:name", Component: ServiceDetailPage },
           { path: "networking/topology", Component: NetworkTopologyPage },
+          { path: "networking/checkups", Component: NetworkingCheckupsPage },
           { path: "networking/routes", Component: RoutesPage },
           { path: "networking/routes/create", Component: CreateRoutePage },
           { path: "networking/routes/:namespace/:name", Component: RouteDetailPage },

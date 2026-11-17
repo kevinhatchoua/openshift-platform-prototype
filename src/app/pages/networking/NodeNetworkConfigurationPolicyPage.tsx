@@ -30,7 +30,9 @@ import {
   topologyHighlightPath,
   type NncpRecord,
 } from "./networkingMockData";
+import NmStateOperatorBlockedState from "./NmStateOperatorBlockedState";
 import { NetworkingPageShell, NetworkingTablePanel } from "./networkingShared";
+import { useNmStateDependencyBlocked } from "./useNmStateDependencyBlocked";
 import { useNetworkingResources } from "./useNetworkingResources";
 
 function nncpName(row: { name: string }) {
@@ -84,6 +86,7 @@ function NncpActionsMenu({
 }
 
 export default function NodeNetworkConfigurationPolicyPage() {
+  const nmstateBlocked = useNmStateDependencyBlocked();
   const navigate = useNavigate();
   const { pushToast } = useToast();
   const { nncpRecords } = useNetworkingResources();
@@ -118,7 +121,9 @@ export default function NodeNetworkConfigurationPolicyPage() {
           </Button>
         }
       >
-        {nncpRecords.length === 0 ? (
+        {nmstateBlocked ? (
+          <NmStateOperatorBlockedState surfaceName="NodeNetworkConfigurationPolicy" compact />
+        ) : nncpRecords.length === 0 ? (
           <div className="ocs-nnodes-policy-empty">
             <Flex
               direction={{ default: "column" }}

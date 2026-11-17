@@ -234,6 +234,17 @@ export type OperatorHubCatalogEntry = {
       olmVersion: "v0"
     },
     {
+      id: "kubernetes-nmstate-operator",
+      name: "Kubernetes NMState Operator",
+      provider: "Red Hat",
+      providerType: "Red Hat",
+      description:
+        "Reports node network state and reconciles NodeNetworkConfigurationPolicy and related NMState CRs",
+      installed: false,
+      categories: ["Networking", "Red Hat"],
+      olmVersion: "v0",
+    },
+    {
       id: "metallb",
       name: "MetalLB Operator",
       provider: "MetalLB",

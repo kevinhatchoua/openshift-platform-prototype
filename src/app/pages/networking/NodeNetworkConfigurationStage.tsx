@@ -12,7 +12,9 @@ import { topologyWorkerCatalogFromGroups } from "./networkTopologyData";
 import { NNC_WIZARD_STEPS } from "./NodeNetworkConfigurationWizard";
 import { NetworkResourceCreateDropdown, type NetworkCreateResource } from "./networkingCreateModals";
 import { nadDetailPath } from "./networkingMockData";
+import NmStateOperatorBlockedState from "./NmStateOperatorBlockedState";
 import { NetworkingPageShell } from "./networkingShared";
+import { useNmStateDependencyBlocked } from "./useNmStateDependencyBlocked";
 import { useNetworkTopologyState } from "./networkTopologyState";
 import { useNodeNetworkConfigurationCreate } from "./useNodeNetworkConfigurationCreate";
 import { useNodeNetworkViewMode } from "./useNodeNetworkViewMode";
@@ -30,6 +32,7 @@ export default function NodeNetworkConfigurationStage({
   wrapInPageShell = false,
 }: NodeNetworkConfigurationStageProps) {
   const navigate = useNavigate();
+  const nmstateBlocked = useNmStateDependencyBlocked();
   const { viewMode, setViewMode } = useNodeNetworkViewMode();
   const {
     scale,
@@ -119,7 +122,9 @@ export default function NodeNetworkConfigurationStage({
 
   const workerCatalog = useMemo(() => topologyWorkerCatalogFromGroups(groups), [groups]);
 
-  const panel = (
+  const panel = nmstateBlocked ? (
+    <NmStateOperatorBlockedState surfaceName="Topology" />
+  ) : (
     <div className="ocs-nnc-stage">
       <NetworkTopologyPanel
         groups={groups}
