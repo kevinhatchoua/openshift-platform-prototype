@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate, useLocation } from "react-router";
+import { Link, useNavigate, useLocation } from "react-router";
+import { useChat } from "../../contexts/ChatContext";
+import { CLASSIC_TO_EXTENSION_APPROVALS } from "../../lib/operatorClusterUpdateHandoff";
 import {
   Alert,
   Button,
@@ -21,11 +23,14 @@ type TabKey = "update-plan" | "active-update-plans" | "update-history";
 
 type RowStatus = "Updating" | "Updated" | "Pending";
 
-interface OperatorRowModel {
+type OperatorKind = "Cluster operator" | "Classic operator" | "Cluster extension";
+
+interface CatalogOperatorModel {
   name: string;
   version: string;
-  compatibility: "compatible" | "incompatible";
-  lastUpdated: string;
+  kind: OperatorKind;
+  /** Moves from Classic operator to Cluster extension after the in-update approval. */
+  migratesToExtension?: boolean;
 }
 
 interface WorkerPoolModel {
@@ -42,12 +47,14 @@ function namedRow(row: { name: string }) {
   return row.name;
 }
 
-const OPERATORS_BASE: OperatorRowModel[] = [
-  { name: "Abot Operator-v3.0.0", version: "3.2.5", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
-  { name: "Airflow Helm Operator", version: "3.5", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
-  { name: "Ansible Automation Platform", version: "3.25", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
-  { name: "Bare Metal Event Relay", version: "1.2.0", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
-  { name: "Camel K Operator", version: "2.1.0", compatibility: "compatible", lastUpdated: "Feb 13, 2026, 10:28 AM" },
+const CATALOG_OPERATORS: CatalogOperatorModel[] = [
+  { name: "Abot Operator", version: "3.2.5", kind: "Cluster extension" },
+  { name: "Airflow Helm Operator", version: "3.5", kind: "Classic operator" },
+  { name: "Ansible Automation Platform", version: "3.25", kind: "Classic operator" },
+  { name: "Bare Metal Event Relay", version: "1.2.0", kind: "Classic operator" },
+  { name: "Camel K Operator", version: "2.1.0", kind: "Classic operator" },
+  { name: "Cert Manager", version: "1.14.0", kind: "Classic operator", migratesToExtension: true },
+  { name: "Kiali Operator", version: "1.73.0", kind: "Classic operator", migratesToExtension: true },
 ];
 
 const WORKER_POOLS_BASE: WorkerPoolModel[] = [
@@ -60,24 +67,31 @@ const WORKER_POOLS_BASE: WorkerPoolModel[] = [
 
 /** Maps overall phase % to per-row status so tables stay aligned with progress bars. */
 function slotStatus(index: number, rowCount: number, pct: number): RowStatus {
-  if (rowCount <= 0) return "Pending";
+  if (rowCount <= 0 || pct <= 0) return "Pending";
   const seg = 100 / rowCount;
   if (pct >= (index + 1) * seg) return "Updated";
   if (pct > index * seg) return "Updating";
-  return index === 0 ? "Updating" : "Pending";
+  return "Pending";
 }
 
-/** Time to keep Agent logs visible with final completion lines before navigating to the success screen. */
-const COMPLETION_NAV_DELAY_MS = 4000;
+/** Active progress ticks. With a quick approval, the run finishes in about 35 seconds. */
+const PROGRESS_TICK_MS = 250;
+const MIGRATION_PAUSE_AT = 48;
+const COMPLETION_NAV_DELAY_MS = 2000;
 
 export default function ClusterUpdateInProgressPage() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { setContext, addMessage } = useChat();
   const version = (location.state as any)?.version || "5.1.10";
   const [activeTab, setActiveTab] = useState<TabKey>("update-plan");
 
   const [progress, setProgress] = useState({ op: 0, cp: 0, wn: 0 });
-  const [showLogsPanel, setShowLogsPanel] = useState(false);
+  const [showLogsPanel, setShowLogsPanel] = useState(true);
+  const [migrationApproved, setMigrationApproved] = useState(false);
+  const migrationApprovedRef = useRef(false);
+  const migrationPauseNotifiedRef = useRef(false);
+  const olsPhaseNotifiedRef = useRef({ platform: false, catalog: false, workers: false, complete: false });
   const completionNavTimeoutRef = useRef<number | null>(null);
 
   const operatorProgress = progress.op;
@@ -86,17 +100,28 @@ export default function ClusterUpdateInProgressPage() {
 
   useEffect(() => {
     localStorage.setItem("clusterUpdateInProgress", JSON.stringify({ version, startedAt: Date.now() }));
-  }, [version]);
+    setContext(`cluster-update-in-progress:${version}`);
+  }, [version, setContext]);
 
   useEffect(() => {
     const timer = setInterval(() => {
       setProgress((s) => {
-        const cp = Math.min(100, s.cp + 1.5);
-        const op = Math.min(100, s.op + 0.8);
-        const wn = cp > 40 ? Math.min(100, s.wn + 0.35) : s.wn;
-        return { cp, op, wn };
+        if (!migrationApprovedRef.current && s.cp >= MIGRATION_PAUSE_AT) {
+          return { ...s, cp: MIGRATION_PAUSE_AT };
+        }
+        if (s.cp < 100) {
+          const step = s.cp < MIGRATION_PAUSE_AT ? 1.6 : 2.6;
+          return { ...s, cp: Math.min(100, s.cp + step) };
+        }
+        if (s.op < 100) {
+          return { ...s, op: Math.min(100, s.op + 3.6) };
+        }
+        if (s.wn < 100) {
+          return { ...s, wn: Math.min(100, s.wn + 2) };
+        }
+        return s;
       });
-    }, 300);
+    }, PROGRESS_TICK_MS);
     return () => clearInterval(timer);
   }, []);
 
@@ -124,22 +149,88 @@ export default function ClusterUpdateInProgressPage() {
   const cpPct = Math.round(controlProgress);
   const wnPct = Math.round(workerProgress);
 
-  const operatorRows = OPERATORS_BASE.map((op, i) => ({
-    ...op,
-    status: slotStatus(i, OPERATORS_BASE.length, operatorProgress),
-  }));
-
   const workerRows = WORKER_POOLS_BASE.map((pool, i) => ({
     ...pool,
     status: slotStatus(i, WORKER_POOLS_BASE.length, workerProgress),
   }));
 
-  const clusterOperatorRows = PLATFORM_CLUSTER_OPERATORS.map((name, i) => ({
-    name,
-    status: slotStatus(i, PLATFORM_CLUSTER_OPERATORS.length, controlProgress),
-  }));
+  const operatorRows = [
+    ...PLATFORM_CLUSTER_OPERATORS.map((name, i) => ({
+      name,
+      kind: "Cluster operator" as const,
+      version: slotStatus(i, PLATFORM_CLUSTER_OPERATORS.length, controlProgress) === "Updated" ? version : "5.0.0",
+      status: slotStatus(i, PLATFORM_CLUSTER_OPERATORS.length, controlProgress),
+    })),
+    ...CATALOG_OPERATORS.map((op, i) => ({
+      name: op.name,
+      kind: op.migratesToExtension && migrationApproved ? ("Cluster extension" as const) : op.kind,
+      version: op.version,
+      status: slotStatus(i, CATALOG_OPERATORS.length, operatorProgress),
+      compatibility: "compatible" as const,
+      lastUpdated: "—",
+    })),
+  ];
+  const clusterOperatorRows = operatorRows.filter((row) => row.kind === "Cluster operator");
+  const installedOperatorRows = operatorRows.filter((row) => row.kind !== "Cluster operator");
+
+  const operatorsPct = Math.round(
+    ((controlProgress / 100) * PLATFORM_CLUSTER_OPERATORS.length +
+      (operatorProgress / 100) * CATALOG_OPERATORS.length) /
+      (PLATFORM_CLUSTER_OPERATORS.length + CATALOG_OPERATORS.length) *
+      100,
+  );
 
   const updateFullyComplete = operatorProgress >= 100 && controlProgress >= 100 && workerProgress >= 100;
+
+  useEffect(() => {
+    if (controlProgress < MIGRATION_PAUSE_AT || migrationApproved || migrationPauseNotifiedRef.current) return;
+    migrationPauseNotifiedRef.current = true;
+    addMessage({
+      type: "ai",
+      content: `Update to **${version}** is paused. Approve moving ${CLASSIC_TO_EXTENSION_APPROVALS.map((op) => op.name).join(" and ")} from Classic operators to Cluster extensions before the update continues.`,
+      suggestions: ["What changes for these operators?", "Resume after I approve"],
+    });
+  }, [controlProgress, migrationApproved, addMessage, version]);
+
+  useEffect(() => {
+    const notifyPhase = (
+      key: keyof typeof olsPhaseNotifiedRef.current,
+      content: string,
+    ) => {
+      if (olsPhaseNotifiedRef.current[key]) return;
+      olsPhaseNotifiedRef.current[key] = true;
+      addMessage({
+        type: "ai",
+        content,
+        suggestions: ["Summarize risks so far", "What happens next?"],
+      });
+    };
+
+    if (controlProgress >= 100) {
+      notifyPhase(
+        "platform",
+        `Cluster operators finished reconciling for the update to **${version}**. Classic operators and cluster extensions are updating next.`,
+      );
+    }
+    if (operatorProgress >= 100 && controlProgress >= 100) {
+      notifyPhase(
+        "catalog",
+        `Classic operators and cluster extensions are updated for **${version}**. Worker node rollout is next.`,
+      );
+    }
+    if (workerProgress >= 100 && operatorProgress >= 100 && controlProgress >= 100) {
+      notifyPhase(
+        "workers",
+        `All worker pools report **Updated** for **${version}**. Running post-update validation.`,
+      );
+    }
+    if (updateFullyComplete) {
+      notifyPhase(
+        "complete",
+        `Cluster update to **${version}** completed. Agent logs include the full execution trace if you need change-review evidence.`,
+      );
+    }
+  }, [controlProgress, operatorProgress, workerProgress, version, addMessage, updateFullyComplete]);
 
   const tabs: { key: TabKey; label: string }[] = [
     { key: "update-plan", label: "Update plan" },
@@ -148,7 +239,8 @@ export default function ClusterUpdateInProgressPage() {
   ];
 
   return (
-    <div className="flex-1 min-w-0 overflow-y-auto overflow-x-hidden ocs-app-page-outer ocs-app-page-outer--end-3xl">
+    <div className="ocs-cluster-update-in-progress-shell flex-1 min-w-0 min-h-0">
+      <div className="ocs-cluster-update-in-progress-main flex-1 min-w-0 overflow-y-auto overflow-x-hidden ocs-app-page-outer ocs-app-page-outer--end-3xl">
       <Breadcrumbs items={[
         { label: "Administration", path: "/administration/cluster-update" },
         { label: "Cluster Update" },
@@ -200,6 +292,42 @@ export default function ClusterUpdateInProgressPage() {
           </Flex>
         </Alert>
       </div>
+
+      {controlProgress >= MIGRATION_PAUSE_AT && !migrationApproved ? (
+        <div className="mb-[var(--pf-t--global--spacer--lg)]">
+          <Alert variant="warning" isInline title="Approval required: move Classic operators to Cluster extensions">
+            <Content component="p">
+              The update is paused. Approve moving these Classic operators to Cluster extensions before the rest of the
+              update continues. Operator versions stay the same.
+            </Content>
+            <ul>
+              {CLASSIC_TO_EXTENSION_APPROVALS.map((op) => (
+                <li key={op.name}>
+                  <strong>{op.name}</strong> {op.version}: {op.from} → {op.to}
+                </li>
+              ))}
+            </ul>
+            <Flex gap={{ default: "gapMd" }} flexWrap={{ default: "wrap" }}>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  migrationApprovedRef.current = true;
+                  setMigrationApproved(true);
+                  addMessage({
+                    type: "ai",
+                    content: `Approved moving ${CLASSIC_TO_EXTENSION_APPROVALS.map((op) => op.name).join(" and ")} from Classic operators to Cluster extensions. Resuming the update to **${version}**.`,
+                  });
+                }}
+              >
+                Approve and continue
+              </Button>
+              <Button variant="link" component={(props) => <Link {...props} to="/ecosystem/installed-operators" />}>
+                Review on Installed Operators
+              </Button>
+            </Flex>
+          </Alert>
+        </div>
+      ) : null}
 
       {/* Cluster ID */}
       <div className="mb-[24px]">
@@ -421,7 +549,7 @@ export default function ClusterUpdateInProgressPage() {
             ouiaId="in-progress-installed-operators-data-view"
             ariaLabel="Installed operators"
             itemsLabel="operators"
-            items={operatorRows}
+            items={installedOperatorRows}
             getName={namedRow}
           >
             {(rows) => (
@@ -519,8 +647,10 @@ export default function ClusterUpdateInProgressPage() {
       </section>
 
       </Breadcrumbs>
+      </div>
 
       <AgentExecutionLogsPanel
+        presentation="docked"
         isOpen={showLogsPanel}
         version={version}
         onClose={() => setShowLogsPanel(false)}

@@ -70,6 +70,8 @@ import { topologyLightspeedContext } from "./topologyLightspeed";
 import { useTopologyLightspeed } from "./useTopologyLightspeed";
 import { LightspeedAiAccuracyInline } from "../../../components/lightspeed/LightspeedLegalCopy";
 import { resolveOvnNetworkPath } from "./topologyOvnPath";
+import NmStateCapabilityInlineAlert from "../NmStateCapabilityInlineAlert";
+import { useNmStateDependencyBlocked } from "../useNmStateDependencyBlocked";
 import {
   findMtuMismatchesForInterface,
   findMtuMismatchesForNetwork,
@@ -227,13 +229,22 @@ function ObserveMetrics({
   objectLabel,
   connectivity,
   lightspeedContextKey,
+  hostInterfaceObservationBlocked,
 }: {
   objectLabel: string;
   connectivity?: ConnectivitySummary;
   lightspeedContextKey?: string;
+  /** When true, host-level interface reconcile state from NodeNetworkState is unavailable. */
+  hostInterfaceObservationBlocked?: boolean;
 }) {
   return (
     <div className="ocs-pf-topo-sidepanel__observe">
+      {hostInterfaceObservationBlocked ? (
+        <NmStateCapabilityInlineAlert
+          actionLabel="observe reported interface state and configuration drift"
+          className="ocs-pf-topo-sidepanel__nmstate-alert pf-v6-u-mb-md"
+        />
+      ) : null}
       {connectivity ? (
         <div className="ocs-pf-topo-sidepanel__connectivity">
           <Label isCompact color={connectivity.color}>
@@ -599,19 +610,23 @@ function AssignInterfaceControl({
 function NoInterfacesEmpty({
   available,
   onAssign,
+  readOnlyWithoutNmstate,
 }: {
   available: NetResource[];
   onAssign?: (interfaceId: string) => void;
+  readOnlyWithoutNmstate?: boolean;
 }) {
   return (
     <EmptyState
       variant={EmptyStateVariant.sm}
-      titleText="No interfaces assigned"
+      titleText={readOnlyWithoutNmstate ? "No connected interfaces reported" : "No interfaces assigned"}
       headingLevel="h3"
       icon={PlusCircleIcon}
     >
       <EmptyStateBody>
-        Assign a network interface to this resource to connect it to the physical network.
+        {readOnlyWithoutNmstate
+          ? "Topology discovery did not report any interfaces on this resource. Install the Kubernetes NMState Operator to assign interfaces and reconcile node network state."
+          : "Assign a network interface to this resource to connect it to the physical network."}
       </EmptyStateBody>
       {onAssign ? (
         <EmptyStateFooter>
@@ -685,6 +700,7 @@ export default function TopologyDetailPanel({
   dataScale = "scale",
 }: TopologyDetailPanelProps) {
   const navigate = useNavigate();
+  const nmstateBlocked = useNmStateDependencyBlocked();
   const { openTopologyLightspeed } = useTopologyLightspeed();
   const [actionsOpen, setActionsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<InspectorTab>("details");
@@ -962,12 +978,15 @@ export default function TopologyDetailPanel({
     const isHostWithInterfaces =
       data.kind === "bridge" || data.kind === "tunnel" || data.kind === "port";
     const availableIfaces = availableInterfacesForResource(groups, data.groupId, data.resource);
-    const handleAssign = onAssignInterface
-      ? (interfaceId: string) => onAssignInterface(data.resource.id, interfaceId)
-      : undefined;
-    const handleUnassign = onUnassignInterface
-      ? (interfaceId: string) => onUnassignInterface(data.resource.id, interfaceId)
-      : undefined;
+    const hostInterfaceMutationsEnabled = isHostWithInterfaces && !nmstateBlocked;
+    const handleAssign =
+      hostInterfaceMutationsEnabled && onAssignInterface
+        ? (interfaceId: string) => onAssignInterface(data.resource.id, interfaceId)
+        : undefined;
+    const handleUnassign =
+      hostInterfaceMutationsEnabled && onUnassignInterface
+        ? (interfaceId: string) => onUnassignInterface(data.resource.id, interfaceId)
+        : undefined;
     const hostYaml = yamlForHostResource(data.resource, data.groupHostname);
     const connectivity = connectivityFromStatus(data.status, data.resource.label);
     const nncpLineage = resolveNncpLineageForBridge(data.resource);
@@ -1175,20 +1194,27 @@ export default function TopologyDetailPanel({
           ),
           resources: (
             <>
+              {isHostWithInterfaces && nmstateBlocked ? (
+                <NmStateCapabilityInlineAlert className="ocs-pf-topo-sidepanel__nmstate-alert pf-v6-u-mb-md" />
+              ) : null}
               <Title headingLevel="h3" size="md">
                 Connected interfaces
               </Title>
               {isHostWithInterfaces && related.length === 0 ? (
-                <NoInterfacesEmpty available={availableIfaces} onAssign={handleAssign} />
+                <NoInterfacesEmpty
+                  available={availableIfaces}
+                  onAssign={handleAssign}
+                  readOnlyWithoutNmstate={nmstateBlocked}
+                />
               ) : (
                 <ConnectedInterfacesList
                   related={related}
                   peerResources={peerResources}
                   onSelectNode={onSelectNode}
-                  onUnassign={isHostWithInterfaces ? handleUnassign : undefined}
+                  onUnassign={hostInterfaceMutationsEnabled ? handleUnassign : undefined}
                 />
               )}
-              {isHostWithInterfaces && handleAssign && related.length > 0 ? (
+              {hostInterfaceMutationsEnabled && handleAssign && related.length > 0 ? (
                 <AssignInterfaceControl available={availableIfaces} onAssign={handleAssign} />
               ) : null}
               <Title headingLevel="h3" size="md">
@@ -1254,6 +1280,9 @@ export default function TopologyDetailPanel({
               objectLabel={data.resource.label}
               connectivity={connectivity}
               lightspeedContextKey={observeContext}
+              hostInterfaceObservationBlocked={
+                isHostWithInterfaces && nmstateBlocked
+              }
             />
           ),
         })}

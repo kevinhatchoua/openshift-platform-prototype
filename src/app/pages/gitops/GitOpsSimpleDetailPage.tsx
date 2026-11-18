@@ -36,6 +36,7 @@ export default function GitOpsSimpleDetailPage({
   extraContent,
   extraActions,
   onExtraAction,
+  extraTabs,
 }: {
   kindLabel: string;
   listPath: string;
@@ -50,6 +51,7 @@ export default function GitOpsSimpleDetailPage({
   extraContent?: ReactNode;
   extraActions?: GitOpsActionItem[];
   onExtraAction?: (actionId: string) => void;
+  extraTabs?: { eventKey: string; title: string; content: ReactNode }[];
 }) {
   const [activeTab, setActiveTab] = useState("details");
   const href = gitopsDetailPath(detailKind, ns, title);
@@ -87,6 +89,9 @@ export default function GitOpsSimpleDetailPage({
           </Flex>
           <Tabs activeKey={activeTab} onSelect={(_e, key) => setActiveTab(String(key))} aria-label={`${kindLabel} details`}>
             <Tab eventKey="details" title={<TabTitleText>Details</TabTitleText>} />
+            {(extraTabs ?? []).map((tab) => (
+              <Tab key={tab.eventKey} eventKey={tab.eventKey} title={<TabTitleText>{tab.title}</TabTitleText>} />
+            ))}
             <Tab eventKey="yaml" title={<TabTitleText>YAML</TabTitleText>} />
             <Tab eventKey="events" title={<TabTitleText>Events</TabTitleText>} />
           </Tabs>
@@ -102,6 +107,8 @@ export default function GitOpsSimpleDetailPage({
               </DescriptionList>
               {extraContent}
             </>
+          ) : extraTabs?.some((tab) => tab.eventKey === activeTab) ? (
+            extraTabs.find((tab) => tab.eventKey === activeTab)?.content
           ) : activeTab === "yaml" ? (
             <ConsoleYamlEditor
               initialYaml={prototypeResourceYaml({

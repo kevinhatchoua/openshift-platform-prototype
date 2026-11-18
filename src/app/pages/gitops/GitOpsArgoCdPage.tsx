@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useNavigate, useParams } from "react-router";
 import {
   Button,
@@ -37,11 +37,14 @@ import {
 } from "../../components/dataView/OcsPrototypeListTable";
 import GitOpsSimpleDetailPage, { GitOpsNotFound } from "./GitOpsSimpleDetailPage";
 import {
+  applicationSetsForInstance,
+  applicationsForInstance,
   argoInstancesForInstance,
   buildGitOpsAppsUrl,
   findArgoCd,
   gitopsDetailPath,
   instanceKeyOf,
+  managedNamespacesForInstance,
   type ArgoCdRecord,
 } from "./gitopsData";
 import GitOpsPageHeader, { useGitOpsInstance } from "./GitOpsPageHeader";
@@ -342,6 +345,9 @@ export function GitOpsArgoCdDetailPage() {
   if (!rec) return <GitOpsNotFound listPath="/gitops/argocd" listTitle="ArgoCD Instances" />;
   const key = instanceKeyOf(rec);
   const sso = rec.components.sso === "Healthy" ? "Dex / OpenShift OAuth" : "SSO degraded";
+  const apps = applicationsForInstance(key);
+  const sets = applicationSetsForInstance(key);
+  const managedNamespaces = managedNamespacesForInstance(key);
   return (
     <GitOpsSimpleDetailPage
       kindLabel="Argo CD"
@@ -364,6 +370,10 @@ export function GitOpsArgoCdDetailPage() {
       fields={[
         { term: "Name", value: rec.name },
         { term: "Namespace", value: rec.ns },
+        {
+          term: "Managed namespaces",
+          value: managedNamespaces.length > 0 ? managedNamespaces.join(", ") : "None yet",
+        },
         { term: "Server", value: rec.server },
         { term: "Version", value: rec.version },
         { term: "Applications", value: rec.applications },
@@ -374,6 +384,44 @@ export function GitOpsArgoCdDetailPage() {
         { term: "Memory", value: rec.memory },
         { term: "Cluster connectivity", value: rec.clusterConnectivity },
         { term: "Created", value: rec.created },
+      ]}
+      extraTabs={[
+        {
+          eventKey: "applications",
+          title: `Applications (${apps.length})`,
+          content: (
+            <InstanceResourceTable
+              empty="This instance does not manage any Applications."
+              rows={apps.map((app) => ({
+                key: `${app.ns}/${app.name}`,
+                kind: "Application",
+                name: app.name,
+                namespace: app.ns,
+                href: gitopsDetailPath("applications", app.ns, app.name),
+                status: <HealthStatus status={app.sync} />,
+                extra: <HealthStatus status={app.health} />,
+              }))}
+            />
+          ),
+        },
+        {
+          eventKey: "applicationsets",
+          title: `ApplicationSets (${sets.length})`,
+          content: (
+            <InstanceResourceTable
+              empty="This instance does not manage any ApplicationSets."
+              rows={sets.map((set) => ({
+                key: `${set.ns}/${set.name}`,
+                kind: "ApplicationSet",
+                name: set.name,
+                namespace: set.ns,
+                href: gitopsDetailPath("applicationsets", set.ns, set.name),
+                status: <HealthStatus status={set.status} />,
+                extra: set.generators,
+              }))}
+            />
+          ),
+        },
       ]}
       extraContent={
         <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }}>
@@ -389,11 +437,58 @@ export function GitOpsArgoCdDetailPage() {
             ))}
           </DescriptionList>
           <Content component="p">
-            Same-cluster instance only. Lists, overview metrics, and rollouts follow the instance picker when this
-            instance is selected.
+            One Argo CD instance is installed in {rec.ns}. It can manage Applications and ApplicationSets in other
+            namespaces. Those resources are listed on the Applications and ApplicationSets tabs, not limited to this
+            namespace.
           </Content>
         </Flex>
       }
     />
+  );
+}
+
+function InstanceResourceTable({
+  rows,
+  empty,
+}: {
+  rows: { key: string; kind: string; name: string; namespace: string; href: string; status: ReactNode; extra: ReactNode }[];
+  empty: string;
+}) {
+  if (rows.length === 0) {
+    return <Content component="p">{empty}</Content>;
+  }
+  return (
+    <OcsNamedResourceDataView
+      ouiaId="gitops-instance-managed-resources"
+      ariaLabel="Resources managed by this Argo CD instance"
+      itemsLabel="resources"
+      items={rows}
+      getName={(item) => item.name}
+    >
+      {(pageRows) => (
+        <>
+          <Thead>
+            <Tr>
+              <Th>Name</Th>
+              <Th>Namespace</Th>
+              <Th>Status</Th>
+              <Th>Detail</Th>
+            </Tr>
+          </Thead>
+          <Tbody>
+            {pageRows.map((row) => (
+              <Tr key={row.key}>
+                <Td>
+                  <ResourceName kind={row.kind} name={row.name} to={row.href} />
+                </Td>
+                <Td>{row.namespace}</Td>
+                <Td>{row.status}</Td>
+                <Td>{row.extra}</Td>
+              </Tr>
+            ))}
+          </Tbody>
+        </>
+      )}
+    </OcsNamedResourceDataView>
   );
 }

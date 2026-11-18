@@ -1,5 +1,18 @@
 import { useState } from "react";
-import { useParams, Link, useNavigate, useLocation } from "react-router";
+import { useParams, Link, useNavigate, useLocation, Navigate } from "react-router";
+import {
+  ActionList,
+  ActionListGroup,
+  ActionListItem,
+  Button,
+  MenuToggle,
+  Select,
+  SelectList,
+  SelectOption,
+  Tab,
+  Tabs,
+  TabTitleText,
+} from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { OcsNamedResourceDataView, PlainTableHeader } from "../../components/dataView/OcsPrototypeListTable";
 import { Info, ExternalLink, AlertTriangle, CheckCircle } from "@/lib/pfIcons";
@@ -64,13 +77,29 @@ export default function OperatorUpdatePage() {
     ],
   };
 
+  const installedPath = `/ecosystem/installed-operators/${encodeURIComponent(
+    locationState?.operatorName || operator.name,
+  )}`;
+  const versionsByChannel = operator.versions as Record<string, { version: string; status: string }[]>;
+  const channelOptions = Object.keys(versionsByChannel);
+  const [targetChannel, setTargetChannel] = useState(operator.targetChannel);
+  const [targetVersion, setTargetVersion] = useState(operator.targetVersion);
+  const [channelMenuOpen, setChannelMenuOpen] = useState(false);
+  const [versionMenuOpen, setVersionMenuOpen] = useState(false);
+  const versionOptions = (versionsByChannel[targetChannel] ?? []).filter(
+    (entry) => entry.status !== "blocked" && entry.status !== "future",
+  );
+  if (location.pathname.startsWith("/ecosystem/software-catalog/")) {
+    return <Navigate to={`${installedPath}/update`} replace state={location.state} />;
+  }
+
   const handleApproveUpdate = () => {
     if (fromClusterUpdate && locationState?.returnTo) {
       navigate(locationState.returnTo, {
         state: { updatedOperator: locationState.operatorName, newVersion: operator.targetVersion }
       });
     } else {
-      navigate(`/ecosystem/software-catalog/${operator.id}/installing`);
+      navigate(`${installedPath}/installing`);
     }
   };
 
@@ -88,7 +117,7 @@ export default function OperatorUpdatePage() {
           ] : [
             { label: "Ecosystem", path: "/ecosystem" },
             { label: "Installed Operators", path: "/ecosystem/installed-operators" },
-            { label: operator.name, path: `/ecosystem/software-catalog/${operator.id}` },
+            { label: operator.name, path: installedPath },
           ]}
         >
 
@@ -101,28 +130,22 @@ export default function OperatorUpdatePage() {
           </p>
         </div>
 
-        {/* Tabs - with Update plan active */}
-        <div className="border-b border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] mb-[24px]">
-          <div className="flex gap-[24px]">
-            <Link
-              to={`/ecosystem/software-catalog/${operator.id}`}
-              className="pb-[12px] border-b-2 border-transparent text-[#4d4d4d] dark:text-[#b0b0b0] hover:text-[#151515] dark:hover:text-white text-[14px] -mb-[1px]"
-            >
-              Details
-            </Link>
-            <button className="pb-[12px] border-b-2 border-transparent text-[#4d4d4d] dark:text-[#b0b0b0] hover:text-[#151515] dark:hover:text-white text-[14px] -mb-[1px]">
-              YAML
-            </button>
-            <button className="pb-[12px] border-b-2 border-[#0066cc] dark:border-[#4dabf7] font-semibold text-[#151515] dark:text-white text-[14px] -mb-[1px]">
-              Update plan
-            </button>
-            <button className="pb-[12px] border-b-2 border-transparent text-[#4d4d4d] dark:text-[#b0b0b0] hover:text-[#151515] dark:hover:text-white text-[14px] -mb-[1px]">
-              Events
-            </button>
-            <button className="pb-[12px] border-b-2 border-transparent text-[#4d4d4d] dark:text-[#b0b0b0] hover:text-[#151515] dark:hover:text-white text-[14px] -mb-[1px]">
-              KubApp
-            </button>
-          </div>
+        <div className="ocs-console-page-tabs pf-v6-u-mb-lg">
+          <Tabs
+            activeKey="update-plan"
+            onSelect={(_event, key) => {
+              if (key === "details") navigate(installedPath);
+              if (key === "yaml") navigate(`${installedPath}/yaml`);
+              if (key === "subscription") navigate(`${installedPath}/subscription`);
+            }}
+            aria-label="Installed operator details"
+            className="ocs-console-page-tabs"
+          >
+            <Tab eventKey="details" title={<TabTitleText>Details</TabTitleText>} />
+            <Tab eventKey="yaml" title={<TabTitleText>YAML</TabTitleText>} />
+            <Tab eventKey="subscription" title={<TabTitleText>Subscription</TabTitleText>} />
+            <Tab eventKey="update-plan" title={<TabTitleText>Update plan</TabTitleText>} />
+          </Tabs>
         </div>
 
         <div className="flex gap-[24px]">
@@ -140,39 +163,81 @@ export default function OperatorUpdatePage() {
 
             {/* Update Selection */}
             <div className="bg-[rgba(255,255,255,0.5)] dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.1)] dark:border-[rgba(255,255,255,0.1)] rounded-[16px] p-[24px] mb-[24px]">
-              <div className="grid grid-cols-2 gap-[24px] mb-[24px]">
+              <div className="flex flex-col items-start gap-[20px]">
                 <div>
                   <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[8px]">Current channel</p>
-                  <div className="flex items-center gap-[12px]">
-                    <div className="px-[16px] py-[8px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] text-[14px] text-[#151515] dark:text-white">
-                      {operator.currentChannel}
-                    </div>
-                    <span className="text-[#4d4d4d] dark:text-[#b0b0b0]">→</span>
+                  <div className="flex items-center justify-start gap-[8px]">
+                    <span className="text-[14px] text-[#151515] dark:text-white">{operator.currentChannel}</span>
+                    <span className="text-[#4d4d4d] dark:text-[#b0b0b0]" aria-hidden>→</span>
+                    <Select
+                      isOpen={channelMenuOpen}
+                      selected={targetChannel}
+                      onSelect={(_event, value) => {
+                        const next = String(value);
+                        setTargetChannel(next);
+                        const nextVersions = (versionsByChannel[next] ?? []).filter(
+                          (entry) => entry.status !== "blocked" && entry.status !== "future",
+                        );
+                        if (!nextVersions.some((entry) => entry.version === targetVersion)) {
+                          setTargetVersion(nextVersions[0]?.version ?? targetVersion);
+                        }
+                        setChannelMenuOpen(false);
+                      }}
+                      onOpenChange={setChannelMenuOpen}
+                      toggle={(toggleRef) => (
+                        <MenuToggle
+                          ref={toggleRef}
+                          aria-label="Target channel"
+                          onClick={() => setChannelMenuOpen((open) => !open)}
+                          isExpanded={channelMenuOpen}
+                        >
+                          {targetChannel}
+                        </MenuToggle>
+                      )}
+                    >
+                      <SelectList>
+                        {channelOptions.map((channel) => (
+                          <SelectOption key={channel} value={channel}>
+                            {channel}
+                          </SelectOption>
+                        ))}
+                      </SelectList>
+                    </Select>
                   </div>
                 </div>
-                <div>
-                  <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[8px]">Target version</p>
-                  <select className="w-full px-[16px] py-[8px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] text-[14px] text-[#151515] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0066cc] dark:focus:ring-[#4dabf7]">
-                    <option>{operator.targetChannel}</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-[24px]">
                 <div>
                   <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[8px]">Current version</p>
-                  <div className="flex items-center gap-[12px]">
-                    <div className="px-[16px] py-[8px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] text-[14px] text-[#151515] dark:text-white">
-                      {operator.currentVersion}
-                    </div>
-                    <span className="text-[#4d4d4d] dark:text-[#b0b0b0]">→</span>
+                  <div className="flex items-center justify-start gap-[8px]">
+                    <span className="text-[14px] text-[#151515] dark:text-white">{operator.currentVersion}</span>
+                    <span className="text-[#4d4d4d] dark:text-[#b0b0b0]" aria-hidden>→</span>
+                    <Select
+                      isOpen={versionMenuOpen}
+                      selected={targetVersion}
+                      onSelect={(_event, value) => {
+                        setTargetVersion(String(value));
+                        setVersionMenuOpen(false);
+                      }}
+                      onOpenChange={setVersionMenuOpen}
+                      toggle={(toggleRef) => (
+                        <MenuToggle
+                          ref={toggleRef}
+                          aria-label="Target version"
+                          onClick={() => setVersionMenuOpen((open) => !open)}
+                          isExpanded={versionMenuOpen}
+                        >
+                          {targetVersion}
+                        </MenuToggle>
+                      )}
+                    >
+                      <SelectList>
+                        {versionOptions.map((entry) => (
+                          <SelectOption key={entry.version} value={entry.version}>
+                            {entry.version}
+                          </SelectOption>
+                        ))}
+                      </SelectList>
+                    </Select>
                   </div>
-                </div>
-                <div>
-                  <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0] mb-[8px]">Target version</p>
-                  <select className="w-full px-[16px] py-[8px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] rounded-[8px] text-[14px] text-[#151515] dark:text-white focus:outline-none focus:ring-2 focus:ring-[#0066cc] dark:focus:ring-[#4dabf7]">
-                    <option>{operator.targetVersion}</option>
-                  </select>
                 </div>
               </div>
 
@@ -187,6 +252,21 @@ export default function OperatorUpdatePage() {
                   <ExternalLink className="size-[14px]" />
                 </a>
               </div>
+
+              <ActionList className="pf-v6-u-mt-lg">
+                <ActionListGroup>
+                  <ActionListItem>
+                    <Button variant="primary" onClick={handleApproveUpdate}>
+                      Update
+                    </Button>
+                  </ActionListItem>
+                  <ActionListItem>
+                    <Button variant="secondary" onClick={handlePreviewUpdate}>
+                      Preview update
+                    </Button>
+                  </ActionListItem>
+                </ActionListGroup>
+              </ActionList>
             </div>
 
             {/* Update Path Visualization */}
@@ -255,8 +335,20 @@ export default function OperatorUpdatePage() {
                         </span>
                       </div>
                       <p className="text-[13px] text-[#4d4d4d] dark:text-[#b0b0b0]">
-                        <Link to="/administration/cluster-settings" className="text-[#0066cc] dark:text-[#4dabf7] hover:underline">
-                          Requires cluster update
+                        <Link
+                          to="/administration/cluster-update"
+                          state={{
+                            operatorClusterGates: [
+                              {
+                                name: operator.name,
+                                operatorVersion: "4.0.0",
+                                requiredClusterVersion: "5.1.10",
+                              },
+                            ],
+                          }}
+                          className="text-[#0066cc] dark:text-[#4dabf7] hover:underline"
+                        >
+                          Requires cluster update to 5.1.10
                         </Link>
                       </p>
                     </div>
@@ -395,28 +487,6 @@ export default function OperatorUpdatePage() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Action Buttons */}
-        <div className="flex gap-[12px] mt-[24px] sticky bottom-[24px] app-glass-panel p-[16px]">
-          <button
-            onClick={handleApproveUpdate}
-            className="px-[24px] py-[12px] bg-[#0066cc] hover:bg-[#004080] dark:bg-[#4dabf7] dark:hover:bg-[#339af0] text-white rounded-[8px] font-semibold text-[14px] transition-colors"
-          >
-            Update
-          </button>
-          <button
-            onClick={handlePreviewUpdate}
-            className="px-[24px] py-[12px] bg-white dark:bg-[rgba(255,255,255,0.05)] border border-[rgba(0,0,0,0.2)] dark:border-[rgba(255,255,255,0.2)] text-[#151515] dark:text-white rounded-[8px] font-semibold text-[14px] hover:bg-[rgba(0,0,0,0.02)] dark:hover:bg-[rgba(255,255,255,0.08)] transition-colors"
-          >
-            Preview update
-          </button>
-          <Link
-            to="#"
-            className="px-[24px] py-[12px] text-[#0066cc] dark:text-[#4dabf7] hover:underline font-semibold text-[14px] flex items-center"
-          >
-            Link
-          </Link>
         </div>
         </Breadcrumbs>
     </div>

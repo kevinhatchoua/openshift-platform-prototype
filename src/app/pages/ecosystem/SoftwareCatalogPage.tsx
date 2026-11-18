@@ -529,11 +529,19 @@ export default function SoftwareCatalogPage() {
             setShowSidePanel(false);
           }}
           onUpdate={() => {
-            navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}/update`);
+            if (!selectedCatalogItem) return;
+            navigate(
+              `/ecosystem/installed-operators/${encodeURIComponent(selectedCatalogItem.name)}/update`,
+            );
             setShowSidePanel(false);
           }}
           onViewDetails={() => {
-            navigate(`/ecosystem/software-catalog/${selectedCatalogItem.id}`);
+            if (!selectedCatalogItem) return;
+            navigate(
+              selectedCatalogItem.installed || selectedCatalogItem.hasUpdate
+                ? `/ecosystem/installed-operators/${encodeURIComponent(selectedCatalogItem.name)}`
+                : `/ecosystem/software-catalog/${selectedCatalogItem.id}/install`,
+            );
             setShowSidePanel(false);
           }}
         />
@@ -918,7 +926,7 @@ export default function SoftwareCatalogPage() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          navigate(`/ecosystem/software-catalog/${item.id}/update`);
+                          navigate(`/ecosystem/installed-operators/${encodeURIComponent(item.name)}/update`);
                         }}
                         className="text-[13px] text-[#0066cc] dark:text-[#4dabf7] hover:underline flex items-center gap-[4px]"
                       >

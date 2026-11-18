@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { useLocation } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import {
   Alert,
   Card,
@@ -42,8 +42,13 @@ function OlmV1ExtensionDetailContent({
   initial: NonNullable<ReturnType<typeof getPrototypeInstalledOperator>>;
 }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<ExtensionDetailTab>(
-    location.pathname.endsWith("/subscription") ? "subscription" : "details",
+    location.pathname.endsWith("/subscription")
+      ? "subscription"
+      : location.pathname.endsWith("/yaml")
+        ? "yaml"
+        : "details",
   );
   const [operator, setOperator] = useState(initial);
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
@@ -123,13 +128,21 @@ function OlmV1ExtensionDetailContent({
               <div className="ocs-gitops-operator-tabs ocs-console-page-tabs">
                 <Tabs
                   activeKey={activeTab}
-                  onSelect={(_e, key) => setActiveTab(String(key) as ExtensionDetailTab)}
+                  onSelect={(_e, key) => {
+                    const next = String(key);
+                    if (next === "update-plan") {
+                      navigate(`${operatorPath}/update`);
+                      return;
+                    }
+                    setActiveTab(next as ExtensionDetailTab);
+                  }}
                   aria-label="Cluster extension operator details"
                   className="ocs-console-page-tabs"
                 >
                   <Tab eventKey="details" title={<TabTitleText>Details</TabTitleText>} />
                   <Tab eventKey="yaml" title={<TabTitleText>YAML</TabTitleText>} />
                   <Tab eventKey="subscription" title={<TabTitleText>Subscription</TabTitleText>} />
+                  <Tab eventKey="update-plan" title={<TabTitleText>Update plan</TabTitleText>} />
                 </Tabs>
               </div>
 

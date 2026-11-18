@@ -42,6 +42,7 @@ export function createStubApplicationSet(ns: string, name: string): ApplicationS
   return {
     name,
     ns,
+    instanceKey: "",
     generators: "git",
     generatorTree: [{ type: "git", label: `Git — prototype resource ${name}` }],
     apps: "0",

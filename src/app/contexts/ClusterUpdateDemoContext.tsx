@@ -104,7 +104,10 @@ export function ClusterUpdateDemoProvider({ children }: { children: ReactNode })
         /* ignore */
       }
       setClusterUpdateDemoResetEpoch((n) => n + 1);
-      navigate("/administration/cluster-update", { replace: true });
+      navigate("/administration/cluster-update/in-progress", {
+        replace: true,
+        state: { version },
+      });
     },
     [navigate],
   );

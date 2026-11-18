@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router";
 import {
   Alert,
   Button,
@@ -107,6 +108,32 @@ export function OlmV1ExtensionUpdateModal({
       <ModalBody id="olm-v1-edit-body">
         {phase === "edit" ? (
           <Stack hasGutter>
+            {operator.clusterVersionGate ? (
+              <StackItem>
+                <Alert
+                  variant="warning"
+                  isInline
+                  title={`Version ${operator.clusterVersionGate.operatorVersion} requires OpenShift ${operator.clusterVersionGate.requiredClusterVersion}`}
+                >
+                  This cluster cannot install that operator version until the platform is updated.{" "}
+                  <Link
+                    to="/administration/cluster-update"
+                    state={{
+                      operatorClusterGates: [
+                        {
+                          name: operator.name,
+                          operatorVersion: operator.clusterVersionGate.operatorVersion,
+                          requiredClusterVersion: operator.clusterVersionGate.requiredClusterVersion,
+                        },
+                      ],
+                    }}
+                    onClick={onClose}
+                  >
+                    Plan cluster update
+                  </Link>
+                </Alert>
+              </StackItem>
+            ) : null}
             <StackItem>
               <Form>
                 <OlmV1ClusterExtensionSpecFields

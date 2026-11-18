@@ -46,6 +46,11 @@ type InstalledOperator = {
   isPlatformAligned?: boolean;
   isUnsupported?: boolean;
   updateAvailable?: string;
+  /** Later operator version that cannot install until the cluster reaches this OpenShift version. */
+  clusterVersionGate?: {
+    operatorVersion: string;
+    requiredClusterVersion: string;
+  };
   /** OLMv1 ClusterExtension package name (install / detail). */
   packageName?: string;
   /** OLMv1 semver range on the ClusterExtension spec. */

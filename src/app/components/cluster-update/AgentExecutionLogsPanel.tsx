@@ -256,6 +256,8 @@ export interface AgentExecutionLogsPanelProps {
   onClose: () => void;
   /** When false, panel is not mounted (parent controls visibility). */
   isOpen: boolean;
+  /** modal: full-screen overlay; docked: right rail beside in-progress dashboard (no scrim). */
+  presentation?: "modal" | "docked";
   /** Plan number shown in log header (e.g. matches proposed plan # on Cluster Update). */
   planSerial?: number;
   /**
@@ -285,6 +287,7 @@ export default function AgentExecutionLogsPanel({
   planSerial = 13,
   releaseCompletionLogLines = true,
   dashboardProgress,
+  presentation = "modal",
 }: AgentExecutionLogsPanelProps) {
   const agentLen = AGENT_ANALYSIS_LINES.length;
   const bodyLen = CLUSTER_PROGRESS_BODY_LINES.length;
@@ -542,16 +545,16 @@ export default function AgentExecutionLogsPanel({
 
   if (!isOpen) return null;
 
-  /** Portaled like {@link LightSpeedPanel}: avoids nested glass/opacity under `#root`. */
-  const panel = (
-    <div
-      className="fixed inset-0 z-[1100] flex items-stretch justify-end"
-      role="dialog"
-      aria-label="AI agent logs"
-    >
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
-      {/** min-h-0: flex item must shrink below content min-height so inner flex-1 + overflow-y-auto creates a scroll region */}
-      <div className="ocs-update-details-panel relative flex h-full max-h-dvh min-h-0 w-[min(640px,92vw)] min-w-0 flex-col self-stretch overflow-hidden">
+  const isDocked = presentation === "docked";
+
+  const panelBody = (
+      <div
+        className={`ocs-update-details-panel relative flex min-h-0 flex-col overflow-hidden ${
+          isDocked
+            ? "ocs-update-details-panel--docked h-full w-[min(640px,42vw)] min-w-[320px] max-w-[640px] shrink-0"
+            : "h-full max-h-dvh w-[min(640px,92vw)] min-w-0 self-stretch"
+        }`}
+      >
         <div className="ocs-update-details-panel__chrome flex shrink-0 items-start justify-between gap-[var(--pf-t--global--spacer--md)] border-b border-[var(--pf-t--global--border--color--default)] px-[var(--pf-t--global--spacer--lg)] py-[var(--pf-t--global--spacer--md)]">
           <div>
             <Title headingLevel="h2" size="lg" className="ocs-update-details-panel__title">
@@ -616,8 +619,27 @@ export default function AgentExecutionLogsPanel({
           </div>
         </div>
       </div>
+  );
+
+  if (isDocked) {
+    return (
+      <aside className="ocs-update-details-panel-dock" aria-label="AI agent logs">
+        {panelBody}
+      </aside>
+    );
+  }
+
+  /** Portaled like {@link LightSpeedPanel}: avoids nested glass/opacity under `#root`. */
+  const overlay = (
+    <div
+      className="fixed inset-0 z-[1100] flex items-stretch justify-end"
+      role="dialog"
+      aria-label="AI agent logs"
+    >
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} aria-hidden />
+      {panelBody}
     </div>
   );
 
-  return createPortal(panel, document.body);
+  return createPortal(overlay, document.body);
 }

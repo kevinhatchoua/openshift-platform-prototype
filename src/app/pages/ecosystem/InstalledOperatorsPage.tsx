@@ -105,6 +105,7 @@ import { OlmV1ExtensionUpdateModal } from "../../components/ecosystem/OlmV1Exten
 import { getMigrationSummaryReason, InstalledOperatorMigrationStatusCell } from "../../components/ecosystem/olmMigrationEligibility";
 import { useOlmOperatingMode, OLM_MODE_LABELS } from "../../contexts/OlmOperatingModeContext";
 import { NEXT_GEN_CATALOG_PATH } from "../../components/ecosystem/olmCatalogRoutes";
+import { gatesFromOperators } from "../../lib/operatorClusterUpdateHandoff";
 import {
   ADDITIONAL_CATALOG_OPERATORS,
   CLUSTER_EXTENSION_PROTOTYPE_OPERATORS,
@@ -406,6 +407,10 @@ type InstalledOperator = {
   /** Community / non-entitled installs — not covered by Red Hat support for this row. */
   isUnsupported?: boolean;
   updateAvailable?: string;
+  clusterVersionGate?: {
+    operatorVersion: string;
+    requiredClusterVersion: string;
+  };
   maxOcpVersion?: string;
   lastUpdated?: string;
   managedNamespaces?: string[];
@@ -889,6 +894,7 @@ const INITIAL_CATALOG_OPERATORS: CatalogOperator[] = [
     autoUpdate: false,
     clusterCompatibility: "Compatible",
     updateAvailable: "3.1.0",
+    clusterVersionGate: { operatorVersion: "4.0.0", requiredClusterVersion: "5.1.10" },
     maxOcpVersion: "5.2",
     lastUpdated: "Mar 10, 2026, 11:05 AM",
     managedNamespaces: ["bap"],
@@ -1905,9 +1911,14 @@ export default function InstalledOperatorsPage() {
   }, [selectedEligibleForMigration]);
 
   const openBulkUpdate = useCallback(() => {
+    const gates = gatesFromOperators(selectedWithUpdates);
+    if (gates.length > 0) {
+      navigate("/administration/cluster-update", { state: { operatorClusterGates: gates } });
+      return;
+    }
     const first = selectedWithUpdates[0];
     if (first) navigateToUpdate(first);
-  }, [selectedWithUpdates]);
+  }, [navigate, selectedWithUpdates]);
 
   const bulkUpdateEnabled = selectedWithUpdates.length > 0;
   const bulkMigrateEnabled = isClassic && selectedEligibleForMigration.length > 0;

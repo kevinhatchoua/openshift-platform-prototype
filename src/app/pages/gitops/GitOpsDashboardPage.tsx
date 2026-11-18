@@ -314,8 +314,8 @@ export default function GitOpsDashboardPage() {
       return;
     }
     const metricName = metric === "sync" ? "sync" : "reconcile";
-    const namespace = instance === GITOPS_ALL_INSTANCES ? "" : instance.split("/")[0];
-    const selector = namespace ? `{namespace="${namespace}"}` : "";
+    const instanceName = instance === GITOPS_ALL_INSTANCES ? "" : instance.split("/").slice(1).join("/");
+    const selector = instanceName ? `{name="${instanceName}"}` : "";
     navigate(`/observe/metrics?query=${encodeURIComponent(`argocd_app_${metricName}_total${selector}`)}`);
   };
 

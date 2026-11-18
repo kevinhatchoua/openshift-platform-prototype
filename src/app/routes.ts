@@ -57,7 +57,8 @@ import AlertsPage from "./pages/AlertsPage";
 import ActivityDetailsPage from "./pages/ActivityDetailsPage";
 import ClusterInventoryPage from "./pages/ClusterInventoryPage";
 import ClusterSettingsPage from "./pages/administration/ClusterSettingsPage";
-import ClusterUpdatePage from "./pages/administration/ClusterUpdatePage";
+import ClusterUpdatePlanPage from "./pages/administration/ClusterUpdatePlanPage";
+import ClusterUpdateInProgressPage from "./pages/administration/ClusterUpdateInProgressPage";
 import AgenticRunsPage from "./pages/administration/AgenticRunsPage";
 import AgenticRunDetailPage from "./pages/administration/AgenticRunDetailPage";
 
@@ -250,12 +251,9 @@ export const router = createBrowserRouter([
           { path: "user-management/:name", Component: createPrototypeResourceDetailPage("users") },
           { path: "agentic-runs", Component: AgenticRunsPage },
           { path: "agentic-runs/:runId", Component: AgenticRunDetailPage },
-          { path: "administration/cluster-update", Component: ClusterUpdatePage },
+          { path: "administration/cluster-update", Component: ClusterUpdatePlanPage },
           { path: "administration/cluster-update/version/:version", Component: VersionDetailPage },
-          {
-            path: "administration/cluster-update/in-progress",
-            loader: () => redirect("/administration/cluster-update"),
-          },
+          { path: "administration/cluster-update/in-progress", Component: ClusterUpdateInProgressPage },
           { path: "administration/cluster-update/operators", Component: OperatorsLifecyclePage },
           { path: "administration/cluster-update/history", Component: ClusterUpdateHistoryPage },
           { path: "administration/cluster-update/complete", Component: UpdateCompletePage },

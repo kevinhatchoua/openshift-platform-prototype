@@ -115,8 +115,8 @@ import { AiAssessmentSection } from "../../components/AiAssessmentSection";
 import { OlsChatbot } from "../../components/OlsChatbot";
 import { AiGeneratedPlanMarker, AI_GENERATED_PLAN_HEADING } from "../../components/lightspeed/LightspeedLegalCopy";
 import { useClusterUpdateDemoVariant } from "../../contexts/ClusterUpdateDemoContext";
-import { UpdatesPlanAnalysisCard } from "../../components/cluster-update/UpdatesPlanAnalysisCard";
 import { CLUSTER_CURRENT_VERSION } from "../../constants/clusterVersionDemo";
+import type { OperatorClusterVersionGate } from "../../lib/operatorClusterUpdateHandoff";
 
 /** Disclosure (displaySize lg) — strip secondary panel chrome inside glass surfaces; see cluster-update-layout.css */
 function clusterExpandablePlainClass(isGlass: boolean): string | undefined {
@@ -379,6 +379,9 @@ export default function ClusterUpdatePlanPage() {
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({ "5.1": true });
   
   const { demoVariant, clusterUpdateDemoResetEpoch } = useClusterUpdateDemoVariant();
+  const operatorClusterGates = (
+    location.state as { operatorClusterGates?: OperatorClusterVersionGate[] } | null
+  )?.operatorClusterGates;
   const [updateMode, setUpdateMode] = useState<"manual" | "agent">(
     () => (demoVariant === "agent-only" ? "agent" : "manual")
   );
@@ -426,6 +429,11 @@ export default function ClusterUpdatePlanPage() {
       window.history.replaceState({}, document.title);
     }
   }, [location.state]);
+
+  useEffect(() => {
+    const gateVersion = operatorClusterGates?.[0]?.requiredClusterVersion;
+    if (gateVersion) setSelectedVersion(gateVersion);
+  }, [operatorClusterGates]);
 
   useEffect(() => {
     const tab = (location.state as { tab?: TabKey } | null)?.tab;
@@ -505,9 +513,9 @@ export default function ClusterUpdatePlanPage() {
           <FavoriteButton name="Cluster Update" path="/administration/cluster-update" />
         </Flex>
         <p>
-          Review available versions, assess operator compatibility, and plan your update to newer OpenShift
-          releases. Use <strong>Updates plan</strong> to prepare or start an update and{" "}
-          <strong>Active update plans</strong> for in-flight work.
+          Review available versions, assess operator compatibility, and plan how this cluster moves to newer OpenShift
+          releases. Use <strong>Update plan</strong> to prepare or start an update, <strong>Active update plans</strong>{" "}
+          for in-flight work, and <strong>Update history</strong> for completed runs.
         </p>
       </Content>
 
@@ -521,13 +529,23 @@ export default function ClusterUpdatePlanPage() {
           }
         }}
       >
-        <Tab eventKey="update-plan" title={<TabTitleText>Updates plan</TabTitleText>}>
+        <Tab eventKey="update-plan" title={<TabTitleText>Update plan</TabTitleText>}>
           <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }}>
-          <UpdatesPlanAnalysisCard
-            onUpdate={(version) => {
-              navigate("/administration/cluster-update/in-progress", { state: { version } });
-            }}
-          />
+          {operatorClusterGates && operatorClusterGates.length > 0 ? (
+            <Alert variant="info" isInline title="Operator updates waiting on this cluster version">
+              <Content component="p">
+                These Installed Operator updates cannot proceed on the current cluster. Plan an update to{" "}
+                <strong>{operatorClusterGates[0]?.requiredClusterVersion}</strong>, then return to Installed Operators.
+              </Content>
+              <List>
+                {operatorClusterGates.map((gate) => (
+                  <ListItem key={gate.name}>
+                    <strong>{gate.name}</strong> {gate.operatorVersion} requires OpenShift {gate.requiredClusterVersion}
+                  </ListItem>
+                ))}
+              </List>
+            </Alert>
+          ) : null}
           {/* Update Method — hidden in agent-only demo variant */}
           {demoVariant === "manual-and-agent" && (
             <Card

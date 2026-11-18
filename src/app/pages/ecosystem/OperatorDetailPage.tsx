@@ -1,4 +1,4 @@
-import { useParams } from "react-router";
+import { Navigate, useLocation, useParams } from "react-router";
 import GitOpsOperatorDetailView from "../gitops/GitOpsOperatorDetailView";
 import OlmV1ExtensionDetailView from "./OlmV1ExtensionDetailView";
 import { getPrototypeInstalledOperator, isOlmV1ExtensionOperatorName } from "./installedOperatorsLookup";
@@ -23,8 +23,24 @@ export const ABOT_DEMO_CATALOG_OPERATOR: CatalogOperator = {
 
 export default function OperatorDetailPage() {
   const { operatorId, operatorName } = useParams();
+  const { pathname } = useLocation();
   const decodedOperatorName = decodeURIComponent(operatorName ?? operatorId ?? "");
   const catalogOperator = getPrototypeInstalledOperator(decodedOperatorName);
+  const installedName = catalogOperator?.name ?? (isOlmV1ExtensionOperatorName(decodedOperatorName) ? decodedOperatorName : ABOT_DEMO_CATALOG_OPERATOR.name);
+
+  if (pathname.startsWith("/ecosystem/software-catalog/")) {
+    const suffix = pathname.endsWith("/yaml")
+      ? "/yaml"
+      : pathname.endsWith("/subscription")
+        ? "/subscription"
+        : "";
+    return (
+      <Navigate
+        to={`/ecosystem/installed-operators/${encodeURIComponent(installedName)}${suffix}`}
+        replace
+      />
+    );
+  }
 
   if (catalogOperator && !catalogOperator.isOlmV1Extension) {
     return <InstalledCatalogOperatorDetailPage operator={catalogOperator} />;

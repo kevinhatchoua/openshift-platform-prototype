@@ -491,3 +491,30 @@ html:not(.no-glass) .pf-v6-c-expandable-section.ocp-cluster-expandable--plain.pf
   border-block-start: 1px solid var(--pf-t--global--border--color--default);
 }
 
+/** In-progress update: main column + docked agent logs (synced with table progress). */
+.ocs-cluster-update-in-progress-shell {
+  display: flex;
+  align-items: stretch;
+  min-height: min(100%, 100dvh);
+  gap: 0;
+}
+
+.ocs-cluster-update-in-progress-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.ocs-update-details-panel-dock {
+  flex: 0 0 auto;
+  align-self: stretch;
+  border-inline-start: 1px solid var(--pf-t--global--border--color--default);
+  min-height: 0;
+}
+
+.ocs-update-details-panel--docked {
+  border-radius: 0;
+  box-shadow: none;
+  border: none;
+  max-height: none;
+}
+
