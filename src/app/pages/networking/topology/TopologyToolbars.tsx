@@ -41,15 +41,12 @@ type UnifiedToolbarProps = {
   filterCounts?: Partial<Record<TopologyResourceFilter, number>>;
   displayLabels: boolean;
   onDisplayLabelsChange: (value: boolean) => void;
-  hideManagementPorts?: boolean;
-  onHideManagementPortsChange?: (value: boolean) => void;
-  pipesOnly?: boolean;
-  onPipesOnlyChange?: (value: boolean) => void;
   topologyScale?: "compact" | "scale";
   onTopologyScaleChange?: (scale: "compact" | "scale") => void;
   layoutId: TopologyLayoutId;
   onLayoutIdChange: (layout: TopologyLayoutId) => void;
   onResetLayout?: () => void;
+  onSaveLayout?: () => void;
   viewMode: NodeNetworkViewMode;
   onViewModeChange?: (mode: NodeNetworkViewMode) => void;
   onShowShortcuts: () => void;
@@ -83,15 +80,12 @@ export function TopologyUnifiedToolbar({
   filterCounts,
   displayLabels,
   onDisplayLabelsChange,
-  hideManagementPorts = false,
-  onHideManagementPortsChange,
-  pipesOnly = false,
-  onPipesOnlyChange,
   topologyScale,
   onTopologyScaleChange,
   layoutId,
   onLayoutIdChange,
   onResetLayout,
+  onSaveLayout,
   viewMode,
   onViewModeChange,
   onShowShortcuts,
@@ -243,6 +237,24 @@ export function TopologyUnifiedToolbar({
 
   const viewActionGroup = (
       <ToolbarGroup className="ocs-pf-topo-toolbar-group ocs-pf-topo-view-toolbar__view-actions">
+        {onSaveLayout ? (
+          <ToolbarItem>
+            <Tooltip content="Save the current layout and display options">
+              <Button variant="secondary" onClick={onSaveLayout}>
+                Save view
+              </Button>
+            </Tooltip>
+          </ToolbarItem>
+        ) : null}
+        {onResetLayout && onSaveLayout ? (
+          <ToolbarItem>
+            <Tooltip content="Reset the topology layout to the default positions for this layout">
+              <Button variant="secondary" onClick={() => onResetLayout()}>
+                Reset view
+              </Button>
+            </Tooltip>
+          </ToolbarItem>
+        ) : null}
         <ToolbarItem>
           <Tooltip content="Configure layout, labels, and display settings">
             <span>
@@ -270,24 +282,6 @@ export function TopologyUnifiedToolbar({
                     isChecked={displayLabels}
                     onChange={(_e, checked) => onDisplayLabelsChange(checked)}
                   />
-                  {onHideManagementPortsChange ? (
-                    <Switch
-                      id="topo-display-hide-mgmt-ports"
-                      label="Hide management ports"
-                      description="Hide OVN management ports and Geneve tunnels"
-                      isChecked={hideManagementPorts}
-                      onChange={(_e, checked) => onHideManagementPortsChange(checked)}
-                    />
-                  ) : null}
-                  {onPipesOnlyChange ? (
-                    <Switch
-                      id="topo-display-pipes-only"
-                      label="Hide workloads"
-                      description="Show network infrastructure only — hide Pods and VMs"
-                      isChecked={pipesOnly}
-                      onChange={(_e, checked) => onPipesOnlyChange(checked)}
-                    />
-                  ) : null}
                   {onTopologyScaleChange ? (
                     <Switch
                       id="topo-display-compact-scale"
@@ -324,7 +318,7 @@ export function TopologyUnifiedToolbar({
                       />
                     ))}
                   </div>
-                  {onResetLayout ? (
+                  {onResetLayout && !onSaveLayout ? (
                     <>
                       <Divider />
                       <Button

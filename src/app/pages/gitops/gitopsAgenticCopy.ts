@@ -10,9 +10,18 @@ export const GITOPS_VIEW_AGENTIC_RUN_LABEL = "View AI Recommendation";
 export const GITOPS_VIEW_AGENTIC_RUN_TOOLTIP =
   "Opens the agentic run for this application: progress, diagnosis, evidence, and proposed remediation. Follow-up questions use OpenShift Lightspeed chat.";
 
-/** Shown on Application detail problem alerts (warning), not a separate info banner. */
+/** Application detail info banner (GITOPS-11005 / tech preview). */
+export const GITOPS_AI_REMEDIATION_BANNER_TITLE = "AI-assisted recommendation available";
+
+export const GITOPS_AI_REMEDIATION_BANNER_BODY =
+  "OpenShift Lightspeed analyzed this Application and published a remediation recommendation. Use View AI Recommendation to review diagnosis, evidence, and proposed next steps.";
+
+export const GITOPS_AI_REMEDIATION_BANNER_DISCLAIMER =
+  "This feature uses AI technology. Always review AI-generated recommendations before applying changes.";
+
+/** Warning alert on detail stays problem-focused; AI entry is the info banner above. */
 export const GITOPS_AGENTIC_RUN_ALERT_ACTION_HINT =
-  "Review evidence and proposed remediation on the agentic run details page. This does not open OpenShift Lightspeed chat.";
+  "Use the AI-assisted recommendation banner above to review diagnosis and remediation options.";
 
 /** Dashboard needs-attention table intro. */
 export const GITOPS_AGENTIC_RUN_DASHBOARD_ATTENTION_HINT =

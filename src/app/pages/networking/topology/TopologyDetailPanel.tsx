@@ -72,6 +72,7 @@ import { LightspeedAiAccuracyInline } from "../../../components/lightspeed/Light
 import { resolveOvnNetworkPath } from "./topologyOvnPath";
 import NmStateCapabilityInlineAlert from "../NmStateCapabilityInlineAlert";
 import { useNmStateDependencyBlocked } from "../useNmStateDependencyBlocked";
+import { usePrototypeDemo } from "../../../contexts/PrototypeDemoContext";
 import {
   findMtuMismatchesForInterface,
   findMtuMismatchesForNetwork,
@@ -701,6 +702,7 @@ export default function TopologyDetailPanel({
 }: TopologyDetailPanelProps) {
   const navigate = useNavigate();
   const nmstateBlocked = useNmStateDependencyBlocked();
+  const { networkingRelease } = usePrototypeDemo();
   const { openTopologyLightspeed } = useTopologyLightspeed();
   const [actionsOpen, setActionsOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<InspectorTab>("details");
@@ -1045,10 +1047,13 @@ export default function TopologyDetailPanel({
                   reviewContext: yamlReviewContext,
                 })
               }
-              onAssessDeleteImpact={() =>
-                openTopologyLightspeed(
-                  topologyLightspeedContext("delete-impact", data.resource.label, data.kind)
-                )
+              onAssessDeleteImpact={
+                networkingRelease === "5.2"
+                  ? () =>
+                      openTopologyLightspeed(
+                        topologyLightspeedContext("delete-impact", data.resource.label, data.kind)
+                      )
+                  : undefined
               }
               onNotice={onNotice}
               onDeleted={onClose}
@@ -1356,7 +1361,11 @@ export default function TopologyDetailPanel({
                   reviewContext: networkYamlReviewContext,
                 })
               }
-              onAssessDeleteImpact={() => openTopologyLightspeed(deleteImpactContext)}
+              onAssessDeleteImpact={
+                networkingRelease === "5.2"
+                  ? () => openTopologyLightspeed(deleteImpactContext)
+                  : undefined
+              }
               onNotice={onNotice}
               onDeleted={onClose}
               isOpen={actionsOpen}

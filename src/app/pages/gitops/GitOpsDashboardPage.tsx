@@ -48,7 +48,8 @@ import {
 } from "./gitopsData";
 import { GitOpsEditDeleteMenu, HealthStatus, ResourceName, ViewAgenticRunButton } from "./gitopsShared";
 import { applicationHasAgenticRemediation } from "./gitopsAgenticContract";
-import { openGitOpsAgenticRunForApplication } from "./openGitOpsAgenticRun";
+import { useChat } from "../../contexts/ChatContext";
+import { openGitOpsAiRecommendation } from "./openGitOpsAiRecommendation";
 import {
   GITOPS_AGENTIC_RUN_DASHBOARD_ATTENTION_HINT,
   GITOPS_VIEW_AGENTIC_RUN_LABEL,
@@ -208,7 +209,8 @@ const RECONCILE_SERIES = [
 
 export default function GitOpsDashboardPage() {
   const navigate = useNavigate();
-  const { permission } = usePrototypeDemo();
+  const { permission, gitopsAiHandoff } = usePrototypeDemo();
+  const { clearMessages, setContext, setIsOpen } = useChat();
   const { project } = useConsoleProject();
   const { instance } = useGitOpsInstance();
   const [metricsDenied, setMetricsDenied] = useState<string | null>(null);
@@ -219,7 +221,12 @@ export default function GitOpsDashboardPage() {
   const launchAppInvestigate = (ns: string, name: string) => {
     const app = findApplication(ns, name);
     if (!app || !applicationHasAgenticRemediation(app)) return;
-    openGitOpsAgenticRunForApplication(app, (path) => navigate(path));
+    openGitOpsAiRecommendation(app, gitopsAiHandoff, {
+      navigate,
+      clearMessages,
+      setContext,
+      setIsOpen,
+    });
   };
   const appKeys = new Set(apps.map((a) => `${a.ns}/${a.name}`));
   const operations = recentOperationsForInstance(instance).filter((op) =>

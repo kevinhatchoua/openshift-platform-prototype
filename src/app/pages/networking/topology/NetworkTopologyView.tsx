@@ -32,6 +32,7 @@ import "@patternfly/react-topology/dist/esm/css/topology-controlbar.css";
 import "@patternfly/react-topology/dist/esm/css/topology-side-bar.css";
 import "@patternfly/react-topology/dist/esm/css/topology-components.css";
 import { useToast } from "../../../contexts/ToastContext";
+import { usePrototypeDemo } from "../../../contexts/PrototypeDemoContext";
 import {
   NNC_PROFILE_OPTIONS,
   WORKER_NODE_GROUPS,
@@ -75,6 +76,13 @@ import { useNetworkTopologyModel } from "./useNetworkTopologyModel";
 import { type TopologyPerspective, type TopologyResourceFilter, computeFilterCounts } from "./topologyPerspective";
 import { DEFAULT_TOPOLOGY_LAYOUT, type TopologyLayoutId } from "./topologyLayouts";
 import { createEmptyQueryState, type TopologyQueryState } from "./topologyQueryFilter";
+import {
+  applyGraphLayout,
+  captureGraphLayout,
+  readSavedTopologyView,
+  writeSavedTopologyView,
+  type SavedTopologyView,
+} from "./topologySavedView";
 import { clearGraphEdgeBendpoints } from "./topologyGroupLayout";
 import { focusTopologySelection } from "./topologyFocus";
 import TopologyMinimap from "./TopologyMinimap";
@@ -212,6 +220,7 @@ export default function NetworkTopologyView({
   onTopologyScaleChange,
 }: NetworkTopologyPanelProps) {
   const navigate = useNavigate();
+  const { networkingRelease } = usePrototypeDemo();
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -220,9 +229,7 @@ export default function NetworkTopologyView({
   const [showLegend, setShowLegend] = useState(false);
   const [layoutId, setLayoutId] = useState<TopologyLayoutId>(DEFAULT_TOPOLOGY_LAYOUT);
   const [displayLabels, setDisplayLabels] = useState(true);
-  const [hideManagementPorts, setHideManagementPorts] = useState(false);
   const [perspective, setPerspective] = useState<TopologyPerspective>("node");
-  const [pipesOnly, setPipesOnly] = useState(false);
   const [queryState, setQueryState] = useState<TopologyQueryState>(createEmptyQueryState);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
   const [pathTraceActive, setPathTraceActive] = useState(false);
@@ -274,8 +281,6 @@ export default function NetworkTopologyView({
     layoutName,
     perspective,
     dataScale: topologyScale,
-    hideManagementPorts,
-    pipesOnly,
     queryState,
   });
 
@@ -283,6 +288,12 @@ export default function NetworkTopologyView({
   const fitAfterLayoutRef = useRef(true);
   const layoutScopeRef = useRef("");
   const prevModelStructureKeyRef = useRef("");
+  const pendingRestoreRef = useRef<SavedTopologyView | null>(null);
+  const [restoreToken, setRestoreToken] = useState(0);
+  const onViewModeChangeRef = useRef(onViewModeChange);
+  const onTopologyScaleChangeRef = useRef(onTopologyScaleChange);
+  onViewModeChangeRef.current = onViewModeChange;
+  onTopologyScaleChangeRef.current = onTopologyScaleChange;
 
   const modelStructureKey = useMemo(() => {
     const nodeKey =
@@ -338,7 +349,14 @@ export default function NetworkTopologyView({
     const structureChanged = prevModelStructureKeyRef.current !== modelStructureKey;
 
     controller.fromModel(model, true);
-    if (!structureChanged && !shouldFit) {
+    const pending = pendingRestoreRef.current;
+    const restoreReady = Boolean(
+      pending &&
+        pending.topologyScale === topologyScale &&
+        pending.layoutId === layoutName &&
+        pending.perspective === perspective
+    );
+    if (!structureChanged && !shouldFit && !restoreReady) {
       return;
     }
 
@@ -355,10 +373,13 @@ export default function NetworkTopologyView({
         fitAfterLayoutRef.current = false;
         graph.setLayout(undefined);
         graph.setLayout(type);
-        fitAfterLayoutRef.current = shouldFit;
+        fitAfterLayoutRef.current = restoreReady ? false : shouldFit;
         graph.layout();
         clearGraphEdgeBendpoints(graph);
-        if (shouldFit) {
+        if (restoreReady && pending) {
+          applyGraphLayout(graph, pending);
+          pendingRestoreRef.current = null;
+        } else if (shouldFit) {
           try {
             graph.fit(120);
           } catch {
@@ -372,7 +393,32 @@ export default function NetworkTopologyView({
     } catch {
       /* graph may not be ready yet */
     }
-  }, [controller, model, modelStructureKey, layoutName, perspective]);
+  }, [controller, model, modelStructureKey, layoutName, perspective, restoreToken, topologyScale]);
+
+  useEffect(() => {
+    const saved = networkingRelease === "5.2" ? readSavedTopologyView() : null;
+    if (saved) {
+      pendingRestoreRef.current = saved;
+      setPerspective(saved.perspective);
+      setLayoutId(saved.layoutId);
+      setDisplayLabels(saved.displayLabels);
+      setFilterKind(saved.filterKind);
+      setQueryState(saved.queryState);
+      onViewModeChangeRef.current?.(saved.viewMode);
+      onTopologyScaleChangeRef.current?.(saved.topologyScale);
+      setRestoreToken((token) => token + 1);
+      return;
+    }
+    pendingRestoreRef.current = null;
+    if (networkingRelease !== "5.1") return;
+    setPerspective("node");
+    setLayoutId(DEFAULT_TOPOLOGY_LAYOUT);
+    setDisplayLabels(true);
+    setFilterKind("all");
+    setQueryState(createEmptyQueryState());
+    onViewModeChangeRef.current?.("topology");
+    onTopologyScaleChangeRef.current?.("compact");
+  }, [networkingRelease]);
 
   useEffect(() => {
     const state = controller.getState() as { selectedIds?: string[] };
@@ -676,6 +722,7 @@ export default function NetworkTopologyView({
       onTracePathFromElementId: handleTracePathFromElementId,
       onNavigate: (path) => navigate(path),
       onConfigureSelection: handleConfigureResource,
+      allowCreate: networkingRelease === "5.2",
     });
   }, [
     onResourceLifecycleAction,
@@ -692,6 +739,7 @@ export default function NetworkTopologyView({
     handleTracePathFromElementId,
     navigate,
     handleConfigureResource,
+    networkingRelease,
   ]);
 
   const controlButtons = useMemo(
@@ -741,9 +789,44 @@ export default function NetworkTopologyView({
     [controller, layoutName]
   );
 
-  const isCreateEnabled = Boolean(
-    nncWizard || onNadCreated || onUdnCreated || onCudnCreated || onNncpCreated
-  );
+  const isCreateEnabled =
+    networkingRelease === "5.2" &&
+    Boolean(nncWizard || onNadCreated || onUdnCreated || onCudnCreated || onNncpCreated);
+
+  const saveLayout = useCallback(() => {
+    let graphLayout: Pick<SavedTopologyView, "positions" | "graphScale" | "graphPan"> = {
+      positions: {},
+      graphScale: 1,
+      graphPan: { x: 0, y: 0 },
+    };
+    try {
+      graphLayout = captureGraphLayout(controller.getGraph());
+    } catch {
+      /* Display options still save when the graph is not ready. */
+    }
+    writeSavedTopologyView({
+      version: 1,
+      perspective,
+      layoutId,
+      displayLabels,
+      filterKind,
+      queryState,
+      viewMode,
+      topologyScale,
+      ...graphLayout,
+    });
+    pushToast({ title: "Saved layout and display options.", variant: "success" });
+  }, [
+    controller,
+    perspective,
+    layoutId,
+    displayLabels,
+    filterKind,
+    queryState,
+    viewMode,
+    topologyScale,
+    pushToast,
+  ]);
 
   const showNncSwitcher =
     provisionGeneration > 0 && Boolean(physicalNetworkName) && Boolean(onPhysicalNetworkChange);
@@ -760,8 +843,6 @@ export default function NetworkTopologyView({
         );
       }
     },
-    pipesOnly,
-    onPipesOnlyChange: setPipesOnly,
     queryState,
     onQueryStateChange: setQueryState,
     searchTerm,
@@ -774,8 +855,6 @@ export default function NetworkTopologyView({
     onShowShortcuts: () => setShortcutsOpen(true),
     displayLabels,
     onDisplayLabelsChange: setDisplayLabels,
-    hideManagementPorts,
-    onHideManagementPortsChange: setHideManagementPorts,
     ...(onTopologyScaleChange
       ? {
           topologyScale,
@@ -788,13 +867,14 @@ export default function NetworkTopologyView({
       setLayoutId(nextLayout);
     },
     onResetLayout: viewMode === "topology" ? resetLayout : undefined,
+    onSaveLayout: networkingRelease === "5.2" ? saveLayout : undefined,
     isCreateEnabled,
     onCreateSelect: setActiveCreateResource,
     showNncSwitcher,
     physicalNetworkName,
     nncProfiles,
     onPhysicalNetworkChange,
-    showCreateActions: !hideToolbarCreateActions,
+    showCreateActions: networkingRelease === "5.2" && !hideToolbarCreateActions,
   } as const;
 
   const filterToolbar = <TopologyUnifiedToolbar {...toolbarProps} />;
@@ -826,7 +906,7 @@ export default function NetworkTopologyView({
     <div
       className={`ocs-pf-topo-canvas-wrap${displayLabels ? "" : " ocs-pf-topo-canvas-wrap--hide-labels"}${
         pathTraceActive ? " ocs-pf-topo-canvas-wrap--path-trace" : ""
-      }${pipesOnly ? " ocs-pf-topo-canvas-wrap--pipes-only" : ""}`}
+      }`}
     >
       <div className="ocs-pf-topo-canvas-body">
         <div className="ocs-pf-topo-canvas-main">
@@ -858,7 +938,7 @@ export default function NetworkTopologyView({
           </Label>
         </div>
       ) : null}
-      {filterKind === "unhealthy" ? (
+      {networkingRelease === "5.2" && filterKind === "unhealthy" ? (
         <div className="ocs-pf-topo-lightspeed-banner">
           <TopologyLightSpeedAction
             contextKey={topologyLightspeedContext("unhealthy-overview")}

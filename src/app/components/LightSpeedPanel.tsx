@@ -37,7 +37,12 @@ import {
   getClusterExtensionTroubleshootResponse,
   getUpdateStatusResponse,
 } from "./LightSpeedPanelResponses";
+import { getAgenticUpdateRun } from "../constants/agenticUpdateRuns";
 import { getStoredUpdatePlan } from "../lib/updatePlansStore";
+
+function resolveAgenticRun(runId: string) {
+  return getStoredUpdatePlan(runId) ?? getAgenticUpdateRun(runId);
+}
 import { getTopologyLightspeedResponse } from "../pages/networking/topology/topologyLightspeedResponses";
 import {
   LightspeedHeaderNotice,
@@ -168,17 +173,17 @@ export default function LightSpeedPanel({ isOpen, onClose, dockTop = null }: Lig
       }
     } else if (chatContext.startsWith("ols-gitops-sync-troubleshoot:")) {
       const runId = chatContext.split(":")[1];
-      const run = runId ? getStoredUpdatePlan(runId) : undefined;
+      const run = runId ? resolveAgenticRun(runId) : undefined;
       if (run) {
         report = getGitOpsSyncTroubleshootResponse(
           run.extensionName ?? "unknown",
-          run.namespace,
+          run.extensionNamespace ?? run.namespace,
           run.attentionSummary ?? "",
         );
       }
     } else if (chatContext.startsWith("ols-gitops-rollout-diagnose:")) {
       const runId = chatContext.split(":")[1];
-      const run = runId ? getStoredUpdatePlan(runId) : undefined;
+      const run = runId ? resolveAgenticRun(runId) : undefined;
       if (run) {
         report = getGitOpsRolloutDiagnoseResponse(
           run.extensionName ?? "unknown",

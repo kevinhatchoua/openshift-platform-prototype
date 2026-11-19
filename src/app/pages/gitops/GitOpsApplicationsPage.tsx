@@ -33,7 +33,9 @@ import { applicationsForInstance, gitopsDetailPath, type ApplicationRecord } fro
 import GitOpsApplicationDetailRich from "./GitOpsApplicationDetailRich";
 import GitOpsPageHeader, { useGitOpsInstance } from "./GitOpsPageHeader";
 import { applicationHasAgenticRemediation } from "./gitopsAgenticContract";
-import { openGitOpsAgenticRunForApplication } from "./openGitOpsAgenticRun";
+import { useChat } from "../../contexts/ChatContext";
+import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
+import { openGitOpsAiRecommendation } from "./openGitOpsAiRecommendation";
 import { GitOpsEditDeleteMenu, HealthStatus, OwnerReferencesCell, ResourceName } from "./gitopsShared";
 
 type ApplicationFilters = {
@@ -86,6 +88,8 @@ export default function GitOpsApplicationsPage() {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { instance } = useGitOpsInstance();
+  const { gitopsAiHandoff } = usePrototypeDemo();
+  const { clearMessages, setContext, setIsOpen } = useChat();
   const attentionMode = searchParams.get("attention") === "1";
   const remediationMode = searchParams.get("remediation") === "1";
   const urlSyncKey = searchParams.getAll("sync").join("\0");
@@ -152,9 +156,14 @@ export default function GitOpsApplicationsPage() {
 
   const openHealthRemediation = useCallback(
     (item: ApplicationRecord) => {
-      openGitOpsAgenticRunForApplication(item, (path) => navigate(path));
+      openGitOpsAiRecommendation(item, gitopsAiHandoff, {
+        navigate,
+        clearMessages,
+        setContext,
+        setIsOpen,
+      });
     },
-    [navigate],
+    [navigate, gitopsAiHandoff, clearMessages, setContext, setIsOpen],
   );
 
   return (

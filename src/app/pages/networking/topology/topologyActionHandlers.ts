@@ -17,6 +17,8 @@ export type TopologyActionHandlers = {
   onTracePathFromElementId?: (elementId: string) => void;
   onNavigate?: (path: string) => void;
   onConfigureSelection?: (selection: TopologyDetailSelection) => void;
+  /** 5.2 path create. Hidden on the 5.1 comparison view. */
+  allowCreate?: boolean;
 };
 
 let handlers: TopologyActionHandlers = {};

@@ -4678,11 +4678,16 @@ html.dark .ocs-net-topo-panel__canvas {
   flex-shrink: 0;
 }
 
-.ocs-prototype-banner-scenario-menu__label {
-  font-size: 13px;
-  font-weight: 600;
+.ocs-back-to-prototypes-banner .ocs-prototype-banner-version-toggle .pf-v6-c-toggle-group__button {
   color: #151515;
-  white-space: nowrap;
+  background-color: #fff;
+  border-color: #6a6e73;
+}
+
+.ocs-back-to-prototypes-banner .ocs-prototype-banner-version-toggle .pf-v6-c-toggle-group__button.pf-m-selected {
+  color: #fff;
+  background-color: #06c;
+  border-color: #06c;
 }
 
 .dark .ocs-back-to-prototypes-banner {

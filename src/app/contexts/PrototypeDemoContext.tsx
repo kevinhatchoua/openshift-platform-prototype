@@ -12,6 +12,9 @@ export type DemoPermission = "edit" | "view" | "no-access";
 export type GitOpsDesignOption = "option-a" | "option-b";
 export type GitOpsScenario = "paused" | "healthy" | "scaling-down";
 
+/** GITOPS-11005 handoff: agentic run details (default) vs OLS chat first (field-doc / screenshot mock). */
+export type GitOpsAiHandoff = "agentic-run" | "lightspeed";
+
 /** Installed Operators OLMv0→v1 migration demo (OCPSTRAT-2692 prototype). */
 export type OlmMigrationScenario =
   | "interactive"
@@ -23,14 +26,19 @@ export type OlmMigrationScenario =
 
 export type { NetworkingNmstateScenario };
 
+/** Networking prototype comparison. 5.2 is the current design; 5.1 hides those additions. */
+export type NetworkingRelease = "5.1" | "5.2";
+
 const LS_KEY = "ocs-demo-switcher";
 
 type Stored = {
   permission?: DemoPermission;
   gitopsOption?: GitOpsDesignOption;
   gitopsScenario?: GitOpsScenario;
+  gitopsAiHandoff?: GitOpsAiHandoff;
   olmMigrationScenario?: OlmMigrationScenario;
   networkingNmstateScenario?: NetworkingNmstateScenario;
+  networkingRelease?: NetworkingRelease;
 };
 
 function readStored(): Stored {
@@ -53,13 +61,17 @@ type PrototypeDemoContextValue = {
   permission: DemoPermission;
   gitopsOption: GitOpsDesignOption;
   gitopsScenario: GitOpsScenario;
+  gitopsAiHandoff: GitOpsAiHandoff;
   olmMigrationScenario: OlmMigrationScenario;
   networkingNmstateScenario: NetworkingNmstateScenario;
+  networkingRelease: NetworkingRelease;
   setPermission: (v: DemoPermission) => void;
   setGitopsOption: (v: GitOpsDesignOption) => void;
   setGitopsScenario: (v: GitOpsScenario) => void;
+  setGitopsAiHandoff: (v: GitOpsAiHandoff) => void;
   setOlmMigrationScenario: (v: OlmMigrationScenario) => void;
   setNetworkingNmstateScenario: (v: NetworkingNmstateScenario) => void;
+  setNetworkingRelease: (v: NetworkingRelease) => void;
 };
 
 const PrototypeDemoContext = createContext<PrototypeDemoContextValue | null>(null);
@@ -69,11 +81,17 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
   const [permission, setPermissionState] = useState<DemoPermission>(initial.permission ?? "edit");
   const [gitopsOption, setGitopsOptionState] = useState<GitOpsDesignOption>(initial.gitopsOption ?? "option-a");
   const [gitopsScenario, setGitopsScenarioState] = useState<GitOpsScenario>(initial.gitopsScenario ?? "paused");
+  const [gitopsAiHandoff, setGitopsAiHandoffState] = useState<GitOpsAiHandoff>(
+    initial.gitopsAiHandoff ?? "agentic-run",
+  );
   const [olmMigrationScenario, setOlmMigrationScenarioState] = useState<OlmMigrationScenario>(
     initial.olmMigrationScenario ?? "interactive",
   );
   const [networkingNmstateScenario, setNetworkingNmstateScenarioState] = useState<NetworkingNmstateScenario>(
     initial.networkingNmstateScenario ?? "installed",
+  );
+  const [networkingRelease, setNetworkingReleaseState] = useState<NetworkingRelease>(
+    initial.networkingRelease ?? "5.2",
   );
 
   const persist = useCallback((patch: Stored) => {
@@ -113,6 +131,17 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  const setGitopsAiHandoff = useCallback(
+    (v: GitOpsAiHandoff) => {
+      setGitopsAiHandoffState(v);
+      persist({ gitopsAiHandoff: v });
+      document.dispatchEvent(
+        new CustomEvent("demo-switcher-change", { detail: { area: "gitops", aiHandoff: v } })
+      );
+    },
+    [persist],
+  );
+
   const setOlmMigrationScenario = useCallback(
     (v: OlmMigrationScenario) => {
       setOlmMigrationScenarioState(v);
@@ -120,6 +149,19 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
       document.dispatchEvent(
         new CustomEvent("demo-switcher-change", {
           detail: { area: "installed-operators", olmMigrationScenario: v },
+        })
+      );
+    },
+    [persist]
+  );
+
+  const setNetworkingRelease = useCallback(
+    (v: NetworkingRelease) => {
+      setNetworkingReleaseState(v);
+      persist({ networkingRelease: v });
+      document.dispatchEvent(
+        new CustomEvent("demo-switcher-change", {
+          detail: { area: "networking", networkingRelease: v },
         })
       );
     },
@@ -144,25 +186,33 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
       permission,
       gitopsOption,
       gitopsScenario,
+      gitopsAiHandoff,
       olmMigrationScenario,
       networkingNmstateScenario,
+      networkingRelease,
       setPermission,
       setGitopsOption,
       setGitopsScenario,
+      setGitopsAiHandoff,
       setOlmMigrationScenario,
       setNetworkingNmstateScenario,
+      setNetworkingRelease,
     }),
     [
       permission,
       gitopsOption,
       gitopsScenario,
+      gitopsAiHandoff,
       olmMigrationScenario,
       networkingNmstateScenario,
+      networkingRelease,
       setPermission,
       setGitopsOption,
       setGitopsScenario,
+      setGitopsAiHandoff,
       setOlmMigrationScenario,
       setNetworkingNmstateScenario,
+      setNetworkingRelease,
     ]
   );
 

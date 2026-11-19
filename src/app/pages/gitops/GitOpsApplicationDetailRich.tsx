@@ -36,15 +36,17 @@ import {
   HealthStatus,
   OwnerReferencesCell,
   ResourceName,
-  ViewAgenticRunButton,
   gitopsConsoleDetailCrumbs,
 } from "./gitopsShared";
 import { useToast } from "../../contexts/ToastContext";
 import GitOpsYamlUnifiedDiff from "./GitOpsYamlUnifiedDiff";
 import { useGitOpsInstance } from "./GitOpsInstancePicker";
 import { applicationHasAgenticRemediation, formatAgenticAnnotations } from "./gitopsAgenticContract";
-import { GITOPS_AGENTIC_RUN_ALERT_ACTION_HINT } from "./gitopsAgenticCopy";
-import { openGitOpsAgenticRunForApplication } from "./openGitOpsAgenticRun";
+import { useChat } from "../../contexts/ChatContext";
+import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
+import { applicationNeedsAiTroubleshoot } from "../../lib/gitopsAiWorkflow";
+import { GitOpsAiRemediationBanner } from "./GitOpsAiRemediationBanner";
+import { openGitOpsAiRecommendation } from "./openGitOpsAiRecommendation";
 
 function liveYaml(rec: ApplicationRecord) {
   const image =
@@ -117,13 +119,21 @@ export default function GitOpsApplicationDetailRich() {
   const rec = findApplication(ns, appName);
   const [activeTab, setActiveTab] = useState("details");
   const { pushToast } = useToast();
+  const { clearMessages, setContext, setIsOpen } = useChat();
+  const { gitopsAiHandoff } = usePrototypeDemo();
   const troubleshootAlert = rec ? applicationTroubleshootAlert(rec) : null;
   const { instance } = useGitOpsInstance();
   const instanceScoped = rec ? rec.instanceKey === instance || instance === GITOPS_ALL_INSTANCES : true;
   const showAgenticRunLink = rec ? applicationHasAgenticRemediation(rec) : false;
+  const showAiBanner = Boolean(rec && showAgenticRunLink && applicationNeedsAiTroubleshoot(rec));
   const openAgenticRun = () => {
     if (!rec) return;
-    openGitOpsAgenticRunForApplication(rec, (path) => navigate(path));
+    openGitOpsAiRecommendation(rec, gitopsAiHandoff, {
+      navigate,
+      clearMessages,
+      setContext,
+      setIsOpen,
+    });
   };
   const agenticAnnotationLines = rec ? formatAgenticAnnotations(rec) : [];
 
@@ -145,21 +155,11 @@ export default function GitOpsApplicationDetailRich() {
             agenticOnSelect={showAgenticRunLink ? openAgenticRun : undefined}
           />
 
+          {showAiBanner ? <GitOpsAiRemediationBanner onViewRecommendation={openAgenticRun} /> : null}
+
           {troubleshootAlert ? (
-            <Alert
-              variant="warning"
-              isInline
-              title={troubleshootAlert.title}
-              actionLinks={
-                showAgenticRunLink ? <ViewAgenticRunButton onClick={() => openAgenticRun()} /> : undefined
-              }
-            >
+            <Alert variant="warning" isInline title={troubleshootAlert.title}>
               {troubleshootAlert.detail}
-              {showAgenticRunLink ? (
-                <Content component="p" className="pf-v6-u-mt-sm">
-                  {GITOPS_AGENTIC_RUN_ALERT_ACTION_HINT}
-                </Content>
-              ) : null}
               {troubleshootAlert.agentHint ? (
                 <Content component="p" className="pf-v6-u-mt-sm">
                   {troubleshootAlert.agentHint}

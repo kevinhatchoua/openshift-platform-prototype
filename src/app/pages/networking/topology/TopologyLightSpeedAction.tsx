@@ -4,6 +4,7 @@ import RhUiAiCreateIcon from "@patternfly/react-icons/dist/esm/icons/rh-ui-ai-cr
 import RhUiAiInfoIcon from "@patternfly/react-icons/dist/esm/icons/rh-ui-ai-info-icon";
 import RhUiAiTroubleshootIcon from "@patternfly/react-icons/dist/esm/icons/rh-ui-ai-troubleshoot-icon";
 import { useTopologyLightspeed } from "./useTopologyLightspeed";
+import { usePrototypeDemo } from "../../../contexts/PrototypeDemoContext";
 
 type TopologyLightSpeedActionProps = {
   contextKey: string;
@@ -32,7 +33,10 @@ export function TopologyLightSpeedAction({
   isInline = false,
 }: TopologyLightSpeedActionProps) {
   const { openTopologyLightspeed } = useTopologyLightspeed();
+  const { networkingRelease } = usePrototypeDemo();
   const Icon = INTENT_ICON[intent];
+
+  if (networkingRelease !== "5.2") return null;
 
   return (
     <Button

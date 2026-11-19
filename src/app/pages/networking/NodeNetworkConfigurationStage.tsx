@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { Content } from "@patternfly/react-core";
 import { useToast } from "../../contexts/ToastContext";
+import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
 import NetworkTopologyPanel from "./NetworkTopologyPanel";
 import { OpenWorkerNodeModal } from "./OpenWorkerNodeModal";
 import {
@@ -32,6 +33,7 @@ export default function NodeNetworkConfigurationStage({
   wrapInPageShell = false,
 }: NodeNetworkConfigurationStageProps) {
   const navigate = useNavigate();
+  const { networkingRelease } = usePrototypeDemo();
   const nmstateBlocked = useNmStateDependencyBlocked();
   const { viewMode, setViewMode } = useNodeNetworkViewMode();
   const {
@@ -223,12 +225,14 @@ export default function NodeNetworkConfigurationStage({
           path="/networking/topology"
           className="ocs-net-topo-page"
           createButton={
-            <NetworkResourceCreateDropdown
-              onSelect={(resource) => {
-                setActiveCreateResource(resource);
-                openFormWizard();
-              }}
-            />
+            networkingRelease === "5.2" ? (
+              <NetworkResourceCreateDropdown
+                onSelect={(resource) => {
+                  setActiveCreateResource(resource);
+                  openFormWizard();
+                }}
+              />
+            ) : undefined
           }
           extraHeader={
             <Content component="p" className="ocs-net-topo-page-desc">

@@ -180,6 +180,8 @@ export function buildNodeContextMenu(element: GraphElement): React.ReactElement[
 
   return [
     item("Add worker node", () => handlers.onOpenWorkerModal?.()),
-    item("Create network resource", () => handlers.onOpenCreate?.()),
+    ...(handlers.allowCreate
+      ? [item("Create network resource", () => handlers.onOpenCreate?.())]
+      : []),
   ];
 }
