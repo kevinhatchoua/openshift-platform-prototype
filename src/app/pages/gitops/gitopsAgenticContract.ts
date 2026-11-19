@@ -9,6 +9,8 @@ export const GITOPS_AGENTIC_ANNOTATION_RUN_NAMESPACE = "agentic.openshift.redhat
 
 export const GITOPS_SEED_RUN_PAYMENTS_API = "gitops-sync-payments-api-seed";
 export const GITOPS_SEED_RUN_LEGACY_BATCH = "gitops-sync-legacy-batch-seed";
+export const GITOPS_SEED_RUN_TENANT_CONFIG = "gitops-sync-tenant-config-seed";
+export const GITOPS_SEED_RUN_AUTH_SERVICE = "gitops-sync-auth-service-seed";
 
 export type ApplicationAgenticRef = {
   runId: string;

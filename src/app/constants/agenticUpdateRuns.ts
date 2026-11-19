@@ -45,7 +45,49 @@ export type AgenticUpdateRun = {
   versionRange?: string;
   /** Human-readable symptom summary for troubleshoot agentic runs. */
   attentionSummary?: string;
+  /** GitOps plugin diagnosis (HPUX-2261). Absent on cluster-update runs. */
+  gitops?: GitOpsAgenticDiagnosis;
 };
+
+export type GitOpsWorkflowPhase = "queued" | "running" | "succeeded" | "failed";
+
+export type GitOpsRemediationOption = {
+  title: string;
+  risk: "Low" | "Medium" | "High";
+  rollback: string;
+  proposed?: boolean;
+};
+
+export type GitOpsAgenticDiagnosis = {
+  phase: GitOpsWorkflowPhase;
+  applicationName: string;
+  applicationNamespace: string;
+  diagnosis?: string;
+  evidence: { label: string; detail: string }[];
+  options: GitOpsRemediationOption[];
+  /** Shown when phase is failed. */
+  recovery?: string;
+};
+
+export function isGitOpsAgenticRun(run: Pick<AgenticUpdateRun, "triggerDomain">): boolean {
+  return (
+    run.triggerDomain === AGENTIC_RUN_TRIGGER_GITOPS_SYNC ||
+    run.triggerDomain === AGENTIC_RUN_TRIGGER_GITOPS_ROLLOUT
+  );
+}
+
+export function gitOpsPhaseLabel(phase: GitOpsWorkflowPhase): string {
+  switch (phase) {
+    case "queued":
+      return "Queued";
+    case "running":
+      return "Running";
+    case "succeeded":
+      return "Succeeded";
+    case "failed":
+      return "Failed";
+  }
+}
 
 export const AGENTIC_UPDATE_RUNS: AgenticUpdateRun[] = [
   {
@@ -109,13 +151,39 @@ export const AGENTIC_UPDATE_RUNS: AgenticUpdateRun[] = [
     extensionNamespace: "argocd",
     attentionSummary: "Application is out of sync — image tag drift on Deployment/payments-api",
     selectedOption: "Update Deployment image to release-1.4.2 and reconcile; verify sync policy",
+    gitops: {
+      phase: "succeeded",
+      applicationName: "payments-api",
+      applicationNamespace: "argocd",
+      diagnosis:
+        "Deployment payments-api is running image tag 1.4.0. Git at revision release-1.4 expects 1.4.2. The Application is OutOfSync and Progressing.",
+      evidence: [
+        { label: "Sync status", detail: "OutOfSync" },
+        { label: "Health", detail: "Progressing" },
+        { label: "Live image tag", detail: "1.4.0" },
+        { label: "Desired revision", detail: "release-1.4" },
+      ],
+      options: [
+        {
+          title: "Set the image tag to 1.4.2 and sync the Application",
+          risk: "Low",
+          rollback: "Sync the previous Git revision if the new tag is unhealthy.",
+          proposed: true,
+        },
+        {
+          title: "Leave the live tag and accept the diff",
+          risk: "Medium",
+          rollback: "No rollback. Drift remains until the next sync.",
+        },
+      ],
+    },
   },
   {
     id: "gitops-sync-legacy-batch-seed",
     targetVersion: "",
     updateType: "Patch",
     phase: "Analysed",
-    status: "Completed",
+    status: "Failed",
     age: "1h ago",
     generatedAt: "Nov 9, 2026, 8:30 AM",
     created: "1h ago",
@@ -131,6 +199,95 @@ export const AGENTIC_UPDATE_RUNS: AgenticUpdateRun[] = [
     extensionNamespace: "openshift-gitops",
     attentionSummary: "Application health is degraded — failing liveness probes on batch worker",
     selectedOption: "Rollback Job revision or fix probe thresholds; re-sync from Git",
+    gitops: {
+      phase: "failed",
+      applicationName: "legacy-batch",
+      applicationNamespace: "openshift-gitops",
+      diagnosis:
+        "Analysis stopped. The Application is Synced, but health is Degraded because the batch worker is failing its liveness probe. Pod status could not be fully correlated.",
+      evidence: [
+        { label: "Sync status", detail: "Synced" },
+        { label: "Health", detail: "Degraded" },
+        { label: "Workload", detail: "batch worker liveness probe failing" },
+      ],
+      options: [
+        {
+          title: "Fix the probe threshold in Git and sync again",
+          risk: "Low",
+          rollback: "Revert the Git commit and sync the previous revision.",
+          proposed: true,
+        },
+        {
+          title: "Roll back the Job revision",
+          risk: "Medium",
+          rollback: "Re-apply the current Git revision after the rollback.",
+        },
+      ],
+      recovery:
+        "Retry starts another analysis. If the probe is still failing, open the Application and change the probe in Git before you sync.",
+    },
+  },
+  {
+    id: "gitops-sync-tenant-config-seed",
+    targetVersion: "",
+    updateType: "Patch",
+    phase: "Analyzing",
+    status: "In progress",
+    age: "2m ago",
+    generatedAt: "",
+    created: "2m ago",
+    sandbox: "ls-analysis-gitops-tenant-config",
+    channel: "",
+    updatePath: "GitOps sync troubleshoot",
+    otherRecommended: "",
+    namespace: AGENTIC_RUN_NAMESPACE,
+    triggerDomain: AGENTIC_RUN_TRIGGER_GITOPS_SYNC,
+    tokensConsumed: "-",
+    recommendation: null,
+    extensionName: "tenant-config",
+    extensionNamespace: "team-b-gitops",
+    attentionSummary: "Application is out of sync. Analysis has not started.",
+    selectedOption: "",
+    gitops: {
+      phase: "queued",
+      applicationName: "tenant-config",
+      applicationNamespace: "team-b-gitops",
+      evidence: [],
+      options: [],
+    },
+  },
+  {
+    id: "gitops-sync-auth-service-seed",
+    targetVersion: "",
+    updateType: "Patch",
+    phase: "Analyzing",
+    status: "In progress",
+    age: "4m ago",
+    generatedAt: "",
+    created: "4m ago",
+    sandbox: "ls-analysis-gitops-auth-service",
+    channel: "",
+    updatePath: "GitOps sync troubleshoot",
+    otherRecommended: "",
+    namespace: AGENTIC_RUN_NAMESPACE,
+    triggerDomain: AGENTIC_RUN_TRIGGER_GITOPS_SYNC,
+    tokensConsumed: "-",
+    recommendation: null,
+    extensionName: "auth-service",
+    extensionNamespace: "payments",
+    attentionSummary: "Application is out of sync and aborting. Analysis is running.",
+    selectedOption: "",
+    gitops: {
+      phase: "running",
+      applicationName: "auth-service",
+      applicationNamespace: "payments",
+      diagnosis: "Comparing live and desired resources. Remediation options are not ready yet.",
+      evidence: [
+        { label: "Sync status", detail: "OutOfSync" },
+        { label: "Health", detail: "Aborting" },
+      ],
+      options: [],
+    },
   },
 ];
 
@@ -249,17 +406,23 @@ export function agenticRunPath(runId: string): string {
 }
 
 export function getAgenticUpdateRun(runId: string): AgenticUpdateRun | undefined {
+  const seed = AGENTIC_UPDATE_RUNS.find((run) => run.id === runId);
   try {
     const raw = localStorage.getItem("ocs-demo-update-plans");
     if (raw) {
       const parsed = JSON.parse(raw) as AgenticUpdateRun[];
       const stored = parsed.find((run) => run.id === runId);
-      if (stored) return stored;
+      if (stored) {
+        if (seed?.gitops && !stored.gitops) {
+          return { ...stored, gitops: seed.gitops, triggerDomain: seed.triggerDomain };
+        }
+        return stored;
+      }
     }
   } catch {
     /* fall through to seed data */
   }
-  return AGENTIC_UPDATE_RUNS.find((run) => run.id === runId);
+  return seed;
 }
 
 export function analysisRequestPrompt(): string {

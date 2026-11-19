@@ -36,10 +36,13 @@ import {
   clusterExtensionReadinessJson,
   clusterReadinessJson,
   getAgenticUpdateRun,
+  gitOpsPhaseLabel,
+  isGitOpsAgenticRun,
   type AgenticUpdateRun,
 } from "../../constants/agenticUpdateRuns";
 import { CLUSTER_CURRENT_VERSION } from "../../constants/clusterVersionDemo";
 import { downloadUpdatePlanReport } from "../../lib/updatePlansStore";
+import { GitOpsAgenticDiagnosisPanel } from "../gitops/GitOpsAgenticDiagnosisPanel";
 import { GitOpsAgenticRunDetailActions } from "../gitops/GitOpsAgenticRunDetailActions";
 
 function downloadPlan(run: AgenticUpdateRun) {
@@ -216,6 +219,16 @@ export default function AgenticRunDetailPage() {
   }
 
   const detailPath = agenticRunPath(run.id);
+  const gitopsDiagnosis = isGitOpsAgenticRun(run) ? run.gitops : undefined;
+  const statusLabel = gitopsDiagnosis ? gitOpsPhaseLabel(gitopsDiagnosis.phase) : run.status;
+  const statusColor =
+    statusLabel === "Succeeded" || statusLabel === "Completed"
+      ? "green"
+      : statusLabel === "Failed"
+        ? "red"
+        : statusLabel === "Cancelled" || statusLabel === "Queued"
+          ? "grey"
+          : "blue";
 
   return (
     <div className="ocs-app-page-outer flex-1 min-w-0 min-h-0 overflow-y-auto">
@@ -245,19 +258,8 @@ export default function AgenticRunDetailPage() {
                 </Label>
               </Flex>
               <Flex gap={{ default: "gapSm" }} alignItems={{ default: "alignItemsCenter" }} flexWrap={{ default: "wrap" }}>
-                <Label
-                  color={
-                    run.status === "Completed"
-                      ? "green"
-                      : run.status === "Failed"
-                        ? "red"
-                        : run.status === "Cancelled"
-                          ? "grey"
-                          : "blue"
-                  }
-                  isCompact
-                >
-                  {run.status}
+                <Label color={statusColor} isCompact>
+                  {statusLabel}
                 </Label>
                 <Label isCompact>Trigger domain: {run.triggerDomain}</Label>
               </Flex>
@@ -284,14 +286,19 @@ export default function AgenticRunDetailPage() {
             }}
           >
             <Tab eventKey="details" title={<TabTitleText>Details</TabTitleText>}>
-              <AgenticRunDetailsContent
-                run={run}
-                logsOpen={logsOpen}
-                setLogsOpen={setLogsOpen}
-                optionOpen={optionOpen}
-                setOptionOpen={setOptionOpen}
-              />
+              {gitopsDiagnosis ? (
+                <GitOpsAgenticDiagnosisPanel run={run} />
+              ) : (
+                <AgenticRunDetailsContent
+                  run={run}
+                  logsOpen={logsOpen}
+                  setLogsOpen={setLogsOpen}
+                  optionOpen={optionOpen}
+                  setOptionOpen={setOptionOpen}
+                />
+              )}
             </Tab>
+            {gitopsDiagnosis ? null : (
             <Tab eventKey="report" title={<TabTitleText>Report</TabTitleText>}>
               <Flex direction={{ default: "column" }} gap={{ default: "gapMd" }} className="pf-v6-u-pt-lg">
                 <Flex
@@ -317,6 +324,7 @@ export default function AgenticRunDetailPage() {
                 <AssessmentReport />
               </Flex>
             </Tab>
+            )}
           </Tabs>
         </Flex>
       </Breadcrumbs>

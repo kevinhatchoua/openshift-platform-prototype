@@ -2,8 +2,10 @@ import { findPrototypeApplicationSet } from "./prototypeGitopsStore";
 import {
   GITOPS_AGENTIC_ANNOTATION_RUN_ID,
   GITOPS_AGENTIC_ANNOTATION_RUN_NAMESPACE,
+  GITOPS_SEED_RUN_AUTH_SERVICE,
   GITOPS_SEED_RUN_LEGACY_BATCH,
   GITOPS_SEED_RUN_PAYMENTS_API,
+  GITOPS_SEED_RUN_TENANT_CONFIG,
 } from "./gitopsAgenticContract";
 
 export type GitOpsHealth = "Healthy" | "Paused" | "Progressing" | "Degraded" | "Aborting" | "Unknown";
@@ -448,6 +450,10 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
     ownerReferences: [],
     instanceKey: "team-b-gitops/team-b",
     lastReconciled: "18m ago",
+    annotations: {
+      [GITOPS_AGENTIC_ANNOTATION_RUN_ID]: GITOPS_SEED_RUN_TENANT_CONFIG,
+      [GITOPS_AGENTIC_ANNOTATION_RUN_NAMESPACE]: "openshift-lightspeed",
+    },
   },
   {
     name: "feature-flags",
@@ -478,6 +484,10 @@ export const GITOPS_APPLICATIONS: ApplicationRecord[] = [
     ownerReferences: [],
     instanceKey: "payments/payments-gitops",
     lastReconciled: "35m ago",
+    annotations: {
+      [GITOPS_AGENTIC_ANNOTATION_RUN_ID]: GITOPS_SEED_RUN_AUTH_SERVICE,
+      [GITOPS_AGENTIC_ANNOTATION_RUN_NAMESPACE]: "openshift-lightspeed",
+    },
   },
 ];
 
