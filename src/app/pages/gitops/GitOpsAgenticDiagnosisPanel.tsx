@@ -20,8 +20,6 @@ import CheckCircleIcon from "@patternfly/react-icons/dist/esm/icons/check-circle
 import ExclamationCircleIcon from "@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon";
 import ClockIcon from "@patternfly/react-icons/dist/esm/icons/clock-icon";
 import InProgressIcon from "@patternfly/react-icons/dist/esm/icons/in-progress-icon";
-import InfoCircleIcon from "@patternfly/react-icons/dist/esm/icons/info-circle-icon";
-import { LIGHTSPEED_AUTONOMOUS_FEATURES_DISCLAIMER } from "../../components/lightspeed/LightspeedLegalCopy";
 import { useToast } from "../../contexts/ToastContext";
 import {
   gitOpsPhaseLabel,
@@ -62,8 +60,6 @@ export function GitOpsAgenticDiagnosisPanel({ run }: { run: AgenticUpdateRun }) 
 
   return (
     <Flex direction={{ default: "column" }} gap={{ default: "gapLg" }} className="pf-v6-u-pt-lg">
-      <Alert isInline variant="custom" customIcon={<InfoCircleIcon />} title={LIGHTSPEED_AUTONOMOUS_FEATURES_DISCLAIMER} />
-
       <section aria-label="Workflow progress">
         <Title headingLevel="h2" size="lg">
           Progress

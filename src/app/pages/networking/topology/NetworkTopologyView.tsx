@@ -71,6 +71,8 @@ import {
   type NetworkTopologyNodeData,
 } from "./topologyNodeData";
 import { TopologyUnifiedToolbar } from "./TopologyToolbars";
+import { useNmStateDependencyBlocked } from "../useNmStateDependencyBlocked";
+import { topologyWorkerMappingMutationsAllowed } from "./topologyWorkerMappingPolicy";
 import { resolveConfigurePath } from "./topologyConfigureNavigate";
 import { useNetworkTopologyModel } from "./useNetworkTopologyModel";
 import { type TopologyPerspective, type TopologyResourceFilter, computeFilterCounts } from "./topologyPerspective";
@@ -221,6 +223,8 @@ export default function NetworkTopologyView({
 }: NetworkTopologyPanelProps) {
   const navigate = useNavigate();
   const { networkingRelease } = usePrototypeDemo();
+  const nmstateBlocked = useNmStateDependencyBlocked();
+  const workerMappingMutationsAllowed = topologyWorkerMappingMutationsAllowed(nmstateBlocked);
   const [searchParams, setSearchParams] = useSearchParams();
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -715,6 +719,7 @@ export default function NetworkTopologyView({
       },
       onOpenWorkerModal: onOpenWorkerNodeModal,
       onWorkerAssignmentChange,
+      workerMappingMutationsAllowed,
       onAttachStandaloneToGroup,
       onGroupsChange,
       getGroups: () => groups,
@@ -731,6 +736,7 @@ export default function NetworkTopologyView({
     onOpenWorkerNodeModal,
     setActiveCreateResource,
     onWorkerAssignmentChange,
+    workerMappingMutationsAllowed,
     onAttachStandaloneToGroup,
     onGroupsChange,
     groups,
@@ -740,6 +746,7 @@ export default function NetworkTopologyView({
     navigate,
     handleConfigureResource,
     networkingRelease,
+    nmstateBlocked,
   ]);
 
   const controlButtons = useMemo(

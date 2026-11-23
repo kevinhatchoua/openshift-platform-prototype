@@ -11,6 +11,7 @@ import {
   isWorkloadNodeData,
   type NetworkTopologyNodeData,
 } from "./topologyNodeData";
+import { supportsTopologyHostBridgeMapping } from "./topologyWorkerMappingPolicy";
 
 function nodeData(node: Node): NetworkTopologyNodeData | undefined {
   return node.getData() as NetworkTopologyNodeData | undefined;
@@ -52,6 +53,18 @@ export function onTopologyCreateConnector(
 
   // Logical network → bridge on a worker: assign network to that worker.
   if (isLogicalNetworkNodeData(sourceData) && isResourceNodeData(targetData) && targetData.kind === "bridge") {
+    if (
+      !handlers.workerMappingMutationsAllowed ||
+      !supportsTopologyHostBridgeMapping(sourceData.resource)
+    ) {
+      handlers.onNotice?.({
+        variant: "info",
+        title: handlers.workerMappingMutationsAllowed
+          ? "This network type does not use host bridge mapping in topology."
+          : "Worker mapping is read-only in this view. Use the network policy or NAD details to change assignments.",
+      });
+      return;
+    }
     handlers.onWorkerAssignmentChange?.(sourceData.resource.id, targetData.groupId, true);
     handlers.onNotice?.({
       variant: "success",
@@ -62,6 +75,18 @@ export function onTopologyCreateConnector(
 
   // Bridge → logical network (reverse drag).
   if (isResourceNodeData(sourceData) && sourceData.kind === "bridge" && isLogicalNetworkNodeData(targetData)) {
+    if (
+      !handlers.workerMappingMutationsAllowed ||
+      !supportsTopologyHostBridgeMapping(targetData.resource)
+    ) {
+      handlers.onNotice?.({
+        variant: "info",
+        title: handlers.workerMappingMutationsAllowed
+          ? "This network type does not use host bridge mapping in topology."
+          : "Worker mapping is read-only in this view. Use the network policy or NAD details to change assignments.",
+      });
+      return;
+    }
     handlers.onWorkerAssignmentChange?.(targetData.resource.id, sourceData.groupId, true);
     handlers.onNotice?.({
       variant: "success",

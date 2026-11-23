@@ -4551,6 +4551,11 @@ html.dark .ocs-net-topo-panel__canvas {
   justify-content: flex-end;
 }
 
+.ocs-back-to-prototypes-banner__reset {
+  flex-shrink: 0;
+  margin-inline-start: 4px;
+}
+
 .ocs-back-to-prototypes-banner__reset-switch {
   margin-inline-start: 4px;
 }

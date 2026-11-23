@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
 import {
-  Alert,
   Button,
   Content,
   Flex,
@@ -11,7 +10,6 @@ import {
   Tooltip,
 } from "@patternfly/react-core";
 import ClockIcon from "@patternfly/react-icons/dist/esm/icons/clock-icon";
-import InfoCircleIcon from "@patternfly/react-icons/dist/esm/icons/info-circle-icon";
 import QuestionCircleIcon from "@patternfly/react-icons/dist/esm/icons/question-circle-icon";
 import {
   DataView,
@@ -29,7 +27,6 @@ import {
   OcsPrototypeListTable,
   PlainTableHeader,
 } from "../../components/dataView/OcsPrototypeListTable";
-import { LIGHTSPEED_AUTONOMOUS_FEATURES_DISCLAIMER } from "../../components/lightspeed/LightspeedLegalCopy";
 import {
   AGENTIC_RUNS_LIST_PATH,
   agenticRunPath,
@@ -80,8 +77,6 @@ export default function AgenticRunsPage() {
             </Flex>
             <FavoriteButton name="Agentic runs" path={AGENTIC_RUNS_LIST_PATH} />
           </Flex>
-
-          <Alert isInline variant="custom" customIcon={<InfoCircleIcon />} title={LIGHTSPEED_AUTONOMOUS_FEATURES_DISCLAIMER} />
 
           <Flex
             alignItems={{ default: "alignItemsCenter" }}

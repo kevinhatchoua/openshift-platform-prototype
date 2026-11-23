@@ -72,6 +72,11 @@ import { LightspeedAiAccuracyInline } from "../../../components/lightspeed/Light
 import { resolveOvnNetworkPath } from "./topologyOvnPath";
 import NmStateCapabilityInlineAlert from "../NmStateCapabilityInlineAlert";
 import { useNmStateDependencyBlocked } from "../useNmStateDependencyBlocked";
+import {
+  expectedBridgeSummaryForResource,
+  supportsTopologyHostBridgeMapping,
+  topologyWorkerMappingMutationsAllowed,
+} from "./topologyWorkerMappingPolicy";
 import { usePrototypeDemo } from "../../../contexts/PrototypeDemoContext";
 import {
   findMtuMismatchesForInterface,
@@ -702,6 +707,7 @@ export default function TopologyDetailPanel({
 }: TopologyDetailPanelProps) {
   const navigate = useNavigate();
   const nmstateBlocked = useNmStateDependencyBlocked();
+  const workerMappingMutationsAllowed = topologyWorkerMappingMutationsAllowed(nmstateBlocked);
   const { networkingRelease } = usePrototypeDemo();
   const { openTopologyLightspeed } = useTopologyLightspeed();
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -1449,7 +1455,9 @@ export default function TopologyDetailPanel({
                             )}
                           </span>
                         ))
-                      : "None yet — use Resources tab or drag onto a bridge"}
+                      : supportsTopologyHostBridgeMapping(resource)
+                        ? "None reported on workers"
+                        : "See Resources tab for workload attachment"}
                   </DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
@@ -1467,24 +1475,68 @@ export default function TopologyDetailPanel({
           ),
           resources: (
             <div>
-              {isLogical && onWorkerAssignmentChange ? (
+              {isLogical ? (
                 <>
+                  {supportsTopologyHostBridgeMapping(resource) && nmstateBlocked ? (
+                    <NmStateCapabilityInlineAlert
+                      className="ocs-pf-topo-sidepanel__nmstate-alert pf-v6-u-mb-md"
+                      actionLabel="assign workers to host bridges and reconcile node network state"
+                    />
+                  ) : null}
+                  {!supportsTopologyHostBridgeMapping(resource) ? (
+                    <Alert
+                      isInline
+                      variant="info"
+                      title="Worker attachment is informational"
+                      className="ocs-pf-topo-sidepanel__health pf-v6-u-mb-md"
+                    >
+                      Layer 2 and Layer 3 user-defined networks use OVN-managed integration (br-int). This tab lists
+                      workers and workloads for reachability. It does not configure host bridge mappings.
+                    </Alert>
+                  ) : null}
                   <Title headingLevel="h3" size="md">
                     Worker node assignment
                   </Title>
                   <Content component="p" className="ocs-pf-topo-sidepanel__muted">
-                    Map this network onto worker bridges. You can also drag from the network node onto a bridge.
+                    {supportsTopologyHostBridgeMapping(resource)
+                      ? workerMappingMutationsAllowed
+                        ? "Map this network onto worker bridges. You can also drag from the network node onto a bridge."
+                        : "Read-only view of which workers host this network. Edit mappings in the network configuration policy or NAD details."
+                      : "Workers that run workloads attached to this network (read-only)."}
                   </Content>
-                  {workerCatalog.map((worker) => (
-                    <Checkbox
-                      key={worker.id}
-                      id={`assign-${resource.id}-${worker.id}`}
-                      className="ocs-pf-topo-sidepanel__check"
-                      label={`${worker.shortName} (${worker.hostname})`}
-                      isChecked={assigned.includes(worker.id)}
-                      onChange={(_e, checked) => onWorkerAssignmentChange(resource.id, worker.id, checked)}
-                    />
-                  ))}
+                  {supportsTopologyHostBridgeMapping(resource)
+                    ? workerCatalog.map((worker) => (
+                        <Checkbox
+                          key={worker.id}
+                          id={`assign-${resource.id}-${worker.id}`}
+                          className="ocs-pf-topo-sidepanel__check"
+                          label={`${worker.shortName} (${worker.hostname})`}
+                          isChecked={assigned.includes(worker.id)}
+                          isDisabled={!workerMappingMutationsAllowed}
+                          onChange={(_e, checked) =>
+                            workerMappingMutationsAllowed
+                              ? onWorkerAssignmentChange?.(resource.id, worker.id, checked)
+                              : undefined
+                          }
+                        />
+                      ))
+                    : (
+                        <DescriptionList isCompact className="ocs-pf-topo-sidepanel__dl pf-v6-u-mb-md">
+                          {assignedWorkers.length === 0 ? (
+                            <DescriptionListGroup>
+                              <DescriptionListTerm>Assigned workers</DescriptionListTerm>
+                              <DescriptionListDescription>None reported</DescriptionListDescription>
+                            </DescriptionListGroup>
+                          ) : (
+                            assignedWorkers.map((w) => (
+                              <DescriptionListGroup key={w.id}>
+                                <DescriptionListTerm>{w.shortName}</DescriptionListTerm>
+                                <DescriptionListDescription>{w.hostname}</DescriptionListDescription>
+                              </DescriptionListGroup>
+                            ))
+                          )}
+                        </DescriptionList>
+                      )}
                   <Title headingLevel="h3" size="md">
                     Attachment summary
                   </Title>
@@ -1496,8 +1548,10 @@ export default function TopologyDetailPanel({
                       </DescriptionListDescription>
                     </DescriptionListGroup>
                     <DescriptionListGroup>
-                      <DescriptionListTerm>Expected bridge</DescriptionListTerm>
-                      <DescriptionListDescription>br-int / OVN integration bridge</DescriptionListDescription>
+                      <DescriptionListTerm>Bridge / mapping</DescriptionListTerm>
+                      <DescriptionListDescription>
+                        {expectedBridgeSummaryForResource(resource)}
+                      </DescriptionListDescription>
                     </DescriptionListGroup>
                   </DescriptionList>
                 </>
@@ -1869,24 +1923,43 @@ export default function TopologyDetailPanel({
                   ))}
                 </DescriptionList>
               )}
+              {standaloneResources.some(
+                (logical) =>
+                  isLogicalNetworkStandalone(logical) && supportsTopologyHostBridgeMapping(logical)
+              ) && nmstateBlocked ? (
+                <NmStateCapabilityInlineAlert
+                  className="ocs-pf-topo-sidepanel__nmstate-alert pf-v6-u-mb-md"
+                  actionLabel="assign networks to host bridges on workers"
+                />
+              ) : null}
               <Title headingLevel="h3" size="md">
                 Networks on this node
               </Title>
+              <Content component="p" className="ocs-pf-topo-sidepanel__muted pf-v6-u-mb-sm">
+                Host bridge mappings (localnet and related). User-defined networks are listed under their network drawer.
+              </Content>
               <ul className="ocs-pf-topo-sidepanel__list">
-                {standaloneResources.filter(isLogicalNetworkStandalone).map((logical) => {
-                  const isAssigned = (networkNodeAssignments[logical.id] ?? []).includes(group.id);
-                  return (
-                    <li key={logical.id}>
-                      <Checkbox
-                        id={`group-assign-${group.id}-${logical.id}`}
-                        label={logical.label}
-                        isChecked={isAssigned}
-                        isDisabled={!onWorkerAssignmentChange}
-                        onChange={(_e, checked) => onWorkerAssignmentChange?.(logical.id, group.id, checked)}
-                      />
-                    </li>
-                  );
-                })}
+                {standaloneResources
+                  .filter(isLogicalNetworkStandalone)
+                  .filter(supportsTopologyHostBridgeMapping)
+                  .map((logical) => {
+                    const isAssigned = (networkNodeAssignments[logical.id] ?? []).includes(group.id);
+                    return (
+                      <li key={logical.id}>
+                        <Checkbox
+                          id={`group-assign-${group.id}-${logical.id}`}
+                          label={logical.label}
+                          isChecked={isAssigned}
+                          isDisabled={!workerMappingMutationsAllowed}
+                          onChange={(_e, checked) =>
+                            workerMappingMutationsAllowed
+                              ? onWorkerAssignmentChange?.(logical.id, group.id, checked)
+                              : undefined
+                          }
+                        />
+                      </li>
+                    );
+                  })}
               </ul>
             </>
           ),

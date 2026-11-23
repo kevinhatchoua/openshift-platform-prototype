@@ -21,7 +21,6 @@ import InfoCircleIcon from "@patternfly/react-icons/dist/esm/icons/info-circle-i
 import Breadcrumbs from "../../components/Breadcrumbs";
 import FavoriteButton from "../../components/FavoriteButton";
 import { AssessmentReport } from "../../components/cluster-update/AssessmentReport";
-import { LIGHTSPEED_AUTONOMOUS_FEATURES_DISCLAIMER } from "../../components/lightspeed/LightspeedLegalCopy";
 import {
   AGENTIC_RUNS_LIST_PATH,
   AGENTIC_RUN_TRIGGER_CLUSTER_EXTENSION,
@@ -72,7 +71,6 @@ function AgenticRunDetailsContent({
         <Title headingLevel="h2" size="lg">
           Agentic run details
         </Title>
-        <Alert isInline variant="custom" customIcon={<InfoCircleIcon />} title={LIGHTSPEED_AUTONOMOUS_FEATURES_DISCLAIMER} />
       </Flex>
 
       <section className="ocs-pod-details__section" aria-label="Analysis request">

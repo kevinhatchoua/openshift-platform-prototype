@@ -10,6 +10,8 @@ export type TopologyActionHandlers = {
   onOpenCreate?: () => void;
   onOpenWorkerModal?: () => void;
   onWorkerAssignmentChange?: (logicalId: string, workerId: string, assigned: boolean) => void;
+  /** Phase 1 discovery-only vs NMState-blocked host bridge assignment on canvas. */
+  workerMappingMutationsAllowed?: boolean;
   onAttachStandaloneToGroup?: (resourceId: string, groupId: string, connectToResourceId?: string) => void;
   onGroupsChange?: (groups: WorkerNodeGroup[]) => void;
   getGroups?: () => WorkerNodeGroup[];

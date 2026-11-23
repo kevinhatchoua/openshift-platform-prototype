@@ -5,6 +5,7 @@ import GitOpsScenarioMenu from "./gitops/GitOpsScenarioMenu";
 import OlmMigrationScenarioMenu from "./ecosystem/OlmMigrationScenarioMenu";
 import NetworkingScenarioMenu from "./networking/NetworkingScenarioMenu";
 import NetworkingVersionToggle from "./networking/NetworkingVersionToggle";
+import PrototypeResetButton from "./PrototypeResetButton";
 
 const HUB_PROTOTYPES_URL =
   import.meta.env.VITE_HUB_PROTOTYPES_URL?.trim() ||
@@ -52,6 +53,7 @@ export default function BackToPrototypesBanner() {
           <GitOpsAiHandoffMenu />
           <NetworkingVersionToggle />
           <NetworkingScenarioMenu />
+          <PrototypeResetButton />
         </span>
       </div>
     </div>

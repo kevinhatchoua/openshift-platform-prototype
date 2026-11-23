@@ -9,8 +9,8 @@ import {
 } from "react";
 import { useNavigate } from "react-router";
 import type { ClusterUpdateDemoVariant } from "../components/AiAssessmentSection";
-import { clearClusterUpdateStarted, CLUSTER_PATCH_VERSION } from "../constants/clusterVersionDemo";
-import { writePreflightPhase } from "../lib/clusterUpdateWorkflow";
+import { CLUSTER_PATCH_VERSION } from "../constants/clusterVersionDemo";
+import { clearPrototypeDemoPersistence } from "../lib/resetPrototypeDefaults";
 
 export const CLUSTER_UPDATE_DEMO_VARIANT_KEY = "ocp5-cluster-update-demo-variant";
 
@@ -79,16 +79,7 @@ export function ClusterUpdateDemoProvider({ children }: { children: ReactNode })
   }, [setDemoVariant]);
 
   const performClusterUpdateDemoReset = useCallback(() => {
-    try {
-      localStorage.removeItem("clusterUpdateInProgress");
-      sessionStorage.removeItem("ocs-demo-update-target-version");
-      sessionStorage.removeItem("ocs-demo-update-target-channel");
-      sessionStorage.removeItem("ocs-demo-preflight-phase");
-    } catch {
-      /* ignore */
-    }
-    clearClusterUpdateStarted();
-    writePreflightPhase("idle");
+    clearPrototypeDemoPersistence();
     setClusterUpdateDemoResetEpoch((n) => n + 1);
     navigate("/administration/cluster-update", { replace: true });
   }, [navigate]);
