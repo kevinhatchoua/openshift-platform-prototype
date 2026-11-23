@@ -5,7 +5,6 @@ import GitOpsScenarioMenu from "./gitops/GitOpsScenarioMenu";
 import OlmMigrationScenarioMenu from "./ecosystem/OlmMigrationScenarioMenu";
 import NetworkingScenarioMenu from "./networking/NetworkingScenarioMenu";
 import NetworkingVersionToggle from "./networking/NetworkingVersionToggle";
-import OlsVersionToggle from "./lightspeed/OlsVersionToggle";
 import PrototypeResetButton from "./PrototypeResetButton";
 
 const HUB_PROTOTYPES_URL =
@@ -52,7 +51,6 @@ export default function BackToPrototypesBanner() {
           <OlmMigrationScenarioMenu />
           <GitOpsScenarioMenu />
           <GitOpsAiHandoffMenu />
-          <OlsVersionToggle />
           <NetworkingVersionToggle />
           <NetworkingScenarioMenu />
           <PrototypeResetButton />

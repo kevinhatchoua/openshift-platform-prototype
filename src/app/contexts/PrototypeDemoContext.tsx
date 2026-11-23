@@ -96,10 +96,10 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
   const [networkingNmstateScenario, setNetworkingNmstateScenarioState] = useState<NetworkingNmstateScenario>(
     initial.networkingNmstateScenario ?? "installed",
   );
-  const [networkingRelease, setNetworkingReleaseState] = useState<NetworkingRelease>(
-    initial.networkingRelease ?? "5.2",
-  );
-  const [olsRelease, setOlsReleaseState] = useState<OlsRelease>(initial.olsRelease ?? "5.2");
+  const initialRelease: NetworkingRelease =
+    initial.networkingRelease ?? initial.olsRelease ?? "5.2";
+  const [networkingRelease, setNetworkingReleaseState] = useState<NetworkingRelease>(initialRelease);
+  const [olsRelease, setOlsReleaseState] = useState<OlsRelease>(initialRelease);
 
   const persist = useCallback((patch: Stored) => {
     writeStored({ ...readStored(), ...patch });
@@ -165,7 +165,8 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
   const setNetworkingRelease = useCallback(
     (v: NetworkingRelease) => {
       setNetworkingReleaseState(v);
-      persist({ networkingRelease: v });
+      setOlsReleaseState(v);
+      persist({ networkingRelease: v, olsRelease: v });
       document.dispatchEvent(
         new CustomEvent("demo-switcher-change", {
           detail: { area: "networking", networkingRelease: v },
@@ -178,7 +179,8 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
   const setOlsRelease = useCallback(
     (v: OlsRelease) => {
       setOlsReleaseState(v);
-      persist({ olsRelease: v });
+      setNetworkingReleaseState(v);
+      persist({ olsRelease: v, networkingRelease: v });
       document.dispatchEvent(
         new CustomEvent("demo-switcher-change", {
           detail: { area: "lightspeed", olsRelease: v },

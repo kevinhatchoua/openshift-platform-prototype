@@ -1,17 +1,11 @@
-import { useLocation } from "react-router";
 import { ToggleGroup, ToggleGroupItem } from "@patternfly/react-core";
 import { usePrototypeDemo, type NetworkingRelease } from "../../contexts/PrototypeDemoContext";
 
 const RELEASES: NetworkingRelease[] = ["5.1", "5.2"];
 
-/** Banner control for comparing networking 5.1 and 5.2 on networking routes. */
+/** Single prototype Version control: networking 5.1/5.2 and masthead OLS bar behavior. */
 export default function NetworkingVersionToggle() {
-  const { pathname } = useLocation();
   const { networkingRelease, setNetworkingRelease } = usePrototypeDemo();
-
-  if (!pathname.startsWith("/networking")) {
-    return null;
-  }
 
   return (
     <div className="ocs-prototype-banner-scenario-menu">
