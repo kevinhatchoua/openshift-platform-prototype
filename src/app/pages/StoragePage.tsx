@@ -141,7 +141,7 @@ function rowMatchesFilters(row: StorageResource, filters: StorageFilters): boole
   const nsQ = (filters.namespace ?? "").trim().toLowerCase();
   if (nameQ && !row.name.toLowerCase().includes(nameQ)) return false;
   if (nsQ && row.namespace && !row.namespace.toLowerCase().includes(nsQ)) return false;
-  if (filters.type.length > 0 && !filters.type.includes(row.type)) return false;
+  if ((filters.type ?? []).length > 0 && !filters.type.includes(row.type)) return false;
   return true;
 }
 

@@ -6,6 +6,7 @@ import {
   CLUSTER_PATCH_VERSION,
 } from "../constants/clusterVersionDemo";
 import { agenticRunPath, type AgenticUpdateRun } from "../constants/agenticUpdateRuns";
+import { matchPromptWorkflow } from "./lightspeed/lightspeedWorkflows";
 
 export function getUpdateStatusResponse(): {
   content: string;
@@ -304,6 +305,7 @@ export function getAIResponse(userInput: string, currentPath?: string): {
   suggestions?: string[];
   tools?: string[];
   sources?: Array<{ title: string; href: string }>;
+  navigate?: string;
 } {
   const lowerInput = userInput.toLowerCase();
   const path = (currentPath || '').toLowerCase();
@@ -366,6 +368,9 @@ export function getAIResponse(userInput: string, currentPath?: string): {
       suggestions: ["Update status", "Open Cluster Update", "How do I restore aws-creds?"],
     };
   }
+  const promptWorkflow = matchPromptWorkflow(lowerInput);
+  if (promptWorkflow) return promptWorkflow;
+
   // Respond dynamically based on current page + user query
   
   // --- OBSERVE PAGE ---

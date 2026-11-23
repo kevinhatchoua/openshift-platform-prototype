@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { Copy, ThumbsDown, ThumbsUp, Trash2 } from "@/lib/pfIcons";
-import CommentIcon from "@patternfly/react-icons/dist/esm/icons/comment-icon";
 import AngleLeftIcon from "@patternfly/react-icons/dist/esm/icons/angle-left-icon";
 import AngleRightIcon from "@patternfly/react-icons/dist/esm/icons/angle-right-icon";
-import CheckIcon from "@patternfly/react-icons/dist/esm/icons/check-icon";
 import CodeIcon from "@patternfly/react-icons/dist/esm/icons/code-icon";
 import CompressIcon from "@patternfly/react-icons/dist/esm/icons/compress-icon";
 import ExpandIcon from "@patternfly/react-icons/dist/esm/icons/expand-icon";
@@ -13,14 +11,9 @@ import MinusIcon from "@patternfly/react-icons/dist/esm/icons/minus-icon";
 import PaperPlaneIcon from "@patternfly/react-icons/dist/esm/icons/paper-plane-icon";
 import PlusIcon from "@patternfly/react-icons/dist/esm/icons/plus-icon";
 import SquareIcon from "@patternfly/react-icons/dist/esm/icons/outlined-square-icon";
-import WrenchIcon from "@patternfly/react-icons/dist/esm/icons/wrench-icon";
 import {
   Button,
-  Dropdown,
-  DropdownItem,
-  DropdownList,
   Label,
-  MenuToggle,
 } from "@patternfly/react-core";
 import { useChat } from "../contexts/ChatContext";
 import { useNavigate, useLocation } from "react-router";
@@ -52,26 +45,8 @@ import {
   OLS_WELCOME_CAUTION,
 } from "./lightspeed/LightspeedLegalCopy";
 import { OpenShiftLightspeedIcon } from "./lightspeed/OpenShiftLightspeedIcon";
-
-type ChatMode = "ask" | "troubleshooting";
-
-const CHAT_MODES: Record<
-  ChatMode,
-  { label: string; description: string; placeholder: string; icon: typeof CommentIcon }
-> = {
-  ask: {
-    label: "Ask",
-    description: "Expert guidance and clear answers on OpenShift topics",
-    placeholder: "Ask about deployments, best practices, or cluster tasks…",
-    icon: CommentIcon,
-  },
-  troubleshooting: {
-    label: "Troubleshooting",
-    description: "Diagnose issues and get step-by-step remediation",
-    placeholder: "Describe the issue, error, or unexpected behavior…",
-    icon: WrenchIcon,
-  },
-};
+import LightspeedModeMenu from "./lightspeed/LightspeedModeMenu";
+import { LIGHTSPEED_CHAT_MODES } from "./lightspeed/lightspeedModes";
 
 interface LightSpeedPanelProps {
   isOpen: boolean;
@@ -81,26 +56,36 @@ interface LightSpeedPanelProps {
 }
 
 export default function LightSpeedPanel({ isOpen, onClose, dockTop = null }: LightSpeedPanelProps) {
-  const { messages, addMessage, clearMessages, context: chatContext, setContext } = useChat();
+  const {
+    messages,
+    addMessage,
+    clearMessages,
+    context: chatContext,
+    setContext,
+    chatMode,
+    setChatMode,
+    pendingPrompt,
+    clearPendingPrompt,
+  } = useChat();
   const navigate = useNavigate();
   const location = useLocation();
   const messagesScrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+  const sentPromptTickets = useRef(new Set<number>());
+  const addMessageRef = useRef(addMessage);
+  const clearPendingPromptRef = useRef(clearPendingPrompt);
+  addMessageRef.current = addMessage;
+  clearPendingPromptRef.current = clearPendingPrompt;
 
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [isExpanded, setIsExpanded] = useState(false);
   const [sourceIndex, setSourceIndex] = useState(0);
   const [showWelcomeAlert, setShowWelcomeAlert] = useState(true);
-  const [chatMode, setChatMode] = useState<ChatMode>("ask");
-  const [isModeOpen, setIsModeOpen] = useState(false);
-
-  const activeMode = CHAT_MODES[chatMode];
-  const ModeIcon = activeMode.icon;
+  const activeMode = LIGHTSPEED_CHAT_MODES[chatMode];
 
   const handleMinimize = () => {
     setShowWelcomeAlert(false);
-    setIsModeOpen(false);
     onClose();
   };
 
@@ -237,13 +222,12 @@ export default function LightSpeedPanel({ isOpen, onClose, dockTop = null }: Lig
     });
   };
 
-  const handleSendMessage = () => {
-    if (!input.trim() || isTyping) return;
-    addMessage({ type: "user", content: input });
-    const userQuery = input;
-    setInput("");
+  const sendText = (text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed || isTyping) return;
+    addMessage({ type: "user", content: trimmed });
     setIsTyping(true);
-    const response = getAIResponse(userQuery, location.pathname);
+    const response = getAIResponse(trimmed, location.pathname);
     const delay = getTypingDelay(response.content);
     window.setTimeout(() => {
       addMessage({
@@ -256,6 +240,43 @@ export default function LightSpeedPanel({ isOpen, onClose, dockTop = null }: Lig
       setIsTyping(false);
     }, delay);
   };
+
+  const handleSendMessage = () => {
+    if (!input.trim() || isTyping) return;
+    const userQuery = input;
+    setInput("");
+    sendText(userQuery);
+  };
+
+  useEffect(() => {
+    if (!isOpen || !pendingPrompt) return undefined;
+    const { text, ticket } = pendingPrompt;
+    if (sentPromptTickets.current.has(ticket)) return undefined;
+    let cancelled = false;
+    const start = window.setTimeout(() => {
+      if (cancelled || sentPromptTickets.current.has(ticket)) return;
+      sentPromptTickets.current.add(ticket);
+      clearPendingPromptRef.current();
+      addMessageRef.current({ type: "user", content: text });
+      setIsTyping(true);
+      const response = getAIResponse(text, location.pathname);
+      const delay = getTypingDelay(response.content);
+      window.setTimeout(() => {
+        addMessageRef.current({
+          type: "ai",
+          content: response.content,
+          suggestions: response.suggestions,
+          tools: response.tools,
+          sources: response.sources,
+        });
+        setIsTyping(false);
+      }, delay);
+    }, 0);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(start);
+    };
+  }, [isOpen, pendingPrompt, location.pathname]);
 
   const handleSuggestionClick = (suggestion: string) => {
     const lowerSuggestion = suggestion.toLowerCase();
@@ -471,48 +492,7 @@ export default function LightSpeedPanel({ isOpen, onClose, dockTop = null }: Lig
             <div className="ols-composer__start">
               <Button variant="plain" aria-label="Add attachment" icon={<PlusIcon />} />
               <div className="ols-composer__mode">
-                <Dropdown
-                isOpen={isModeOpen}
-                onOpenChange={(open) => setIsModeOpen(open)}
-                onSelect={(_event, value) => {
-                  if (value === "ask" || value === "troubleshooting") {
-                    setChatMode(value);
-                  }
-                  setIsModeOpen(false);
-                }}
-                toggle={(toggleRef) => (
-                  <MenuToggle
-                    ref={toggleRef}
-                    className="ols-ask-toggle"
-                    onClick={() => setIsModeOpen((open) => !open)}
-                    isExpanded={isModeOpen}
-                    aria-label="Chat mode"
-                  >
-                    <ModeIcon />
-                    <span>{activeMode.label}</span>
-                  </MenuToggle>
-                )}
-              >
-                <DropdownList className="ols-ask-menu">
-                  {(Object.keys(CHAT_MODES) as ChatMode[]).map((mode) => {
-                    const option = CHAT_MODES[mode];
-                    const Icon = option.icon;
-                    return (
-                      <DropdownItem
-                        key={mode}
-                        value={mode}
-                        icon={<Icon />}
-                        description={option.description}
-                        isSelected={chatMode === mode}
-                      >
-                        <span style={{ display: "inline-flex", alignItems: "center", gap: "0.5rem" }}>
-                          {option.label}
-                          {chatMode === mode ? <CheckIcon /> : null}
-                        </span>
-                      </DropdownItem>                    );
-                  })}
-                </DropdownList>
-              </Dropdown>
+                <LightspeedModeMenu />
               </div>
             </div>
             {isTyping ? (

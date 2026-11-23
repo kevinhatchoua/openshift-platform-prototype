@@ -1,4 +1,9 @@
-import { createContext, useContext, useState, ReactNode } from 'react';
+import { createContext, useCallback, useContext, useState, ReactNode } from 'react';
+import type { LightspeedChatMode } from '../components/lightspeed/lightspeedModes';
+
+export type LightspeedPendingPrompt = { ticket: number; text: string };
+
+let lightspeedPromptTicket = 0;
 
 export interface ChatMessage {
   id: string;
@@ -25,6 +30,11 @@ interface ChatContextType {
   setContext: (context: string) => void;
   currentPage: string;
   setCurrentPage: (page: string) => void;
+  chatMode: LightspeedChatMode;
+  setChatMode: (mode: LightspeedChatMode) => void;
+  pendingPrompt: LightspeedPendingPrompt | null;
+  submitLightspeedPrompt: (text: string) => void;
+  clearPendingPrompt: () => void;
 }
 
 const ChatContext = createContext<ChatContextType | undefined>(undefined);
@@ -35,6 +45,20 @@ export function ChatProvider({ children }: { children: ReactNode }) {
   const [context, setContext] = useState('');
   const [messageCounter, setMessageCounter] = useState(1);
   const [currentPage, setCurrentPage] = useState('/');
+  const [chatMode, setChatMode] = useState<LightspeedChatMode>('ask');
+  const [pendingPrompt, setPendingPrompt] = useState<LightspeedPendingPrompt | null>(null);
+
+  const submitLightspeedPrompt = useCallback((text: string) => {
+    const trimmed = text.trim();
+    if (!trimmed) return;
+    lightspeedPromptTicket += 1;
+    setPendingPrompt({ ticket: lightspeedPromptTicket, text: trimmed });
+    setIsOpen(true);
+  }, []);
+
+  const clearPendingPrompt = useCallback(() => {
+    setPendingPrompt(null);
+  }, []);
 
   const addMessage = (message: Omit<ChatMessage, 'id' | 'timestamp'>) => {
     const newMessage: ChatMessage = {
@@ -73,6 +97,11 @@ export function ChatProvider({ children }: { children: ReactNode }) {
         setContext,
         currentPage,
         setCurrentPage,
+        chatMode,
+        setChatMode,
+        pendingPrompt,
+        submitLightspeedPrompt,
+        clearPendingPrompt,
       }}
     >
       {children}
@@ -98,6 +127,11 @@ export function useChat() {
         setContext: () => {},
         currentPage: '/',
         setCurrentPage: () => {},
+        chatMode: 'ask',
+        setChatMode: () => {},
+        pendingPrompt: null,
+        submitLightspeedPrompt: () => {},
+        clearPendingPrompt: () => {},
       } as ChatContextType;
     }
     throw new Error('useChat must be used within a ChatProvider');

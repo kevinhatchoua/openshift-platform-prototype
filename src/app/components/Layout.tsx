@@ -45,6 +45,8 @@ import ImpersonateUserModal from "./ImpersonateUserModal";
 import CopyLoginCommandModal from "./CopyLoginCommandModal";
 import BackToPrototypesBanner from "./BackToPrototypesBanner";
 import { MastheadFedoraMark } from "./MastheadFedoraMark";
+import MastheadLightspeedBar from "./lightspeed/MastheadLightspeedBar";
+import MastheadLightspeedToggle from "./lightspeed/MastheadLightspeedToggle";
 import ConsoleNotificationDrawer, { NotificationBell } from "./ConsoleNotificationDrawer";
 import NamespaceBar from "./NamespaceBar";
 import { ConsoleProjectProvider } from "../contexts/ConsoleProjectContext";
@@ -155,10 +157,6 @@ function ExpandableNavRouteGroup({
     </NavExpandable>
   );
 }
-
-/** Red Hat OpenShift Lightspeed floating action button (official icon asset). */
-const LIGHTSPEED_FAB_ICON_SRC =
-  "https://www.redhat.com/rhdc/managed-files/styles/training_page/private/Red%20Hat%20OpenShift%20Lightspeed%20icon.png?itok=PF8IqhT4";
 
 function MastheadBrandLink() {
   return (
@@ -293,7 +291,7 @@ export default function Layout() {
 
   const { impersonatedUser, setImpersonatedUser } = usePermissions();
 
-  const { isOpen: isAIOpen, setIsOpen: setIsAIOpen } = useChat();
+  const { isOpen: isAIOpen } = useChat();
 
   const { favorites } = useFavorites();
 
@@ -345,12 +343,18 @@ export default function Layout() {
       <MastheadContent>
         <Toolbar id="layout-masthead-toolbar-end" ouiaId="layout-masthead-toolbar-end" isFullHeight>
           <ToolbarContent alignItems="center">
+            <ToolbarItem className="ocs-masthead-lightspeed-item" alignSelf="center">
+              <MastheadLightspeedBar />
+            </ToolbarItem>
             <ToolbarGroup
               className="ocs-masthead-toolbar-group"
               gap={{ default: "gapSm" }}
               align={{ default: "alignEnd" }}
               alignItems="center"
             >
+              <ToolbarItem className="ocs-masthead-toolbar-item">
+                <MastheadLightspeedToggle />
+              </ToolbarItem>
               <ToolbarItem className="ocs-masthead-toolbar-item">
                 <MastheadIconButton label="Application launcher" icon={<ThIcon aria-hidden />} />
               </ToolbarItem>
@@ -618,26 +622,6 @@ export default function Layout() {
       />
       <CopyLoginCommandModal isOpen={isCopyLoginOpen} onClose={() => setIsCopyLoginOpen(false)} />
 
-      {!isAIOpen ? (
-      <Button
-        type="button"
-        variant="plain"
-        className="ocs-lightspeed-fab"
-        onClick={() => setIsAIOpen(true)}
-        aria-label="Open OpenShift Lightspeed"
-      >
-        <img
-          src={LIGHTSPEED_FAB_ICON_SRC}
-          alt=""
-          className="ocs-lightspeed-fab__icon"
-          width={56}
-          height={48}
-          loading="lazy"
-          decoding="async"
-          referrerPolicy="no-referrer"
-        />
-      </Button>
-      ) : null}
     </>
     </ConsoleProjectProvider>
   );
