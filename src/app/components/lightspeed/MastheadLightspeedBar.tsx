@@ -1,5 +1,5 @@
-import { useMemo, useState } from "react";
-import { Button, Menu, MenuContent, MenuGroup, MenuItem, MenuList } from "@patternfly/react-core";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Button, Menu, MenuContent, MenuGroup, MenuItem, MenuList, Tooltip } from "@patternfly/react-core";
 import PaperPlaneIcon from "@patternfly/react-icons/dist/esm/icons/paper-plane-icon";
 import { useChat } from "../../contexts/ChatContext";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
@@ -15,11 +15,15 @@ const SUGGEST_LIST_ID = "ocs-masthead-lightspeed-suggestions";
 
 /** Masthead OpenShift Lightspeed prompt. 5.1 includes Chat / Troubleshooting; 5.2 is prompt only. */
 export default function MastheadLightspeedBar() {
-  const { olsRelease } = usePrototypeDemo();
+  const { olsRelease, olsBar } = usePrototypeDemo();
   const { chatMode, submitLightspeedPrompt } = useChat();
   const [value, setValue] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
   const [suggestionsDismissed, setSuggestionsDismissed] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const iconMode = olsBar === "icon";
   const showMode = olsRelease === "5.1";
   const placeholder = showMode ? LIGHTSPEED_CHAT_MODES[chatMode].barPlaceholder : LIGHTSPEED_BAR_PLACEHOLDER;
   const suggestions = useMemo(
@@ -27,6 +31,29 @@ export default function MastheadLightspeedBar() {
     [chatMode, value],
   );
   const suggestionsOpen = !suggestionsDismissed && suggestions.length > 0;
+
+  useEffect(() => {
+    if (!iconMode) setExpanded(false);
+  }, [iconMode]);
+
+  useEffect(() => {
+    if (iconMode && expanded) inputRef.current?.focus();
+  }, [iconMode, expanded]);
+
+  useEffect(() => {
+    if (!iconMode || !expanded) return undefined;
+    const onPointerDown = (event: PointerEvent) => {
+      const target = event.target;
+      if (!(target instanceof Node)) return;
+      if (formRef.current?.contains(target)) return;
+      if (target instanceof Element && target.closest(".pf-v6-c-menu, .pf-v6-c-menu-toggle")) return;
+      setExpanded(false);
+      setSuggestionsDismissed(true);
+      setActiveIndex(-1);
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, [iconMode, expanded]);
 
   const submitText = (text: string) => {
     const trimmed = text.trim();
@@ -45,8 +72,25 @@ export default function MastheadLightspeedBar() {
     submitText(value);
   };
 
+  if (iconMode && !expanded) {
+    return (
+      <Tooltip content="Ask OpenShift Lightspeed">
+        <Button
+          type="button"
+          variant="plain"
+          className="ocs-masthead-lightspeed-expand"
+          aria-label="Ask OpenShift Lightspeed"
+          aria-expanded={false}
+          icon={<OpenShiftLightspeedIcon size={24} />}
+          onClick={() => setExpanded(true)}
+        />
+      </Tooltip>
+    );
+  }
+
   return (
     <form
+      ref={formRef}
       className="ocs-masthead-lightspeed"
       aria-label="OpenShift Lightspeed"
       onSubmit={(event) => {
@@ -54,9 +98,22 @@ export default function MastheadLightspeedBar() {
         submit();
       }}
     >
-      <OpenShiftLightspeedIcon size={20} title="OpenShift Lightspeed" />
+      {iconMode ? (
+        <Button
+          type="button"
+          variant="plain"
+          className="ocs-masthead-lightspeed__icon"
+          aria-label="Hide OpenShift Lightspeed prompt"
+          aria-expanded
+          icon={<OpenShiftLightspeedIcon size={20} title="OpenShift Lightspeed" />}
+          onClick={() => setExpanded(false)}
+        />
+      ) : (
+        <OpenShiftLightspeedIcon size={20} title="OpenShift Lightspeed" />
+      )}
       {showMode ? <LightspeedModeMenu compact onOpen={() => setSuggestionsDismissed(true)} /> : null}
       <input
+        ref={inputRef}
         className="ocs-masthead-lightspeed__input"
         value={value}
         placeholder={placeholder}
@@ -83,8 +140,12 @@ export default function MastheadLightspeedBar() {
             setSuggestionsDismissed(false);
             setActiveIndex((index) => (index <= 0 ? suggestions.length - 1 : index - 1));
           } else if (event.key === "Escape") {
-            setSuggestionsDismissed(true);
-            setActiveIndex(-1);
+            if (suggestionsOpen) {
+              setSuggestionsDismissed(true);
+              setActiveIndex(-1);
+            } else if (iconMode) {
+              setExpanded(false);
+            }
           }
         }}
         onBlur={() => {

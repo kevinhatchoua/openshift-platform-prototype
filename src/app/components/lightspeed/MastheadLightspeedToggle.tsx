@@ -2,7 +2,7 @@ import { Button, Tooltip } from "@patternfly/react-core";
 import { useChat } from "../../contexts/ChatContext";
 import { OpenShiftLightspeedIcon } from "./OpenShiftLightspeedIcon";
 
-/** Opens the full Lightspeed conversation. Distinct job from the masthead prompt bar. */
+/** Legacy panel toggle. Masthead uses {@link MastheadLightspeedBar} only (icon expands prompt; submit opens panel). */
 export default function MastheadLightspeedToggle() {
   const { isOpen, setIsOpen } = useChat();
   const label = isOpen ? "Close OpenShift Lightspeed" : "Open OpenShift Lightspeed";

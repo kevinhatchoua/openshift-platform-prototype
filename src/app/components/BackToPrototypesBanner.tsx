@@ -4,6 +4,7 @@ import GitOpsAiHandoffMenu from "./gitops/GitOpsAiHandoffMenu";
 import GitOpsScenarioMenu from "./gitops/GitOpsScenarioMenu";
 import OlmMigrationScenarioMenu from "./ecosystem/OlmMigrationScenarioMenu";
 import NetworkingScenarioMenu from "./networking/NetworkingScenarioMenu";
+import OlsBarScenarioToggle from "./lightspeed/OlsBarScenarioToggle";
 import NetworkingVersionToggle from "./networking/NetworkingVersionToggle";
 import PrototypeResetButton from "./PrototypeResetButton";
 
@@ -51,6 +52,7 @@ export default function BackToPrototypesBanner() {
           <OlmMigrationScenarioMenu />
           <GitOpsScenarioMenu />
           <GitOpsAiHandoffMenu />
+          <OlsBarScenarioToggle />
           <NetworkingVersionToggle />
           <NetworkingScenarioMenu />
           <PrototypeResetButton />

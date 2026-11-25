@@ -44,9 +44,9 @@ import RhMicronsCaretDownIcon from "@patternfly/react-icons/dist/esm/icons/rh-mi
 import ImpersonateUserModal from "./ImpersonateUserModal";
 import CopyLoginCommandModal from "./CopyLoginCommandModal";
 import BackToPrototypesBanner from "./BackToPrototypesBanner";
+import { NetworkingTechPreviewLabel } from "../pages/networking/NetworkingTechPreview";
 import { MastheadFedoraMark } from "./MastheadFedoraMark";
 import MastheadLightspeedBar from "./lightspeed/MastheadLightspeedBar";
-import MastheadLightspeedToggle from "./lightspeed/MastheadLightspeedToggle";
 import ConsoleNotificationDrawer, { NotificationBell } from "./ConsoleNotificationDrawer";
 import NamespaceBar from "./NamespaceBar";
 import { ConsoleProjectProvider } from "../contexts/ConsoleProjectContext";
@@ -123,7 +123,9 @@ function ExpandableNavRouteGroup({
   pathname: string;
   subItems: SubNavEntry[];
 }) {
-  const flatPaths = subItems.filter((x): x is { path: string; label: string } => x !== "separator");
+  const flatPaths = subItems.filter(
+    (x): x is { path: string; label: string; techPreview?: boolean } => x !== "separator",
+  );
   const groupHasActiveChild = subRoutesActive(pathname, flatPaths);
   const currentSubPath = activeSubPath(pathname, flatPaths);
   const [expanded, setExpanded] = useState(groupHasActiveChild);
@@ -149,8 +151,10 @@ function ExpandableNavRouteGroup({
             isActive={currentSubPath === entry.path}
             to={entry.path}
             component={NavItemLink}
+            className={entry.techPreview ? "ocs-nav-item--tech-preview" : undefined}
           >
-            {entry.label}
+            <span className="ocs-nav-item__label">{entry.label}</span>
+            {entry.techPreview ? <NetworkingTechPreviewLabel /> : null}
           </NavItem>
         )
       )}
@@ -352,9 +356,6 @@ export default function Layout() {
               align={{ default: "alignEnd" }}
               alignItems="center"
             >
-              <ToolbarItem className="ocs-masthead-toolbar-item">
-                <MastheadLightspeedToggle />
-              </ToolbarItem>
               <ToolbarItem className="ocs-masthead-toolbar-item">
                 <MastheadIconButton label="Application launcher" icon={<ThIcon aria-hidden />} />
               </ToolbarItem>

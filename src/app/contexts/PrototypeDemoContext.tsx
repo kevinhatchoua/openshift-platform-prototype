@@ -32,6 +32,9 @@ export type NetworkingRelease = "5.1" | "5.2";
 /** Masthead Lightspeed bar. 5.1 includes Chat / Troubleshooting; 5.2 is prompt only. */
 export type OlsRelease = "5.1" | "5.2";
 
+/** Masthead Lightspeed prompt. Always visible, or collapsed to the icon until clicked. */
+export type OlsBarMode = "always" | "icon";
+
 const LS_KEY = "ocs-demo-switcher";
 
 type Stored = {
@@ -43,6 +46,7 @@ type Stored = {
   networkingNmstateScenario?: NetworkingNmstateScenario;
   networkingRelease?: NetworkingRelease;
   olsRelease?: OlsRelease;
+  olsBar?: OlsBarMode;
 };
 
 function readStored(): Stored {
@@ -70,6 +74,7 @@ type PrototypeDemoContextValue = {
   networkingNmstateScenario: NetworkingNmstateScenario;
   networkingRelease: NetworkingRelease;
   olsRelease: OlsRelease;
+  olsBar: OlsBarMode;
   setPermission: (v: DemoPermission) => void;
   setGitopsOption: (v: GitOpsDesignOption) => void;
   setGitopsScenario: (v: GitOpsScenario) => void;
@@ -78,6 +83,7 @@ type PrototypeDemoContextValue = {
   setNetworkingNmstateScenario: (v: NetworkingNmstateScenario) => void;
   setNetworkingRelease: (v: NetworkingRelease) => void;
   setOlsRelease: (v: OlsRelease) => void;
+  setOlsBar: (v: OlsBarMode) => void;
 };
 
 const PrototypeDemoContext = createContext<PrototypeDemoContextValue | null>(null);
@@ -100,6 +106,7 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
     initial.networkingRelease ?? initial.olsRelease ?? "5.2";
   const [networkingRelease, setNetworkingReleaseState] = useState<NetworkingRelease>(initialRelease);
   const [olsRelease, setOlsReleaseState] = useState<OlsRelease>(initialRelease);
+  const [olsBar, setOlsBarState] = useState<OlsBarMode>(initial.olsBar ?? "icon");
 
   const persist = useCallback((patch: Stored) => {
     writeStored({ ...readStored(), ...patch });
@@ -190,6 +197,19 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
     [persist]
   );
 
+  const setOlsBar = useCallback(
+    (v: OlsBarMode) => {
+      setOlsBarState(v);
+      persist({ olsBar: v });
+      document.dispatchEvent(
+        new CustomEvent("demo-switcher-change", {
+          detail: { area: "lightspeed", olsBar: v },
+        })
+      );
+    },
+    [persist]
+  );
+
   const setNetworkingNmstateScenario = useCallback(
     (v: NetworkingNmstateScenario) => {
       setNetworkingNmstateScenarioState(v);
@@ -213,6 +233,7 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
       networkingNmstateScenario,
       networkingRelease,
       olsRelease,
+      olsBar,
       setPermission,
       setGitopsOption,
       setGitopsScenario,
@@ -221,6 +242,7 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
       setNetworkingNmstateScenario,
       setNetworkingRelease,
       setOlsRelease,
+      setOlsBar,
     }),
     [
       permission,
@@ -231,6 +253,7 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
       networkingNmstateScenario,
       networkingRelease,
       olsRelease,
+      olsBar,
       setPermission,
       setGitopsOption,
       setGitopsScenario,
@@ -239,6 +262,7 @@ export function PrototypeDemoProvider({ children }: { children: ReactNode }) {
       setNetworkingNmstateScenario,
       setNetworkingRelease,
       setOlsRelease,
+      setOlsBar,
     ]
   );
 

@@ -1248,6 +1248,19 @@ html.dark .ocs-masthead-lightspeed__input {
   flex-shrink: 0;
 }
 
+.ocs-masthead-lightspeed__icon.pf-v6-c-button {
+  flex-shrink: 0;
+  min-width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+}
+
+.ocs-masthead-lightspeed-expand.pf-v6-c-button {
+  height: 2.25rem;
+  min-width: 2.25rem;
+  padding-inline: var(--pf-t--global--spacer--sm);
+}
+
 .ocs-masthead-lightspeed-toggle.is-open.pf-v6-c-button {
   background-color: #f4f0ff;
   box-shadow: inset 0 0 0 2px #3d2d8c;
@@ -1370,6 +1383,27 @@ html:not(.dark) .ocs-console-sidebar .pf-v6-c-nav {
   font-size: var(--pf-t--global--font--size--body--default);
   text-transform: none;
   letter-spacing: normal;
+}
+
+.ocs-console-sidebar .ocs-nav-item--tech-preview .pf-v6-c-nav__link {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  column-gap: var(--pf-t--global--spacer--md);
+  row-gap: var(--pf-t--global--spacer--sm);
+}
+
+.ocs-console-sidebar .ocs-nav-item--tech-preview .ocs-nav-item__label {
+  flex: 0 1 auto;
+}
+
+.ocs-console-sidebar .ocs-nav-item--tech-preview .ocs-networking-tech-preview-label {
+  flex: 0 0 auto;
+  margin-block: var(--pf-t--global--spacer--xs);
+}
+
+.ocs-networking-tech-preview-alert {
+  margin-bottom: var(--pf-t--global--spacer--lg);
 }
 
 /**
