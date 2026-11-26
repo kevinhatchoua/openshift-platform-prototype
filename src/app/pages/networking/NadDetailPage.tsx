@@ -55,7 +55,7 @@ export default function NadDetailPage() {
   );
 
   const topologyCrumb = fromTopology
-    ? [{ label: "Topology", path: "/networking/topology" }]
+    ? [{ label: "Network configuration", path: "/networking/topology" }]
     : [];
 
   if (!nad) {

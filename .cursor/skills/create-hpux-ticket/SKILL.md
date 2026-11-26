@@ -114,8 +114,11 @@ Definition of done
 
 Design artifacts
 [Any existing designs for this effort that should be built upon? Otherwise leave blank until deliverables are created and linked here.]
+- Design doc (Google Doc, Pageless, redhat.com commenter): must include **Design change log** + **screenshots** per `~/.cursor/skills/hpux-design-doc/SKILL.md`
 Prototype links (when a prototype exists): https://openshift-platform-prototype.vercel.app/{path from src/app/routes.ts} — specific list or details page, not the site root. Never use openshift-console-mock.vercel.app or /k8s/ns/... console-core paths.
 ```
+
+**Hard rule (same session as ticket create):** Create or update the Google Design Doc and link it here before finishing. Do **not** commit design handoff markdown to the repo.
 
 ## Step 4: Confirm and Create
 
@@ -172,8 +175,11 @@ Definition of done
 
 Design artifacts
 [Any existing designs for this effort that should be built upon? Otherwise leave blank until deliverables are created and linked here.]
+- Design doc (Google Doc, Pageless, redhat.com commenter): must include **Design change log** + **screenshots** per `~/.cursor/skills/hpux-design-doc/SKILL.md`
 Prototype links (when a prototype exists): https://openshift-platform-prototype.vercel.app/{path from src/app/routes.ts} — specific list or details page, not the site root. Never use openshift-console-mock.vercel.app or /k8s/ns/... console-core paths.
 ```
+
+**Hard rule (same session as ticket create):** Create or update the Google Design Doc and link it here before finishing. Do **not** commit design handoff markdown to the repo.
 
 ## Step 4: Confirm and Create
 

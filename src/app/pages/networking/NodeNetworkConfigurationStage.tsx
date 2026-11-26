@@ -15,6 +15,7 @@ import { NetworkResourceCreateDropdown, type NetworkCreateResource } from "./net
 import { nadDetailPath } from "./networkingMockData";
 import NmStateOperatorBlockedState from "./NmStateOperatorBlockedState";
 import { NetworkingPageShell } from "./networkingShared";
+import { NetworkingTopologyTechPreviewAlert } from "./NetworkingTechPreview";
 import { useNmStateDependencyBlocked } from "./useNmStateDependencyBlocked";
 import { useNetworkTopologyState } from "./networkTopologyState";
 import { useNodeNetworkConfigurationCreate } from "./useNodeNetworkConfigurationCreate";
@@ -221,9 +222,10 @@ export default function NodeNetworkConfigurationStage({
     return (
       <>
         <NetworkingPageShell
-          title="Topology"
+          title="Network configuration"
           path="/networking/topology"
           className="ocs-net-topo-page"
+          aboveTitle={<NetworkingTopologyTechPreviewAlert />}
           createButton={
             networkingRelease === "5.2" ? (
               <NetworkResourceCreateDropdown
@@ -236,7 +238,7 @@ export default function NodeNetworkConfigurationStage({
           }
           extraHeader={
             <Content component="p" className="ocs-net-topo-page-desc">
-              Visualize, scale, and manage your cluster topology. Right-click the canvas for additional actions.
+              See how this cluster network is configured and where traffic is allowed. Right-click the canvas for additional actions.
             </Content>
           }
         >

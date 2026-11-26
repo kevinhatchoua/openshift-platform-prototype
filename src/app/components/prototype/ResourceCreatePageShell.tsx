@@ -14,6 +14,7 @@ type ResourceCreatePageShellProps = {
   children: ReactNode;
   canCreate?: boolean;
   onCreate: () => void;
+  submitLabel?: string;
   yamlText?: string;
   showDownload?: boolean;
 };
@@ -36,6 +37,7 @@ export function ResourceCreatePageShell({
   children,
   canCreate = true,
   onCreate,
+  submitLabel = "Create",
   yamlText,
   showDownload = false,
 }: ResourceCreatePageShellProps) {
@@ -66,7 +68,7 @@ export function ResourceCreatePageShell({
           >
             <Flex gap={{ default: "gapSm" }}>
               <Button variant="primary" isDisabled={!canCreate} onClick={onCreate}>
-                Create
+                {submitLabel}
               </Button>
               <Button variant="secondary" component={Link} to={listPath}>
                 Cancel

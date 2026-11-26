@@ -9,7 +9,7 @@ export function installStatusToNodeStatus(status: ResourceInstallStatus): NodeSt
     case "installing":
       return NodeStatus.info;
     case "creating":
-      return NodeStatus.warning;
+      return NodeStatus.info;
     case "failed":
       return NodeStatus.danger;
     case "pending":

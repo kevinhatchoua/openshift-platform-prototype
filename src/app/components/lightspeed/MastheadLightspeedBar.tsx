@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Button, Menu, MenuContent, MenuGroup, MenuItem, MenuList, Tooltip } from "@patternfly/react-core";
 import PaperPlaneIcon from "@patternfly/react-icons/dist/esm/icons/paper-plane-icon";
+import RobotIcon from "@patternfly/react-icons/dist/esm/icons/robot-icon";
 import { useChat } from "../../contexts/ChatContext";
 import { usePrototypeDemo } from "../../contexts/PrototypeDemoContext";
-import { OpenShiftLightspeedIcon } from "./OpenShiftLightspeedIcon";
 import LightspeedModeMenu from "./LightspeedModeMenu";
 import {
   LIGHTSPEED_BAR_PLACEHOLDER,
@@ -15,7 +15,7 @@ const SUGGEST_LIST_ID = "ocs-masthead-lightspeed-suggestions";
 
 /** Masthead OpenShift Lightspeed prompt. 5.1 includes Chat / Troubleshooting; 5.2 is prompt only. */
 export default function MastheadLightspeedBar() {
-  const { olsRelease, olsBar } = usePrototypeDemo();
+  const { olsRelease } = usePrototypeDemo();
   const { chatMode, submitLightspeedPrompt } = useChat();
   const [value, setValue] = useState("");
   const [activeIndex, setActiveIndex] = useState(-1);
@@ -23,7 +23,7 @@ export default function MastheadLightspeedBar() {
   const [expanded, setExpanded] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const iconMode = olsBar === "icon";
+  const iconMode = true;
   const showMode = olsRelease === "5.1";
   const placeholder = showMode ? LIGHTSPEED_CHAT_MODES[chatMode].barPlaceholder : LIGHTSPEED_BAR_PLACEHOLDER;
   const suggestions = useMemo(
@@ -31,10 +31,6 @@ export default function MastheadLightspeedBar() {
     [chatMode, value],
   );
   const suggestionsOpen = !suggestionsDismissed && suggestions.length > 0;
-
-  useEffect(() => {
-    if (!iconMode) setExpanded(false);
-  }, [iconMode]);
 
   useEffect(() => {
     if (iconMode && expanded) inputRef.current?.focus();
@@ -81,7 +77,7 @@ export default function MastheadLightspeedBar() {
           className="ocs-masthead-lightspeed-expand"
           aria-label="Ask OpenShift Lightspeed"
           aria-expanded={false}
-          icon={<OpenShiftLightspeedIcon size={24} />}
+          icon={<RobotIcon aria-hidden />}
           onClick={() => setExpanded(true)}
         />
       </Tooltip>
@@ -98,19 +94,15 @@ export default function MastheadLightspeedBar() {
         submit();
       }}
     >
-      {iconMode ? (
-        <Button
-          type="button"
-          variant="plain"
-          className="ocs-masthead-lightspeed__icon"
-          aria-label="Hide OpenShift Lightspeed prompt"
-          aria-expanded
-          icon={<OpenShiftLightspeedIcon size={20} title="OpenShift Lightspeed" />}
-          onClick={() => setExpanded(false)}
-        />
-      ) : (
-        <OpenShiftLightspeedIcon size={20} title="OpenShift Lightspeed" />
-      )}
+      <Button
+        type="button"
+        variant="plain"
+        className="ocs-masthead-lightspeed__icon"
+        aria-label="Hide OpenShift Lightspeed prompt"
+        aria-expanded
+        icon={<RobotIcon aria-hidden />}
+        onClick={() => setExpanded(false)}
+      />
       {showMode ? <LightspeedModeMenu compact onOpen={() => setSuggestionsDismissed(true)} /> : null}
       <input
         ref={inputRef}

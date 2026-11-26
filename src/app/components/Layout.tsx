@@ -347,15 +347,15 @@ export default function Layout() {
       <MastheadContent>
         <Toolbar id="layout-masthead-toolbar-end" ouiaId="layout-masthead-toolbar-end" isFullHeight>
           <ToolbarContent alignItems="center">
-            <ToolbarItem className="ocs-masthead-lightspeed-item" alignSelf="center">
-              <MastheadLightspeedBar />
-            </ToolbarItem>
             <ToolbarGroup
               className="ocs-masthead-toolbar-group"
               gap={{ default: "gapSm" }}
               align={{ default: "alignEnd" }}
               alignItems="center"
             >
+              <ToolbarItem className="ocs-masthead-lightspeed-item ocs-masthead-toolbar-item">
+                <MastheadLightspeedBar />
+              </ToolbarItem>
               <ToolbarItem className="ocs-masthead-toolbar-item">
                 <MastheadIconButton label="Application launcher" icon={<ThIcon aria-hidden />} />
               </ToolbarItem>

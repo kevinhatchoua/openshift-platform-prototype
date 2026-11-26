@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Content,
   DescriptionList,
@@ -6,6 +7,8 @@ import {
   DescriptionListTerm,
   Form,
   FormGroup,
+  FormSelect,
+  FormSelectOption,
   Modal,
   TextInput,
   Wizard,
@@ -57,7 +60,7 @@ function NodesConfigurationStepContent() {
     <>
       <Content component="p">
         Choose worker nodes where the OVS bridge <strong>br-localnet</strong> will be configured. Assign nodes from
-        the topology <strong>Assigned Nodes</strong> tab after the configuration is created.
+        Network configuration after the configuration is created.
       </Content>
       <ul className="ocs-nnc-wizard__node-list pf-v6-u-mt-md">
         <li>worker-0 — Ready</li>
@@ -68,19 +71,32 @@ function NodesConfigurationStepContent() {
   );
 }
 
-function UplinkConnectionStepContent({ physicalNetworkName }: Pick<StepContentProps, "physicalNetworkName">) {
+function UplinkConnectionStepContent({
+  physicalNetworkName,
+  bondMode,
+  onBondModeChange,
+}: Pick<StepContentProps, "physicalNetworkName"> & {
+  bondMode: string;
+  onBondModeChange: (value: string) => void;
+}) {
   return (
     <>
       <Content component="p">
-        Configure the uplink from the OVS bridge to the physical network{" "}
-        <strong>{physicalNetworkName || "localnet-rzpi1d"}</strong> using VLAN 100.
+        Configure the uplink from br-ex to <strong>{physicalNetworkName || "localnet-rzpi1d"}</strong> on worker-0.
+        The host NIC is ens5. VLAN 100 is the data center uplink already on that node.
       </Content>
       <Form className="pf-v6-u-mt-md">
         <FormGroup label="VLAN ID" fieldId="vlan-id">
           <TextInput id="vlan-id" defaultValue="100" type="text" />
         </FormGroup>
         <FormGroup label="Interface" fieldId="uplink-if">
-          <TextInput id="uplink-if" defaultValue="eth1" type="text" />
+          <TextInput id="uplink-if" defaultValue="ens5" type="text" />
+        </FormGroup>
+        <FormGroup label="Bond mode" fieldId="bond-mode">
+          <FormSelect id="bond-mode" value={bondMode} onChange={(_event, value) => onBondModeChange(value)}>
+            <FormSelectOption value="active-backup" label="active-backup" />
+            <FormSelectOption value="802.3ad" label="802.3ad" />
+          </FormSelect>
         </FormGroup>
       </Form>
     </>
@@ -100,7 +116,10 @@ function SettingsStepContent() {
   );
 }
 
-function ReviewStepContent({ physicalNetworkName }: Pick<StepContentProps, "physicalNetworkName">) {
+function ReviewStepContent({
+  physicalNetworkName,
+  bondMode,
+}: Pick<StepContentProps, "physicalNetworkName"> & { bondMode: string }) {
   return (
     <DescriptionList isCompact>
       <DescriptionListGroup>
@@ -109,15 +128,15 @@ function ReviewStepContent({ physicalNetworkName }: Pick<StepContentProps, "phys
       </DescriptionListGroup>
       <DescriptionListGroup>
         <DescriptionListTerm>Nodes</DescriptionListTerm>
-        <DescriptionListDescription>Assign from topology after create</DescriptionListDescription>
+        <DescriptionListDescription>worker-0 (ip-10-0-24-42.us-east-2.compute.internal)</DescriptionListDescription>
       </DescriptionListGroup>
       <DescriptionListGroup>
         <DescriptionListTerm>Bridge</DescriptionListTerm>
-        <DescriptionListDescription>br-localnet</DescriptionListDescription>
+        <DescriptionListDescription>br-ex</DescriptionListDescription>
       </DescriptionListGroup>
       <DescriptionListGroup>
-        <DescriptionListTerm>Uplink VLAN</DescriptionListTerm>
-        <DescriptionListDescription>100 (eth1)</DescriptionListDescription>
+        <DescriptionListTerm>Uplink</DescriptionListTerm>
+        <DescriptionListDescription>VLAN 100 on ens5, bond mode {bondMode}</DescriptionListDescription>
       </DescriptionListGroup>
       <DescriptionListGroup>
         <DescriptionListTerm>MTU</DescriptionListTerm>
@@ -145,6 +164,7 @@ export default function NodeNetworkConfigurationWizard({
   isCreating?: boolean;
   variant?: "page" | "overlay" | "drawer";
 }) {
+  const [bondMode, setBondMode] = useState("active-backup");
   const wizard = (
     <Wizard
       className={
@@ -174,13 +194,17 @@ export default function NodeNetworkConfigurationWizard({
         <NodesConfigurationStepContent />
       </WizardStep>
       <WizardStep id="uplink-connection" name="Uplink connection">
-        <UplinkConnectionStepContent physicalNetworkName={physicalNetworkName} />
+        <UplinkConnectionStepContent
+          physicalNetworkName={physicalNetworkName}
+          bondMode={bondMode}
+          onBondModeChange={setBondMode}
+        />
       </WizardStep>
       <WizardStep id="settings" name="Settings">
         <SettingsStepContent />
       </WizardStep>
       <WizardStep id="review" name="Review and create">
-        <ReviewStepContent physicalNetworkName={physicalNetworkName} />
+        <ReviewStepContent physicalNetworkName={physicalNetworkName} bondMode={bondMode} />
       </WizardStep>
     </Wizard>
   );

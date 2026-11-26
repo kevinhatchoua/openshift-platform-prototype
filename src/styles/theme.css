@@ -1158,22 +1158,29 @@ html:not(.dark) .ocs-masthead-cluster-switch.pf-v6-c-switch {
 .ocs-console-masthead .pf-v6-c-toolbar__content {
   width: 100%;
   min-width: 0;
+  justify-content: flex-end;
 }
 
 .ocs-masthead-lightspeed-item.pf-v6-c-toolbar__item {
-  flex: 1 1 auto;
-  min-width: 0;
+  position: relative;
+  flex: 0 0 auto;
   display: flex;
-  justify-content: center;
+  align-items: center;
+  min-width: 2.25rem;
+  min-height: 2.25rem;
 }
 
 .ocs-masthead-lightspeed {
-  position: relative;
+  position: absolute;
+  right: 0;
+  top: 50%;
+  z-index: var(--pf-t--global--z-index--xl, 500);
+  transform: translateY(-50%);
   display: flex;
   align-items: center;
   gap: var(--pf-t--global--spacer--xs);
-  width: min(40rem, 100%);
-  min-width: 0;
+  width: min(28rem, calc(100vw - 14rem));
+  min-width: 12rem;
   min-height: 2.25rem;
   padding-inline: 0.625rem 0.125rem;
   border: 2px solid #3d2d8c;
@@ -1256,6 +1263,7 @@ html.dark .ocs-masthead-lightspeed__input {
 }
 
 .ocs-masthead-lightspeed-expand.pf-v6-c-button {
+  position: relative;
   height: 2.25rem;
   min-width: 2.25rem;
   padding-inline: var(--pf-t--global--spacer--sm);

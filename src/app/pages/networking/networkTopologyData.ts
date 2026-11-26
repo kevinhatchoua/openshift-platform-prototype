@@ -139,7 +139,7 @@ export const RESOURCE_INSTALL_STATUS_COLORS: Record<
   configured: "green",
   pending: "grey",
   installing: "blue",
-  creating: "orange",
+  creating: "blue",
   failed: "red",
 };
 
@@ -874,7 +874,7 @@ export function applyNodeNetworkConfiguration(
           ...existing,
           label: bridgeName,
           status: "creating",
-          detail: `Localnet bridge for physical network ${config.physicalNetworkName}. VLAN 100 uplink on eth1.`,
+          detail: `Localnet bridge for physical network ${config.physicalNetworkName}. VLAN 100 uplink on ens5.`,
         }
       : {
           id: localnetId,
@@ -882,7 +882,7 @@ export function applyNodeNetworkConfiguration(
           kind: "bridge",
           ...pos,
           status: "creating",
-          detail: `Localnet bridge for physical network ${config.physicalNetworkName}. VLAN 100 uplink on eth1.`,
+          detail: `Localnet bridge for physical network ${config.physicalNetworkName}. VLAN 100 uplink on ens5.`,
           highlightSteps: ["network-identity", "uplink-connection", "settings", "review"],
           related: [uplinkId, `${prefix}ens5`],
         };
