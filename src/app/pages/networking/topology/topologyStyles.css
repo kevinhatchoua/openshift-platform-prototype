@@ -16,30 +16,43 @@
   border-block-end: var(--pf-t--global--border--width--regular) solid var(--pf-t--global--border--color--default);
   background: var(--pf-t--global--background--color--primary--default);
   flex-shrink: 0;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  row-gap: var(--pf-t--global--spacer--sm);
 }
 
 .ocs-net-topo-panel__stage > .ocs-pf-topo-unified-toolbar .ocs-pf-topo-unified-toolbar__filters {
-  flex: 1 1 auto;
-  min-width: 0;
+  flex: 1 1 22rem;
+  min-width: min(100%, 16rem);
+  max-width: 100%;
 }
 
 .ocs-net-topo-panel__stage > .ocs-pf-topo-unified-toolbar .ocs-pf-topo-unified-toolbar__actions {
-  flex: 0 0 auto;
-  margin-inline-start: auto;
+  flex: 1 1 auto;
+  margin-inline-start: 0;
+  max-width: 100%;
 }
 
 .ocs-pf-topo-unified-toolbar .pf-v6-c-toolbar__content {
   width: auto;
-  flex-wrap: nowrap;
+  max-width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  row-gap: var(--pf-t--global--spacer--sm);
 }
 
 .ocs-pf-topo-unified-toolbar.pf-v6-c-toolbar {
   display: flex;
-  flex-wrap: nowrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--pf-t--global--spacer--md);
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: flex-start;
+  gap: var(--pf-t--global--spacer--sm);
+}
+
+.ocs-pf-topo-unified-toolbar .ocs-pf-topo-toolbar-group {
+  flex-wrap: wrap;
+  row-gap: var(--pf-t--global--spacer--sm);
+  max-width: 100%;
 }
 
 .ocs-pf-topo-view-toolbar__view-actions {
@@ -48,8 +61,9 @@
 }
 
 .ocs-pf-topo-search-filter-wrap {
-  flex: 1 1 auto;
-  min-width: min(100%, 24rem);
+  flex: 1 1 12rem;
+  min-width: min(100%, 10rem);
+  max-width: 100%;
 }
 
 .ocs-pf-topo-search-filter {
@@ -61,8 +75,9 @@
 }
 
 .ocs-pf-topo-search-filter .ocs-net-topo-panel__search {
-  flex: 1 1 12rem;
-  min-width: 12rem;
+  flex: 1 1 8rem;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .ocs-pf-topo-search-filter .pf-v6-c-label-group {
@@ -90,7 +105,8 @@
 
 .ocs-net-topo-panel__stage > .ocs-pf-topo-unified-toolbar .ocs-net-topo-panel__search {
   min-height: 2.25rem;
-  min-inline-size: min(100%, 16rem);
+  min-inline-size: 0;
+  max-inline-size: 100%;
 }
 
 .ocs-pf-topo-shell .pf-topology-container,
@@ -390,7 +406,7 @@
 }
 
 .ocs-pf-topo-status--creating .pf-topology__node__background {
-  stroke: var(--pf-t--global--color--status--warning--default);
+  stroke: var(--pf-t--global--color--status--info--default);
 }
 
 .ocs-pf-topo-status--failed .pf-topology__node__background {
@@ -601,9 +617,8 @@
 }
 
 .ocs-pf-topo-sidepanel__alerts {
-  flex: 0 1 auto;
-  max-height: min(38vh, 14rem);
-  overflow-y: auto;
+  flex: 0 0 auto;
+  overflow: visible;
   display: flex;
   flex-direction: column;
   gap: var(--pf-t--global--spacer--sm);
@@ -976,6 +991,30 @@
   backdrop-filter: none;
 }
 
+.ocs-np-heat {
+  height: var(--pf-t--global--spacer--xs);
+  margin-top: var(--pf-t--global--spacer--xs);
+  border-radius: var(--pf-t--global--border--radius--small);
+  background: var(--pf-t--global--background--color--secondary--default);
+  overflow: hidden;
+}
+
+.ocs-np-heat__fill {
+  height: 100%;
+}
+
+.ocs-np-heat__fill--low {
+  background: var(--pf-t--global--color--nonstatus--blue--default, #0066cc);
+}
+
+.ocs-np-heat__fill--medium {
+  background: var(--pf-t--global--color--status--warning--default);
+}
+
+.ocs-np-heat__fill--high {
+  background: var(--pf-t--global--color--status--danger--default);
+}
+
 .ocs-pf-topo-trace-banner {
   position: absolute;
   top: var(--pf-t--global--spacer--md);
@@ -1132,7 +1171,7 @@
 }
 
 .ocs-pf-topo-legend__swatch--creating {
-  background: var(--pf-t--global--color--status--warning--default);
+  background: var(--pf-t--global--color--status--info--default);
 }
 
 .ocs-pf-topo-legend__swatch--failed {

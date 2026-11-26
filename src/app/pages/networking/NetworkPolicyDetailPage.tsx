@@ -1,169 +1,229 @@
-import { useParams, useSearchParams } from "react-router";
-import { Content, DescriptionList, DescriptionListDescription, DescriptionListGroup, DescriptionListTerm } from "@patternfly/react-core";
+import { Link, useNavigate, useParams } from "react-router";
+import {
+  Alert,
+  Button,
+  Content,
+  DescriptionListDescription,
+  DescriptionListGroup,
+  DescriptionListTerm,
+  Label,
+} from "@patternfly/react-core";
 import { Tbody, Td, Th, Thead, Tr } from "@patternfly/react-table";
 import { OcsPrototypeListTable } from "../../components/dataView/OcsPrototypeListTable";
-import { prototypeDetailPath } from "../../lib/prototypeListStore";
+import { useToast } from "../../contexts/ToastContext";
 import NetworkResourceDetailShell, { DetailMetadataSection } from "./NetworkResourceDetailShell";
+import { MetadataGrid, NamespaceValue, YamlPanel } from "./networkingDetailFields";
 import {
-  AnnotationsField,
-  CreatedAtField,
-  LabelsField,
-  MetadataGrid,
-  NamespaceValue,
-  OwnerField,
-  SelectorLink,
-  YamlPanel,
-} from "./networkingDetailFields";
-import { networkPolicyYaml, resolveNetworkPolicyDetail } from "./networkingResourceDetailData";
+  cloneNetworkPolicy,
+  findNetworkPolicy,
+  policyDetailPath,
+  policyEditPath,
+  policyYaml,
+  useNetworkPolicies,
+} from "./networkPolicyCatalog";
 
 export default function NetworkPolicyDetailPage() {
   const { namespace = "default", name = "" } = useParams();
-  const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const { pushToast } = useToast();
   const decodedNs = decodeURIComponent(namespace);
   const decodedName = decodeURIComponent(name);
-  const model = resolveNetworkPolicyDetail(decodedNs, decodedName);
-  const detailPath = prototypeDetailPath("networkpolicies", decodedNs, decodedName);
-  const initialTab = searchParams.get("tab") === "yaml" ? "yaml" : "details";
+  useNetworkPolicies();
+  const policy = findNetworkPolicy(decodedNs, decodedName);
+
+  if (!policy) {
+    return (
+      <div className="ocs-app-page-outer">
+        <Content component="p">No policy named {decodedName} in {decodedNs}.</Content>
+        <Link to="/networking/networkpolicies">Back to NetworkPolicies</Link>
+      </div>
+    );
+  }
+
+  const detailPath = policyDetailPath(policy);
 
   return (
     <NetworkResourceDetailShell
-      kindAbbr="NP"
-      kindLabel="NetworkPolicy"
+      kindAbbr={policy.kind === "NetworkPolicy" ? "NP" : "MNP"}
+      kindLabel={policy.kind}
       listTitle="NetworkPolicies"
       listPath="/networking/networkpolicies"
-      detailCrumbLabel="NetworkPolicy details"
-      name={decodedName}
+      detailCrumbLabel={`${policy.kind} details`}
+      name={policy.name}
       detailPath={detailPath}
-      initialTab={initialTab}
+      headerExtra={
+        <>
+          <Link className="pf-v6-c-button pf-m-primary" to={policyEditPath(policy)}>
+            Edit policy
+          </Link>
+          <Button
+            variant="secondary"
+            onClick={() => {
+              const clone = cloneNetworkPolicy(policy);
+              pushToast({ variant: "success", title: `Cloned ${policy.name} as ${clone.name}.` });
+              navigate(policyDetailPath(clone));
+            }}
+          >
+            Clone
+          </Button>
+        </>
+      }
       tabs={[
         {
           eventKey: "details",
           title: "Details",
           content: (
             <>
-              <DetailMetadataSection title="NetworkPolicy details">
+              {policy.mismatch ? (
+                <Alert variant="danger" isInline title={policy.mismatch.title} className="pf-v6-u-mb-md">
+                  <Content component="p">
+                    {policy.mismatch.object} ({policy.mismatch.layer}). Expected {policy.mismatch.expected}. Actual{" "}
+                    {policy.mismatch.actual}.
+                  </Content>
+                </Alert>
+              ) : null}
+              <DetailMetadataSection title={`${policy.kind} details`}>
                 <MetadataGrid
                   left={
                     <>
                       <DescriptionListGroup>
                         <DescriptionListTerm>Name</DescriptionListTerm>
-                        <DescriptionListDescription>{model.name}</DescriptionListDescription>
+                        <DescriptionListDescription>{policy.name}</DescriptionListDescription>
                       </DescriptionListGroup>
                       <DescriptionListGroup>
                         <DescriptionListTerm>Namespace</DescriptionListTerm>
                         <DescriptionListDescription>
-                          <NamespaceValue namespace={model.namespace} />
+                          <NamespaceValue namespace={policy.namespace} />
                         </DescriptionListDescription>
                       </DescriptionListGroup>
-                      <LabelsField labels={model.labels} />
-                      <AnnotationsField count={model.annotations} />
-                      <CreatedAtField value={model.createdAt} />
-                      <OwnerField />
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>Pod selector</DescriptionListTerm>
+                        <DescriptionListDescription>{policy.podSelector}</DescriptionListDescription>
+                      </DescriptionListGroup>
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>matchExpressions</DescriptionListTerm>
+                        <DescriptionListDescription>
+                          {policy.matchExpressions.length === 0
+                            ? "None"
+                            : policy.matchExpressions
+                                .map((expression) => `${expression.key} ${expression.operator} ${expression.values}`)
+                                .join("; ")}
+                        </DescriptionListDescription>
+                      </DescriptionListGroup>
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>Affected pods</DescriptionListTerm>
+                        <DescriptionListDescription>{policy.affectedPods}</DescriptionListDescription>
+                      </DescriptionListGroup>
                     </>
                   }
-                  right={<></>}
+                  right={
+                    <>
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>Source</DescriptionListTerm>
+                        <DescriptionListDescription>
+                          <Label color={policy.source === "NSX-T migration" ? "blue" : "grey"} isCompact>
+                            {policy.source}
+                          </Label>
+                        </DescriptionListDescription>
+                      </DescriptionListGroup>
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>Policy types</DescriptionListTerm>
+                        <DescriptionListDescription>{policy.policyTypes.join(", ")}</DescriptionListDescription>
+                      </DescriptionListGroup>
+                      {policy.kind === "MultiNetworkPolicy" ? (
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>Target networks</DescriptionListTerm>
+                          <DescriptionListDescription>
+                            {policy.nads.length === 0
+                              ? "No NAD annotation"
+                              : policy.nads.map((nad) => (
+                                  <div key={`${nad.namespace}/${nad.name}`}>
+                                    <Link
+                                      to={`/networking/networkattachmentdefinitions/${encodeURIComponent(nad.namespace)}/${encodeURIComponent(nad.name)}`}
+                                    >
+                                      {nad.namespace}/{nad.name}
+                                    </Link>
+                                  </div>
+                                ))}
+                          </DescriptionListDescription>
+                        </DescriptionListGroup>
+                      ) : (
+                        <DescriptionListGroup>
+                          <DescriptionListTerm>Network</DescriptionListTerm>
+                          <DescriptionListDescription>Primary cluster network</DescriptionListDescription>
+                        </DescriptionListGroup>
+                      )}
+                    </>
+                  }
                 />
               </DetailMetadataSection>
-              <DetailMetadataSection title="Ingress rules">
+              <DetailMetadataSection title="Rules">
                 <Content component="p" className="pf-v6-u-mb-md pf-v6-u-color-200">
-                  By default, pods accept traffic from any source. NetworkPolicies can be used to restrict which
-                  sources are allowed to reach the pods selected by this NetworkPolicy.
+                  Ingress and egress use the same table. An empty peer list on an ingress policy denies traffic that
+                  no later rule allows.
                 </Content>
-                <OcsPrototypeListTable ariaLabel="Ingress rules">
+                <OcsPrototypeListTable ariaLabel="Policy rules">
                   <Thead>
                     <Tr>
-                      <Th>Target pods</Th>
-                      <Th>From</Th>
-                      <Th>To ports</Th>
+                      <Th>Direction</Th>
+                      <Th>Peer</Th>
+                      <Th>Ports</Th>
+                      <Th>Effect</Th>
                     </Tr>
                   </Thead>
                   <Tbody>
-                    {model.ingressRules.map((rule) => (
-                      <Tr key={`ingress-${rule.targetPods}`}>
-                        <Td dataLabel="Target pods">
-                          <SelectorLink value={rule.targetPods} />
+                    {policy.rules.map((rule) => (
+                      <Tr key={`${rule.direction}-${rule.peer}-${rule.ports}`}>
+                        <Td dataLabel="Direction">{rule.direction}</Td>
+                        <Td dataLabel="Peer">{rule.peer}</Td>
+                        <Td dataLabel="Ports">{rule.ports}</Td>
+                        <Td dataLabel="Effect">
+                          <Label color={rule.effect === "Allow" ? "green" : "red"} isCompact>
+                            {rule.effect}
+                          </Label>
                         </Td>
-                        <Td dataLabel="From">
-                          <DescriptionList isCompact className="ocs-node-details__nested-dl">
-                            <DescriptionListGroup>
-                              <DescriptionListTerm>Pod selector</DescriptionListTerm>
-                              <DescriptionListDescription>
-                                <SelectorLink value={rule.fromPodSelector} />
-                              </DescriptionListDescription>
-                            </DescriptionListGroup>
-                            <DescriptionListGroup>
-                              <DescriptionListTerm>NS selector</DescriptionListTerm>
-                              <DescriptionListDescription>
-                                <SelectorLink value={rule.fromNsSelector} />
-                              </DescriptionListDescription>
-                            </DescriptionListGroup>
-                          </DescriptionList>
-                        </Td>
-                        <Td dataLabel="To ports">{rule.toPorts}</Td>
                       </Tr>
                     ))}
                   </Tbody>
                 </OcsPrototypeListTable>
               </DetailMetadataSection>
-              <DetailMetadataSection title="Egress rules">
-                <Content component="p" className="pf-v6-u-mb-md pf-v6-u-color-200">
-                  By default, pods accept traffic on any port (both TCP and UDP) from any destination. Egress rules
-                  can be used to restrict which destinations are allowed. Not all cluster network providers support
-                  NetworkPolicy.
-                </Content>
-                <OcsPrototypeListTable ariaLabel="Egress rules">
-                  <Thead>
-                    <Tr>
-                      <Th>From pods</Th>
-                      <Th>To</Th>
-                      <Th>To ports</Th>
-                    </Tr>
-                  </Thead>
-                  <Tbody>
-                    {model.egressRules.map((rule) => (
-                      <Tr key={`egress-${rule.fromPodSelector}`}>
-                        <Td dataLabel="From pods">
-                          <DescriptionList isCompact className="ocs-node-details__nested-dl">
-                            <DescriptionListGroup>
-                              <DescriptionListTerm>Pod selector</DescriptionListTerm>
-                              <DescriptionListDescription>
-                                <SelectorLink value={rule.fromPodSelector} />
-                              </DescriptionListDescription>
-                            </DescriptionListGroup>
-                            <DescriptionListGroup>
-                              <DescriptionListTerm>NS selector</DescriptionListTerm>
-                              <DescriptionListDescription>
-                                <SelectorLink value={rule.fromNsSelector} />
-                              </DescriptionListDescription>
-                            </DescriptionListGroup>
-                          </DescriptionList>
-                        </Td>
-                        <Td dataLabel="To">
-                          <DescriptionList isCompact className="ocs-node-details__nested-dl">
-                            <DescriptionListGroup>
-                              <DescriptionListTerm>Pod selector</DescriptionListTerm>
-                              <DescriptionListDescription>
-                                <SelectorLink value={rule.toPodSelector} />
-                              </DescriptionListDescription>
-                            </DescriptionListGroup>
-                            <DescriptionListGroup>
-                              <DescriptionListTerm>NS selector</DescriptionListTerm>
-                              <DescriptionListDescription>
-                                <SelectorLink value={rule.toNsSelector} />
-                              </DescriptionListDescription>
-                            </DescriptionListGroup>
-                          </DescriptionList>
-                        </Td>
-                        <Td dataLabel="To ports">{rule.toPorts}</Td>
+              <DetailMetadataSection title="Conditions">
+                {policy.conditions.length === 0 ? (
+                  <Content component="p">No status conditions yet.</Content>
+                ) : (
+                  <OcsPrototypeListTable ariaLabel="Policy conditions">
+                    <Thead>
+                      <Tr>
+                        <Th>Type</Th>
+                        <Th>Status</Th>
+                        <Th>Reason</Th>
+                        <Th>Message</Th>
                       </Tr>
-                    ))}
-                  </Tbody>
-                </OcsPrototypeListTable>
+                    </Thead>
+                    <Tbody>
+                      {policy.conditions.map((condition) => (
+                        <Tr key={condition.type}>
+                          <Td dataLabel="Type">{condition.type}</Td>
+                          <Td dataLabel="Status">{condition.status}</Td>
+                          <Td dataLabel="Reason">{condition.reason}</Td>
+                          <Td dataLabel="Message">{condition.message}</Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </OcsPrototypeListTable>
+                )}
+              </DetailMetadataSection>
+              <DetailMetadataSection title="Path">
+                <Content component="p">
+                  {policy.chain.length > 0
+                    ? policy.chain.join(" → ")
+                    : "This policy is not placed on a network configuration path yet."}
+                </Content>
               </DetailMetadataSection>
             </>
           ),
         },
-        { eventKey: "yaml", title: "YAML", content: <YamlPanel yaml={networkPolicyYaml(model)} /> },
+        { eventKey: "yaml", title: "YAML", content: <YamlPanel yaml={policyYaml(policy)} /> },
       ]}
     />
   );

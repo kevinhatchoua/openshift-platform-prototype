@@ -37,7 +37,7 @@ export default function NncpDetailPage() {
   const [activeTab, setActiveTab] = useState(initialTab);
 
   const topologyCrumb = fromTopology
-    ? [{ label: "Topology", path: "/networking/topology" }]
+    ? [{ label: "Network configuration", path: "/networking/topology" }]
     : [];
 
   if (!nncp) {

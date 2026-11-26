@@ -70,7 +70,7 @@ export default function UdnDetailPage() {
   );
 
   const topologyCrumb = fromTopology
-    ? [{ label: "Topology", path: "/networking/topology" }]
+    ? [{ label: "Network configuration", path: "/networking/topology" }]
     : [];
 
   if (!udn || (isCluster && udn.kind !== "CUDN") || (!isCluster && udn.kind === "CUDN")) {

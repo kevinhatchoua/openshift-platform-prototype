@@ -3,7 +3,9 @@
  * Sub-items mirror common console resource names; non-prototype routes resolve to {@link ConsoleStubPage}.
  */
 
-export type SubNavEntry = { path: string; label: string } | "separator";
+export type SubNavEntry =
+  | { path: string; label: string; techPreview?: boolean }
+  | "separator";
 
 export const HOME_SUB: SubNavEntry[] = [
   { path: "/", label: "Overview" },
@@ -38,7 +40,7 @@ export const WORKLOADS_SUB: SubNavEntry[] = [
 ];
 
 export const NETWORKING_SUB: SubNavEntry[] = [
-  { path: "/networking/topology", label: "Topology" },
+  { path: "/networking/topology", label: "Network configuration", techPreview: true },
   { path: "/networking/checkups", label: "Checkups" },
   { path: "/networking", label: "Services" },
   { path: "/networking/routes", label: "Routes" },

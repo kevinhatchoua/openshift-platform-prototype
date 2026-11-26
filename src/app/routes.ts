@@ -22,6 +22,7 @@ import RouteDetailPage from "./pages/networking/RouteDetailPage";
 import IngressDetailPage from "./pages/networking/IngressDetailPage";
 import NetworkPolicyDetailPage from "./pages/networking/NetworkPolicyDetailPage";
 import NetworkPoliciesPage from "./pages/networking/NetworkPoliciesPage";
+import NetworkPolicyFormPage from "./pages/networking/NetworkPolicyFormPage";
 import NodeNetworkConfigurationPolicyPage from "./pages/networking/NodeNetworkConfigurationPolicyPage";
 import NncpDetailPage from "./pages/networking/NncpDetailPage";
 import NetworkAttachmentDefinitionsPage from "./pages/networking/NetworkAttachmentDefinitionsPage";
@@ -205,7 +206,8 @@ export const router = createBrowserRouter([
           { path: "networking/ingresses/create", Component: CreateIngressPage },
           { path: "networking/ingresses/:namespace/:name", Component: IngressDetailPage },
           { path: "networking/networkpolicies", Component: NetworkPoliciesPage },
-          { path: "networking/networkpolicies/create", Component: createResourceCreatePage("NetworkPolicy") },
+          { path: "networking/networkpolicies/create", Component: NetworkPolicyFormPage },
+          { path: "networking/networkpolicies/:namespace/:name/edit", Component: NetworkPolicyFormPage },
           { path: "networking/networkpolicies/:namespace/:name", Component: NetworkPolicyDetailPage },
           { path: "networking/nodenetworkconfigurationpolicy", Component: NodeNetworkConfigurationPolicyPage },
           {

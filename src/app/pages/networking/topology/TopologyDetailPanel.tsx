@@ -72,6 +72,7 @@ import { LightspeedAiAccuracyInline } from "../../../components/lightspeed/Light
 import { resolveOvnNetworkPath } from "./topologyOvnPath";
 import NmStateCapabilityInlineAlert from "../NmStateCapabilityInlineAlert";
 import { useNmStateDependencyBlocked } from "../useNmStateDependencyBlocked";
+import { heatLevel, policiesTouching, policyDetailPath } from "../networkPolicyCatalog";
 import {
   expectedBridgeSummaryForResource,
   supportsTopologyHostBridgeMapping,
@@ -155,8 +156,8 @@ type TopologyDetailPanelProps = {
 type InspectorTab = "details" | "network-path" | "resources" | "observe";
 
 type ConnectivitySummary = {
-  label: "Healthy" | "Degraded" | "Unreachable";
-  color: "green" | "orange" | "red";
+  label: "Healthy" | "Degraded" | "Unreachable" | "In progress" | "Pending";
+  color: "green" | "orange" | "red" | "blue" | "grey";
   reason: string;
 };
 
@@ -167,10 +168,20 @@ function connectivityFromStatus(status: ResourceInstallStatus, objectLabel: stri
   if (status === "failed") {
     return { label: "Unreachable", color: "red", reason: `${objectLabel} reports a failed configuration.` };
   }
+  if (status === "creating" || status === "installing") {
+    return {
+      label: "In progress",
+      color: "blue",
+      reason: `${objectLabel} is ${RESOURCE_INSTALL_STATUS_LABELS[status].toLowerCase()}.`,
+    };
+  }
+  if (status === "pending") {
+    return { label: "Pending", color: "grey", reason: `${objectLabel} is pending and has not been applied yet.` };
+  }
   return {
     label: "Degraded",
     color: "orange",
-    reason: `${objectLabel} is ${RESOURCE_INSTALL_STATUS_LABELS[status].toLowerCase()}.`,
+    reason: `${objectLabel} needs attention.`,
   };
 }
 
@@ -387,6 +398,32 @@ function StatusHealthBanner({
         ) : null}
       </Flex>
     </Alert>
+  );
+}
+
+function PolicyPathFacts({ label }: { label: string }) {
+  const policies = policiesTouching(label);
+  if (policies.length === 0 && label !== "ens5") return null;
+  return (
+    <>
+      {label === "ens5" ? (
+        <DescriptionListGroup>
+          <DescriptionListTerm>Link speed</DescriptionListTerm>
+          <DescriptionListDescription>
+            Unknown. The cluster does not report the upstream switch port for ens5.
+          </DescriptionListDescription>
+        </DescriptionListGroup>
+      ) : null}
+      {policies.map((policy) => (
+        <DescriptionListGroup key={policy.id}>
+          <DescriptionListTerm>Policy on this path</DescriptionListTerm>
+          <DescriptionListDescription>
+            <Link to={policyDetailPath(policy)}>{policy.name}</Link>
+            {` · ${heatLevel(policy.trafficMbps)} · ${policy.trafficMbps} Mb/s`}
+          </DescriptionListDescription>
+        </DescriptionListGroup>
+      ))}
+    </>
   );
 }
 
@@ -1147,6 +1184,7 @@ export default function TopologyDetailPanel({
                     )
                   </DescriptionListDescription>
                 </DescriptionListGroup>
+                {networkingRelease === "5.2" ? <PolicyPathFacts label={data.resource.label} /> : null}
                 <DescriptionListGroup>
                   <DescriptionListTerm>Description</DescriptionListTerm>
                   <DescriptionListDescription>{data.resource.detail}</DescriptionListDescription>
@@ -1460,6 +1498,7 @@ export default function TopologyDetailPanel({
                         : "See Resources tab for workload attachment"}
                   </DescriptionListDescription>
                 </DescriptionListGroup>
+                {networkingRelease === "5.2" ? <PolicyPathFacts label={resource.label} /> : null}
                 <DescriptionListGroup>
                   <DescriptionListTerm>Description</DescriptionListTerm>
                   <DescriptionListDescription>{resource.detail}</DescriptionListDescription>
